@@ -62,6 +62,7 @@ import (
 
 type ibcMessage struct {
 	eventType string
+	eventName string
 	info      ibcMessageInfo
 }
 
@@ -180,51 +181,46 @@ func parseIBCMessageFromEvent(
 	event types.EventLog,
 	height uint64,
 ) *ibcMessage {
-	eventType := string(event.Indexed[0][:])
-
-	switch eventType {
+	eventName := string(event.Indexed[0][:])
+	eventType := GetEventTypeFromEventName(eventName)
+	msg := &ibcMessage{
+		eventType: eventType,
+		eventName: eventName,
+	}
+	switch eventName {
 	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
 
 		pi := &packetInfo{Height: height}
 		pi.parseAttrs(log, event)
-
-		return &ibcMessage{
-			eventType: eventType,
-			info:      pi,
-		}
+		msg.info = pi
+		return msg
 	case EventTypeChannelOpenInit, EventTypeChannelOpenTry,
 		EventTypeChannelOpenAck, EventTypeConnectionOpenConfirm,
 		EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
 
 		ci := &channelInfo{Height: height}
 		ci.parseAttrs(log, event)
-
-		return &ibcMessage{
-			eventType: eventType,
-			info:      ci,
-		}
+		msg.info = ci
+		return msg
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry,
 		EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event)
-
-		return &ibcMessage{
-			eventType: eventType,
-			info:      ci,
-		}
+		msg.info = ci
+		return msg
 	case EventTypeCreateClient, EventTypeUpdateClient:
 
 		ci := &clientInfo{}
 		ci.parseAttrs(log, event)
-
-		return &ibcMessage{
-			eventType: eventType,
-			info:      ci,
-		}
+		msg.info = ci
+		return msg
 
 	}
 	return nil
+}
+
+func GetEventTypeFromEventName(name string) string {
+	return iconEventNameToEventTypeMap[name]
 }
 
 func GetEventLogSignature(indexed [][]byte) []byte {
