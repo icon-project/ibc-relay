@@ -2,7 +2,6 @@ package icon
 
 import (
 	"bytes"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -136,6 +135,7 @@ func (c clientInfo) ClientState() provider.ClientState {
 	return provider.ClientState{
 		ClientID:        c.clientID,
 		ConsensusHeight: c.consensusHeight,
+		Header:          c.header,
 	}
 }
 
@@ -182,45 +182,57 @@ func parseIBCMessageFromEvent(
 	height uint64,
 ) *ibcMessage {
 	eventName := string(event.Indexed[0][:])
-	eventType := GetEventTypeFromEventName(eventName)
-	msg := &ibcMessage{
-		eventType: eventType,
-		eventName: eventName,
-	}
+	eventType := getEventTypeFromEventName(eventName)
+
 	switch eventName {
 	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
 
-		pi := &packetInfo{Height: height}
-		pi.parseAttrs(log, event)
-		msg.info = pi
-		return msg
+		info := &packetInfo{Height: height}
+		info.parseAttrs(log, event)
+		return &ibcMessage{
+			eventType,
+			eventName,
+			info,
+		}
 	case EventTypeChannelOpenInit, EventTypeChannelOpenTry,
 		EventTypeChannelOpenAck, EventTypeConnectionOpenConfirm,
 		EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
 
 		ci := &channelInfo{Height: height}
 		ci.parseAttrs(log, event)
-		msg.info = ci
-		return msg
+
+		return &ibcMessage{
+			eventType: eventType,
+			eventName: eventName,
+			info:      ci,
+		}
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry,
 		EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event)
-		msg.info = ci
-		return msg
+
+		return &ibcMessage{
+			eventType: eventType,
+			eventName: eventName,
+			info:      ci,
+		}
 	case EventTypeCreateClient, EventTypeUpdateClient:
 
 		ci := &clientInfo{}
 		ci.parseAttrs(log, event)
-		msg.info = ci
-		return msg
+
+		return &ibcMessage{
+			eventType: eventType,
+			eventName: eventName,
+			info:      ci,
+		}
 
 	}
 	return nil
 }
 
-func GetEventTypeFromEventName(name string) string {
-	return iconEventNameToEventTypeMap[name]
+func getEventTypeFromEventName(eventName string) string {
+	return iconEventNameToEventTypeMap[eventName]
 }
 
 func GetEventLogSignature(indexed [][]byte) []byte {
@@ -233,7 +245,6 @@ func _parsePacket(str []byte) (*types.Packet, error) {
 	if e != nil {
 		return nil, e
 	}
-	fmt.Printf("packetData decoded: %v \n", p)
 	return &p, nil
 }
 
