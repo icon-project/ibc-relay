@@ -398,7 +398,6 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 		Proof:           nil,
 		ProofHeight:     clienttypes.NewHeight(0, 0),
 	}, nil
-	return nil, nil
 }
 
 func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {

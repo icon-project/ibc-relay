@@ -527,46 +527,6 @@ type Block struct {
 	//Signature              HexBytes  `json:"signature" validate:"optional,t_hash"`
 }
 
-type VerifierOptions struct {
-	BlockHeight    uint64         `json:"blockHeight"`
-	ValidatorsHash common.HexHash `json:"validatorsHash"`
-}
-
-type CommitVoteItem struct {
-	Timestamp int64
-	Signature common.Signature
-}
-
-type CommitVoteList struct {
-	Round          int32
-	BlockPartSetID *PartSetID
-	Items          []CommitVoteItem
-}
-
-type PartSetID struct {
-	Count uint16
-	Hash  []byte
-}
-
-type HR struct {
-	Height int64
-	Round  int32
-}
-
-type VoteBase struct {
-	HR
-	Type           VoteType
-	BlockID        []byte
-	BlockPartSetID PartSetID
-}
-
-type Vote struct {
-	VoteBase
-	Timestamp int64
-}
-
-type VoteType byte
-
 type WsReadCallback func(*websocket.Conn, interface{}) error
 
 // BTP Related

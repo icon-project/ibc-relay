@@ -14,7 +14,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
-	"github.com/tendermint/tendermint/light"
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -129,16 +128,14 @@ type ValidatorSet struct {
 }
 
 type IconIBCHeader struct {
-	Messages []string
-	Header   *types.BTPBlockHeader
-	Proof    types.HexBytes
+	Header *types.BTPBlockHeader
+	// Proof  types.HexBytes
 }
 
-func NewIconIBCHeader(msgs []string, header *types.BTPBlockHeader, proof types.HexBytes) *IconIBCHeader {
+func NewIconIBCHeader(header *types.BTPBlockHeader) *IconIBCHeader {
 	return &IconIBCHeader{
-		Header:   header,
-		Messages: msgs,
-		Proof:    proof,
+		Header: header,
+		// Proof:  proof,
 	}
 }
 
@@ -147,16 +144,12 @@ func (h IconIBCHeader) Height() uint64 {
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-
-	// TODO:
-	// btpBlock timestamp, roothash, Nextvalidatorshash, messageRoothash
-
 	return nil
 }
 
 // TODO:
 func (h IconIBCHeader) NextValidatorsHash() []byte {
-	return []byte{}
+	return nil
 }
 
 func (h *IconIBCHeader) Reset()         { *h = IconIBCHeader{} }
@@ -187,37 +180,37 @@ func (icp *IconProvider) NewClientState(
 }
 
 func (icp *IconProvider) NewClientStateIcon(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (*types.ClientState, error) {
-	revisionNumber := clienttypes.ParseChainID(dstChainID)
+	// revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	return &types.ClientState{
-		ChainId: dstChainID,
-		TrustLevel: types.Fraction{
-			Numerator:   *big.NewInt(int64(light.DefaultTrustLevel.Numerator)),
-			Denominator: *big.NewInt(int64(light.DefaultTrustLevel.Denominator)),
-		},
-		TrustingPeriod: types.Duration{
-			Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
-			Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
-		},
-		UnbondingPeriod: types.Duration{
-			Seconds: *big.NewInt(int64(dstUbdPeriod.Seconds())),
-			Nanos:   *big.NewInt(int64(dstUbdPeriod.Nanoseconds())),
-		},
-		MaxClockDrift: types.Duration{
-			Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
-			Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
-		},
-		FrozenHeight: types.Height{
-			RevisionNumber: *big.NewInt(0),
-			RevisionHeight: *big.NewInt(0),
-		},
-		LatestHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(revisionNumber)),
-			RevisionHeight: *big.NewInt(int64(dstIBCHeader.Height())),
-		},
-		// ProofSpecs
-		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
+		// ChainId: dstChainID,
+		// TrustLevel: types.Fraction{
+		// 	Numerator:   *big.NewInt(int64(light.DefaultTrustLevel.Numerator)),
+		// 	Denominator: *big.NewInt(int64(light.DefaultTrustLevel.Denominator)),
+		// },
+		// TrustingPeriod: types.Duration{
+		// 	Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
+		// 	Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
+		// },
+		// UnbondingPeriod: types.Duration{
+		// 	Seconds: *big.NewInt(int64(dstUbdPeriod.Seconds())),
+		// 	Nanos:   *big.NewInt(int64(dstUbdPeriod.Nanoseconds())),
+		// },
+		// MaxClockDrift: types.Duration{
+		// 	Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
+		// 	Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
+		// },
+		// FrozenHeight: types.Height{
+		// 	RevisionNumber: *big.NewInt(0),
+		// 	RevisionHeight: *big.NewInt(0),
+		// },
+		// LatestHeight: types.Height{
+		// 	RevisionNumber: *big.NewInt(int64(revisionNumber)),
+		// 	RevisionHeight: *big.NewInt(int64(dstIBCHeader.Height())),
+		// },
+		// // ProofSpecs
+		// AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
+		// AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil
 }
 
