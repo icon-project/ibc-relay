@@ -119,12 +119,12 @@ type IconProvider struct {
 }
 
 type SignedHeader struct {
-	header         types.BTPBlockHeader
-	commitVoteList types.CommitVoteList
+	header     types.BTPBlockHeader
+	signatures []types.HexBytes
 }
 
 type ValidatorSet struct {
-	validators []byte
+	validators []types.HexBytes
 }
 
 type IconIBCHeader struct {

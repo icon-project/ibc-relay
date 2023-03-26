@@ -574,7 +574,7 @@ type BTPBlockHeader struct {
 	MainHeight             int64
 	Round                  int32
 	NextProofContextHash   []byte
-	NetworkSectionToRoot   [][]byte
+	NetworkSectionToRoot   []MerkleNode
 	NetworkID              int64
 	UpdateNumber           int64
 	PrevNetworkSectionHash []byte
@@ -597,4 +597,16 @@ type Packet struct {
 type Height struct {
 	RevisionNumber big.Int `json:"revisionNumber"`
 	RevisionHeight big.Int `json:"revisionHeight"`
+}
+
+type Dir int
+
+const (
+	DirLeft = Dir(iota)
+	DirRight
+)
+
+type MerkleNode struct {
+	Dir   Dir
+	Value []byte
 }
