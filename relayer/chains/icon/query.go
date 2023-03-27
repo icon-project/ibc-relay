@@ -21,7 +21,7 @@ import (
 
 	//change this to icon types after original repo merge
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/merkle"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/proof"
 )
 
 var _ provider.QueryProvider = &IconProvider{}
@@ -441,7 +441,7 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 	if err != nil {
 		return nil, err
 	}
-	merkleHashTree := merkle.NewMerkleHashTree(messages)
+	merkleHashTree := proof.NewMerkleHashTree(messages)
 	if err != nil {
 		return nil, err
 	}
