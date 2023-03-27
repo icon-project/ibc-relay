@@ -1,6 +1,7 @@
 package icon
 
 import (
+	"container/heap"
 	"context"
 	"encoding/base64"
 	"errors"
@@ -31,6 +32,7 @@ const (
 	inSyncNumBlocksThreshold         = 2
 	BTP_MESSAGE_CHAN_CAPACITY        = 1000
 	INCOMING_BN_CAPACITY             = 1000
+	ERROR_CAPACITY                   = 2
 )
 
 type IconChainProcessor struct {
@@ -63,6 +65,7 @@ type IconChainProcessor struct {
 	metrics *processor.PrometheusMetrics
 }
 
+// Arrangement For the Latest height
 type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
@@ -89,6 +92,39 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ic
 	l[clientInfo.clientID] = clientState
 }
 
+// Implementing the Priority queue interface for BlockNotification
+type BlockNotificationPriorityQueue []*types.BlockNotification
+
+func (pq BlockNotificationPriorityQueue) Len() int { return len(pq) }
+
+func (pq BlockNotificationPriorityQueue) Less(i, j int) bool {
+	height_i, _ := pq[i].Height.BigInt()
+	height_j, _ := pq[j].Height.BigInt()
+	return height_i.Cmp(height_j) == -1
+}
+
+func (pq BlockNotificationPriorityQueue) Swap(i, j int) {
+	pq[i], pq[j] = pq[j], pq[i]
+}
+
+func (pq *BlockNotificationPriorityQueue) Push(x interface{}) {
+	*pq = append(*pq, x.(*types.BlockNotification))
+}
+
+func (pq *BlockNotificationPriorityQueue) Pop() interface{} {
+	old := *pq
+	n := len(old)
+	item := old[n-1]
+	*pq = old[0 : n-1]
+	return item
+}
+
+// For persistence
+type queryCyclePersistence struct {
+	latestHeight      int64
+	lastQueriedHeight int64
+}
+
 func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
 	return &IconChainProcessor{
 		log:                  log.With(zap.String("chain_name", "Icon")),
@@ -100,21 +136,6 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
 	}
-}
-
-type queryCyclePersistence struct {
-	latestHeight      int64
-	lastQueriedHeight int64
-}
-
-func (icp *IconChainProcessor) nodeStatusWithRetry(ctx context.Context) (int64, error) {
-	blk, err := icp.chainProvider.client.GetLastBlock()
-	if err != nil {
-		return 0, err
-	}
-
-	return blk.Height, nil
-
 }
 
 func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
@@ -181,7 +202,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 	// chan
 	btpBlockReceived := make(chan IconIBCHeader, BTP_MESSAGE_CHAN_CAPACITY)
 	incomingEventsBN := make(chan *types.BlockNotification, INCOMING_BN_CAPACITY)
-	monitorErr := make(chan error, 2)
+	monitorErr := make(chan error, ERROR_CAPACITY)
 	chainID := icp.chainProvider.ChainId()
 
 	// caches
@@ -200,9 +221,13 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 		ProofFlag: types.NewHexInt(0),
 	}
 	reqIconBlocks := &types.BlockRequest{
-		Height:       types.NewHexInt(int64(10)),
+		Height:       types.NewHexInt(int64(persistence.lastQueriedHeight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
+
+	// Create the priority queue and initialize it.
+	incomingEventsQueue := &BlockNotificationPriorityQueue{}
+	heap.Init(incomingEventsQueue)
 
 	// Start monitoring BTP blocks
 	go icp.monitorBTP2Block(ctx, reqBTPBlocks, btpBlockReceived, monitorErr)
@@ -223,46 +248,59 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 			ibcHeaderCache[h.Height()] = &h
 
 		case incomingBN := <-incomingEventsBN:
-			ibcMessages, err := icp.handleBlockEventRequest(incomingBN)
-			if err != nil {
-				icp.log.Error(
-					fmt.Sprintf("failed handleBlockEventRequest at height%v", incomingBN.Height),
-					zap.Error(err),
-				)
-			}
-			for _, m := range ibcMessages {
-				icp.handleMessage(ctx, *m, ibcMessagesCache)
-			}
 
-			h, _ := (incomingBN.Height).Int()
-			if _, ok := ibcHeaderCache[uint64(h)]; !ok {
-				// handle if not bresent
-				continue
-			}
+			// Add the incoming block notification to the priority queue.
+			heap.Push(incomingEventsQueue, incomingBN)
 
-			for _, pp := range icp.pathProcessors {
-				clientID := pp.RelevantClientID(chainID)
-				// clientState, err := icp.clientState(ctx, clientID)
-				// if err != nil {
-				// 	icp.log.Error("Error fetching client state",
-				// 		zap.String("client_id", clientID),
-				// 		zap.Error(err),
-				// 	)
-				// 	continue
-				// }
-				pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-					LatestBlock:      icp.latestBlock,
-					LatestHeader:     ibcHeaderCache[uint64(h)],
-					IBCMessagesCache: ibcMessagesCache.Clone(),
-					InSync:           icp.inSync,
-					// ClientState:          clientState,
-					ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
-					ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
-					IBCHeaderCache:       ibcHeaderCache.Clone(),
-				})
+		default:
+			// Process the block notifications from the priority queue.
+			for incomingEventsQueue.Len() > 0 {
+				incomingBN := heap.Pop(incomingEventsQueue).(*types.BlockNotification)
+				h, _ := (incomingBN.Height).Int()
+				header, ok := ibcHeaderCache[uint64(h)]
+				if !ok {
+					// Add the block notification back to the priority queue.
+					heap.Push(incomingEventsQueue, incomingBN)
+					// Break the loop and wait for the missing header.
+					break
+				}
+				persistence.lastQueriedHeight = int64(header.Height())
+				ibcMessages, err := icp.handleBlockEventRequest(incomingBN)
+				if err != nil {
+					icp.log.Error(
+						fmt.Sprintf("failed handleBlockEventRequest at height%v", incomingBN.Height),
+						zap.Error(err),
+					)
+				}
+				for _, m := range ibcMessages {
+					icp.handleMessage(ctx, *m, ibcMessagesCache)
+				}
+
+				for _, pp := range icp.pathProcessors {
+					clientID := pp.RelevantClientID(chainID)
+					clientState, err := icp.clientState(ctx, clientID)
+					if err != nil {
+						icp.log.Error("Error fetching client state",
+							zap.String("client_id", clientID),
+							zap.Error(err),
+						)
+						continue
+					}
+					pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+						LatestBlock:          icp.latestBlock,
+						LatestHeader:         ibcHeaderCache[uint64(h)],
+						IBCMessagesCache:     ibcMessagesCache.Clone(),
+						InSync:               true,
+						ClientState:          clientState,
+						ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
+						ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
+						IBCHeaderCache:       ibcHeaderCache.Clone(),
+					})
+				}
 			}
 
 		}
+
 	}
 }
 
@@ -304,7 +342,6 @@ func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.
 			if len(v.Indexes) > 0 && len(v.Events) > 0 {
 				incomingEventBN <- v
 			}
-
 			return nil
 		}, func(conn *websocket.Conn) {
 			log.Println(fmt.Sprintf("MonitorIconLoop"))
@@ -399,10 +436,10 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 }
 
 func (icp *IconChainProcessor) getLatestHeightWithRetry(ctx context.Context) (int64, error) {
-	var height int64
+	var blk *types.Block
 	var err error
 	for i := 0; i < latestHeightQueryRetries; i++ {
-		height, err = icp.nodeStatusWithRetry(ctx)
+		blk, err = icp.chainProvider.client.GetLastBlock()
 		if err != nil {
 
 			icp.log.Warn("Failed to query latest height",
@@ -416,5 +453,5 @@ func (icp *IconChainProcessor) getLatestHeightWithRetry(ctx context.Context) (in
 		}
 		break
 	}
-	return height, err
+	return blk.Height, err
 }
