@@ -1,4 +1,4 @@
-package proof
+package cryptoutils
 
 import (
 	"fmt"

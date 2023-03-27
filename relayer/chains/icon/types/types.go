@@ -146,6 +146,7 @@ type TxResult struct {
 
 type CallData struct {
 	Method string      `json:"method"`
+	Height HexInt      `json:"height,omitempty"`
 	Params interface{} `json:"params,omitempty"`
 }
 

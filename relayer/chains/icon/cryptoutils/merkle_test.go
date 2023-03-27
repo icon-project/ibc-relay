@@ -1,7 +1,8 @@
-package proof
+package cryptoutils
 
 import (
 	"encoding/hex"
+	"fmt"
 	"testing"
 )
 
@@ -44,6 +45,22 @@ func TestMerkleProof(t *testing.T) {
 	if !tree.VerifyMerkleProof(root, data[1], proofOfFirstItem) {
 		t.Errorf("Merkle proof is not correct")
 	}
+
+}
+
+func TestAppendHash(t *testing.T) {
+	data := [][]byte{
+		[]byte("hello"),
+		[]byte("world"),
+	}
+
+	h1 := Sha3keccak256(data[0])
+	h1 = AppendHash(h1, data[1])
+	fmt.Printf("h1: %x \n", h1)
+
+	h2 := Sha3keccak256(data...)
+
+	fmt.Printf("h2: %x \n", h2)
 
 }
 

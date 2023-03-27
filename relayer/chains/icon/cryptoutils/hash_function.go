@@ -1,4 +1,4 @@
-package proof
+package cryptoutils
 
 import (
 	"crypto/sha256"

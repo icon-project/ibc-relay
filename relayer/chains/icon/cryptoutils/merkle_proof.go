@@ -1,4 +1,4 @@
-package proof
+package cryptoutils
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func NewMerkleHashTree(byteList [][]byte) *MerkleHashTree {
 
 	var hashList HashedList
 	for _, b := range byteList {
-		hashList = append(hashList, appendKeccak256(nil, b))
+		hashList = append(hashList, Sha3keccak256(b))
 	}
 	return &MerkleHashTree{
 		Hashes: hashList,
