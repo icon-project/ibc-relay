@@ -2,6 +2,7 @@ package icon
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math/big"
 	"os"
@@ -773,16 +774,25 @@ func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 	return "", nil
 }
 
-func (icp *IconProvider) GetBtpMessage(height int64) ([]string, error) {
+func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	pr := types.BTPBlockParam{
 		Height:    types.NewHexInt(height),
 		NetworkId: icp.NetworkID,
 	}
-	mgs, err := icp.client.GetBTPMessage(&pr)
+	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
 		return nil, err
 	}
-	return mgs, nil
+
+	results := make([][]byte, 0)
+	for _, mg := range msgs {
+		m, err := base64.StdEncoding.DecodeString(mg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		results = append(results, m)
+	}
+	return results, nil
 }
 
 // TODO:

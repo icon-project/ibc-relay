@@ -19,8 +19,28 @@ func (b HashedList) Get(i int) []byte {
 	return b[i]
 }
 
+func (b HashedList) FindIndex(target []byte) int {
+	for i, item := range b {
+		if bytes.Equal(item, target) {
+			return i
+		}
+	}
+	return -1
+}
+
 type MerkleHashTree struct {
-	hashes HashedList
+	Hashes HashedList
+}
+
+func NewMerkleHashTree(byteList [][]byte) *MerkleHashTree {
+
+	var hashList HashedList
+	for _, b := range byteList {
+		hashList = append(hashList, appendKeccak256(nil, b))
+	}
+	return &MerkleHashTree{
+		Hashes: hashList,
+	}
 }
 
 func AppendHash(out []byte, data []byte) []byte {
@@ -43,7 +63,7 @@ func __merkleRoot(data []byte) []byte {
 }
 
 func (m *MerkleHashTree) MerkleRoot() []byte {
-	data := m.hashes
+	data := m.Hashes
 	if data.Len() == 0 {
 		return nil
 	}
@@ -120,7 +140,7 @@ func (m *MerkleHashTree) VerifyMerkleProof(root []byte, value []byte, proof []ty
 }
 
 func (m *MerkleHashTree) MerkleProof(idx int) []types.MerkleNode {
-	data := m.hashes
+	data := m.Hashes
 	if data.Len() == 0 {
 		return nil
 	}

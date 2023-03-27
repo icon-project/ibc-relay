@@ -16,7 +16,7 @@ func TestMerkleRoot(t *testing.T) {
 
 	// Create Merkle tree
 	tree := &MerkleHashTree{
-		hashes: data,
+		Hashes: data,
 	}
 
 	// Calculate Merkle root
@@ -36,7 +36,7 @@ func TestMerkleProof(t *testing.T) {
 	}
 
 	tree := &MerkleHashTree{
-		hashes: data,
+		Hashes: data,
 	}
 	root := tree.MerkleRoot()
 	proofOfFirstItem := tree.MerkleProof(1)
@@ -57,7 +57,7 @@ func TestMerkleProofMisMatch(t *testing.T) {
 	failcase := Sha3keccak256([]byte("should_fail"))
 
 	tree := &MerkleHashTree{
-		hashes: data,
+		Hashes: data,
 	}
 	root := tree.MerkleRoot()
 	proofOfFirstItem := tree.MerkleProof(1)

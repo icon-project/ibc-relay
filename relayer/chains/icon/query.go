@@ -2,6 +2,7 @@ package icon
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -17,7 +18,10 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	committypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+
 	//change this to icon types after original repo merge
+
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/merkle"
 )
 
 var _ provider.QueryProvider = &IconProvider{}
@@ -67,12 +71,17 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	return blk.Height, nil
 }
 
+// legacy
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	return nil, nil
 }
+
+// legacy
 func (icp *IconProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, nil
 }
+
+// legacy
 func (icp *IconProvider) QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, nil
 }
@@ -120,8 +129,6 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		"height":   height,
 		"clientId": srcClientId,
 	})
-
-	// get proof
 
 	//similar should be implemented
 	var clientStateByte []byte
@@ -427,4 +434,21 @@ func (icp *IconProvider) QueryDenomTrace(ctx context.Context, denom string) (*tr
 // not required for icon
 func (icp *IconProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
 	return nil, fmt.Errorf("Not implemented for ICON")
+}
+
+func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHash []byte) ([]types.MerkleNode, error) {
+	messages, err := icp.GetBtpMessage(height)
+	if err != nil {
+		return nil, err
+	}
+	merkleHashTree := merkle.NewMerkleHashTree(messages)
+	if err != nil {
+		return nil, err
+	}
+	hashIndex := merkleHashTree.Hashes.FindIndex(keyHash)
+	if hashIndex == -1 {
+		return nil, errors.New("Btp message for this hash not found")
+	}
+	proof := merkleHashTree.MerkleProof(hashIndex)
+	return proof, nil
 }
