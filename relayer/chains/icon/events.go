@@ -61,6 +61,27 @@ func MustConvertEventNameToBytes(eventName string) []byte {
 	return input
 }
 
+func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
+	indexed := make([][]byte, 0)
+
+	for _, idx := range evt.Indexed {
+		indexed = append(indexed, []byte(idx))
+	}
+
+	data := make([][]byte, 0)
+
+	for _, d := range evt.Indexed {
+		indexed = append(indexed, []byte(d))
+	}
+
+	return types.EventLog{
+		Addr:    evt.Addr,
+		Indexed: indexed,
+		Data:    data,
+	}
+
+}
+
 func GetMonitorEventFilters(address string) []*types.EventFilter {
 
 	filters := []*types.EventFilter{}
