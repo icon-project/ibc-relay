@@ -13,13 +13,13 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
-	"github.com/tendermint/tendermint/light"
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
@@ -106,6 +106,10 @@ func (pp IconProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }
 
+func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
+	return provider.BroadcastModeSingle
+}
+
 type IconProvider struct {
 	log          *zap.Logger
 	PCfg         IconProviderConfig
@@ -144,6 +148,12 @@ func (h IconIBCHeader) Height() uint64 {
 	return uint64(h.Header.MainHeight)
 }
 
+func (h IconIBCHeader) NextValidatorsHash() []byte {
+	// TODO: Feature added later
+	return nil
+
+}
+
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 
 	// TODO:
@@ -179,8 +189,11 @@ func (icp *IconProvider) NewClientState(
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
 	return &tmclient.ClientState{
-		ChainId:         dstChainID,
-		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		ChainId: dstChainID,
+		TrustLevel: tmclient.Fraction{
+			Numerator:   1,
+			Denominator: 3,
+		},
 		TrustingPeriod:  dstTrustingPeriod,
 		UnbondingPeriod: dstUbdPeriod,
 		MaxClockDrift:   time.Minute * 10,
@@ -731,13 +744,10 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	if err := icp.client.SignTransaction(icp.wallet, txParam); err != nil {
 		return nil, false, err
 	}
-	fmt.Printf(" :>> %+v\n", m.Params)
-	hash, err := icp.client.SendTransaction(txParam)
+	_, err := icp.client.SendTransaction(txParam)
 	if err != nil {
 		return nil, false, err
 	}
-	h, _ := hash.Value()
-	fmt.Printf("hash:: %x\n", h)
 
 	txResParams := &types.TransactionHashParam{
 		Hash: txParam.TxHash,
@@ -751,6 +761,21 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 		return nil, false, err
 	}
 	return txResult, true, err
+}
+
+func (icp *IconProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("Not implemented")
+}
+
+func (icp *IconProvider) SendMessagesToMempool(
+	ctx context.Context,
+	msgs []provider.RelayerMessage,
+	memo string,
+
+	asyncCtx context.Context,
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
+	return fmt.Errorf("Error")
 }
 
 func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
