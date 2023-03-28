@@ -190,6 +190,9 @@ type Fraction struct {
 type ProofSpec struct {
 }
 
+type GenericClientParams[T MsgCreateClient | MsgUpdateClient] struct {
+	Msg T `json:"msg"`
+}
 type MsgCreateClient struct {
 	ClientState    []byte `json:"clientState"`
 	ConsensusState []byte `json:"consensusState"`
@@ -199,6 +202,9 @@ type MsgCreateClient struct {
 type MsgUpdateClient struct {
 	ClientId      string `json:"clientId"`
 	ClientMessage []byte `json:"clientMessage"`
+
+type GenericChannelParam[T MsgChannelOpenInit | MsgChannelOpenTry | MsgChannelOpenAck | MsgChannelOpenConfirm | MsgChannelCloseInit | MsgChannelCloseConfirm] struct {
+	Msg T `json:"msg"`
 }
 
 type MsgChannelCloseConfirm struct {
@@ -241,6 +247,8 @@ type MsgChannelOpenTry struct {
 	CounterpartyVersion string
 	ProofInit           []byte
 	ProofHeight         Height
+type GenericConnectionParam[T MsgConnectionOpenInit | MsgConnectionOpenTry | MsgConnectionOpenAck | MsgConnectionOpenConfirm] struct {
+	Msg T `json:"msg"`
 }
 
 type MsgConnectionOpenAck struct {
@@ -279,6 +287,8 @@ type MsgConnectionOpenTry struct {
 	ProofConsensus       []byte
 	ProofHeight          Height
 	ConsensusHeight      Height
+type GenericPacketParams[T MsgPacketRecv | MsgPacketAcknowledgement] struct {
+	Msg T `json:"msg"`
 }
 
 type MsgPacketAcknowledgement struct {
