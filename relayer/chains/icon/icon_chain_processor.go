@@ -69,10 +69,10 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ic
 	existingClientInfo, ok := l[clientInfo.clientID]
 	var trustingPeriod time.Duration
 	if ok {
-		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
-			// height is less than latest, so no-op
-			return
-		}
+		// if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+		// 	// height is less than latest, so no-op
+		// 	return
+		// }
 		trustingPeriod = existingClientInfo.TrustingPeriod
 	}
 	// TODO:
@@ -193,13 +193,13 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	//checking handlerAddress
-	if icp.chainProvider.PCfg.IbcHandlerAddress == "" || icp.chainProvider.NetworkID == "" {
+	if icp.chainProvider.PCfg.IbcHandlerAddress == "" || icp.chainProvider.BTPNetworkID == "" {
 		return errors.New("IbcHandlerAddress is not provided")
 	}
 
 	reqBTPBlocks := &types.BTPRequest{
 		Height:    types.NewHexInt(int64(10)),
-		NetworkID: icp.chainProvider.NetworkID,
+		NetworkID: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
 		ProofFlag: types.NewHexInt(1),
 	}
 	reqIconBlocks := &types.BlockRequest{

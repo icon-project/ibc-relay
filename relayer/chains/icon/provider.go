@@ -56,6 +56,7 @@ type IconProviderConfig struct {
 	NetworkID         int64  `json:"network-id" yaml:"network-id"`
 	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	BTPHeight         int64  `json:"start-height" yaml:"start-height"`
+	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
 }
 
 func (pp IconProviderConfig) Validate() error {
@@ -89,11 +90,11 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 	}
 
 	return &IconProvider{
-		log:       log.With(zap.String("sys", "chain_client")),
-		client:    NewClient(pp.getRPCAddr(), log),
-		PCfg:      pp,
-		wallet:    wallet,
-		NetworkID: types.NewHexInt(pp.NetworkID),
+		log:          log.With(zap.String("sys", "chain_client")),
+		client:       NewClient(pp.getRPCAddr(), log),
+		PCfg:         pp,
+		wallet:       wallet,
+		BTPNetworkID: types.NewHexInt(pp.NetworkID),
 	}, nil
 }
 
@@ -106,14 +107,14 @@ func (pp IconProviderConfig) getRPCAddr() string {
 }
 
 type IconProvider struct {
-	log       *zap.Logger
-	PCfg      IconProviderConfig
-	txMu      sync.Mutex
-	client    *Client
-	wallet    module.Wallet
-	metrics   *processor.PrometheusMetrics
-	codec     codec.ProtoCodecMarshaler
-	NetworkID types.HexInt
+	log          *zap.Logger
+	PCfg         IconProviderConfig
+	txMu         sync.Mutex
+	client       *Client
+	wallet       module.Wallet
+	metrics      *processor.PrometheusMetrics
+	codec        codec.ProtoCodecMarshaler
+	BTPNetworkID types.HexInt
 }
 
 type SignedHeader struct {
@@ -212,7 +213,7 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 			ClientState:    types.NewHexBytes(anyClientState.Value),
 			ConsensusState: types.NewHexBytes(anyConsensusState.Value),
 			ClientType:     clientState.ClientType(),
-			BtpNetworkId:   types.NewHexInt(1),
+			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
 		},
 	}
 
@@ -883,7 +884,7 @@ func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 func (icp *IconProvider) GetBtpMessage(height int64) ([]string, error) {
 	pr := types.BTPBlockParam{
 		Height:    types.NewHexInt(height),
-		NetworkId: icp.NetworkID,
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 	mgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
