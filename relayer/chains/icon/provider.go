@@ -3,7 +3,6 @@ package icon
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"os"
 	"sync"
 	"time"
@@ -19,11 +18,12 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 // Default IBC settings
 var (
 	defaultChainPrefix = types.NewMerklePrefix([]byte("ibc"))
-	defaultDelayPeriod = big.NewInt(0)
+	defaultDelayPeriod = types.NewHexInt(0)
 
 	DefaultIBCVersionIdentifier = "1"
 
@@ -54,7 +54,8 @@ type IconProviderConfig struct {
 	Keystore          string `json:"keystore" yaml:"keystore"`
 	Password          string `json:"password" yaml:"password"`
 	NetworkID         int64  `json:"network-id" yaml:"network-id"`
-	IbcHandlerAddress string `json:"ibc-handler-address"`
+	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	BTPHeight         int64  `json:"start-height" yaml:"start-height"`
 }
 
 func (pp IconProviderConfig) Validate() error {
@@ -62,10 +63,6 @@ func (pp IconProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 	return nil
-}
-
-func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
-	return ""
 }
 
 // NewProvider should provide a new Icon provider
@@ -154,11 +151,6 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return nil
 }
 
-// TODO:
-func (h IconIBCHeader) NextValidatorsHash() []byte {
-	return []byte{}
-}
-
 func (h *IconIBCHeader) Reset()         { *h = IconIBCHeader{} }
 func (h *IconIBCHeader) String() string { return proto.CompactTextString(h) }
 func (*IconIBCHeader) ProtoMessage()    {}
@@ -182,43 +174,25 @@ func (icp *IconProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
-	return &tendermint.ClientState{}, fmt.Errorf("Not implemented for ICON. Use NewClientStateIcon instead.")
 
-}
-
-func (icp *IconProvider) NewClientStateIcon(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (*types.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
-	return &types.ClientState{
-		ChainId: dstChainID,
-		TrustLevel: types.Fraction{
-			Numerator:   *big.NewInt(int64(light.DefaultTrustLevel.Numerator)),
-			Denominator: *big.NewInt(int64(light.DefaultTrustLevel.Denominator)),
+	return &tmclient.ClientState{
+		ChainId:         dstChainID,
+		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
+		TrustingPeriod:  dstTrustingPeriod,
+		UnbondingPeriod: dstUbdPeriod,
+		MaxClockDrift:   time.Minute * 10,
+		FrozenHeight:    clienttypes.ZeroHeight(),
+		LatestHeight: clienttypes.Height{
+			RevisionNumber: revisionNumber,
+			RevisionHeight: dstUpdateHeader.Height(),
 		},
-		TrustingPeriod: types.Duration{
-			Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
-			Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
-		},
-		UnbondingPeriod: types.Duration{
-			Seconds: *big.NewInt(int64(dstUbdPeriod.Seconds())),
-			Nanos:   *big.NewInt(int64(dstUbdPeriod.Nanoseconds())),
-		},
-		MaxClockDrift: types.Duration{
-			Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
-			Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
-		},
-		FrozenHeight: types.Height{
-			RevisionNumber: *big.NewInt(0),
-			RevisionHeight: *big.NewInt(0),
-		},
-		LatestHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(revisionNumber)),
-			RevisionHeight: *big.NewInt(int64(dstIBCHeader.Height())),
-		},
-		// ProofSpecs
+		ProofSpecs:                   commitmenttypes.GetSDKSpecs(),
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil
+
 }
 
 func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
@@ -233,10 +207,13 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
-	clS := &types.MsgCreateClient{
-		ClientState:    anyClientState.Value,
-		ConsensusState: anyConsensusState.Value,
-		ClientType:     clientState.ClientType(),
+	clS := &types.GenericClientParams[types.MsgCreateClient]{
+		Msg: types.MsgCreateClient{
+			ClientState:    types.NewHexBytes(anyClientState.Value),
+			ConsensusState: types.NewHexBytes(anyConsensusState.Value),
+			ClientType:     clientState.ClientType(),
+			BtpNetworkId:   types.NewHexInt(1),
+		},
 	}
 
 	return NewIconMessage(clS, MethodCreateClient), nil
@@ -246,14 +223,10 @@ func (icp *IconProvider) MsgUpgradeClient(srcClientId string, consRes *clienttyp
 
 	clU := &types.MsgUpdateClient{
 		ClientId:      srcClientId,
-		ClientMessage: nil,
+		ClientMessage: types.HexBytes(""),
 	}
 
 	return NewIconMessage(clU, MethodUpdateClient), nil
-}
-
-func (icp *IconProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	return nil, nil
 }
 
 func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestBlock provider.LatestBlock) error {
@@ -337,50 +310,59 @@ func (icp *IconProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provi
 }
 
 func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
-	recvPacket := &types.MsgPacketRecv{
+	recvPacket := types.MsgPacketRecv{
 		Packet: types.Packet{
-			Sequence:           *big.NewInt(int64(msgTransfer.Sequence)),
+			Sequence:           msgTransfer.Sequence,
 			SourcePort:         msgTransfer.SourcePort,
 			SourceChannel:      msgTransfer.SourceChannel,
 			DestinationPort:    msgTransfer.DestPort,
 			DestinationChannel: msgTransfer.DestChannel,
-			TimeoutHeight: types.Height{
-				RevisionNumber: *big.NewInt(int64(msgTransfer.TimeoutHeight.RevisionNumber)),
-				RevisionHeight: *big.NewInt(int64(msgTransfer.TimeoutHeight.RevisionHeight)),
+			TimeoutHeight: &types.Height{
+				RevisionNumber: msgTransfer.TimeoutHeight.RevisionNumber,
+				RevisionHeight: msgTransfer.TimeoutHeight.RevisionHeight,
 			},
-			Timestamp: *big.NewInt(int64(msgTransfer.TimeoutTimestamp)),
+			TimeoutTimestamp: msgTransfer.TimeoutTimestamp,
 		},
-		Proof: proof.Proof,
+		Proof: types.NewHexBytes(proof.Proof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(recvPacket, MethodRecvPacket), nil
+
+	recvPacketMsg := &types.GenericPacketParams[types.MsgPacketRecv]{
+		Msg: recvPacket,
+	}
+
+	return NewIconMessage(recvPacketMsg, MethodRecvPacket), nil
 }
 
 func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proofAcked provider.PacketProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgPacketAcknowledgement{
+	msg := types.MsgPacketAcknowledgement{
 		Packet: types.Packet{
-			Sequence:           *big.NewInt(int64(msgRecvPacket.Sequence)),
+			Sequence:           msgRecvPacket.Sequence,
 			SourcePort:         msgRecvPacket.SourcePort,
 			SourceChannel:      msgRecvPacket.SourceChannel,
 			DestinationPort:    msgRecvPacket.DestPort,
 			DestinationChannel: msgRecvPacket.DestChannel,
-			TimeoutHeight: types.Height{
-				RevisionNumber: *big.NewInt(int64(msgRecvPacket.TimeoutHeight.RevisionNumber)),
-				RevisionHeight: *big.NewInt(int64(msgRecvPacket.TimeoutHeight.RevisionHeight)),
+			TimeoutHeight: &types.Height{
+				RevisionNumber: msgRecvPacket.TimeoutHeight.RevisionNumber,
+				RevisionHeight: msgRecvPacket.TimeoutHeight.RevisionHeight,
 			},
-			Timestamp: *big.NewInt(int64(msgRecvPacket.TimeoutTimestamp)),
+			TimeoutTimestamp: msgRecvPacket.TimeoutTimestamp,
 		},
-		Acknowledgement: msgRecvPacket.Ack,
-		Proof:           proofAcked.Proof,
+		Acknowledgement: types.NewHexBytes(msgRecvPacket.Ack),
+		Proof:           types.NewHexBytes(proofAcked.Proof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proofAcked.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proofAcked.ProofHeight.RevisionHeight)),
+			RevisionNumber: proofAcked.ProofHeight.RevisionNumber,
+			RevisionHeight: proofAcked.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(msg, MethodWriteAck), nil
+
+	packetAckMsg := &types.GenericPacketParams[types.MsgPacketAcknowledgement]{
+		Msg: msg,
+	}
+	return NewIconMessage(packetAckMsg, MethodWriteAck), nil
 }
 
 func (icp *IconProvider) MsgTimeout(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -422,15 +404,19 @@ func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provide
 }
 
 func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgConnectionOpenInit{
+	msg := types.MsgConnectionOpenInit{
 		ClientId: info.ClientID,
 		Counterparty: types.ConnectionCounterparty{
 			ClientId:     info.CounterpartyClientID,
 			ConnectionId: info.CounterpartyConnID,
 		},
-		DelayPeriod: *defaultDelayPeriod,
+		DelayPeriod: defaultDelayPeriod,
 	}
-	return NewIconMessage(msg, MethodConnectionOpenInit), nil
+
+	connectionOpenMsg := &types.GenericConnectionParam[types.MsgConnectionOpenInit]{
+		Msg: msg,
+	}
+	return NewIconMessage(connectionOpenMsg, MethodConnectionOpenInit), nil
 }
 
 func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -445,26 +431,30 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		return nil, err
 	}
 
-	msg := &types.MsgConnectionOpenTry{
+	msg := types.MsgConnectionOpenTry{
 		ClientId:             msgOpenInit.CounterpartyClientID,
 		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
-		ClientStateBytes:     csAny.Value,
+		ClientStateBytes:     types.NewHexBytes(csAny.Value),
 		Counterparty:         *counterparty,
-		DelayPeriod:          *defaultDelayPeriod,
+		DelayPeriod:          defaultDelayPeriod,
 		CounterpartyVersions: []types.Version{DefaultIBCVersion},
-		ProofInit:            proof.ConnectionStateProof,
+		ProofInit:            types.NewHexBytes(proof.ConnectionStateProof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
-		ProofClient:    proof.ClientStateProof,
-		ProofConsensus: proof.ConsensusStateProof,
+		ProofClient:    types.NewHexBytes(proof.ClientStateProof),
+		ProofConsensus: types.NewHexBytes(proof.ConsensusStateProof),
 		ConsensusHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ClientState.GetLatestHeight().GetRevisionNumber())),
-			RevisionHeight: *big.NewInt(int64(proof.ClientState.GetLatestHeight().GetRevisionHeight())),
+			RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
+			RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 		},
 	}
-	return NewIconMessage(msg, MethodConnectionOpenTry), nil
+
+	connectionOpenTryMsg := &types.GenericConnectionParam[types.MsgConnectionOpenTry]{
+		Msg: msg,
+	}
+	return NewIconMessage(connectionOpenTryMsg, MethodConnectionOpenTry), nil
 }
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -474,36 +464,42 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		return nil, err
 	}
 
-	msg := &types.MsgConnectionOpenAck{
+	msg := types.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
-		ClientStateBytes:         csAny.GetValue(), // TODO
+		ClientStateBytes:         types.NewHexBytes(csAny.GetValue()), // TODO
 		Version:                  DefaultIBCVersion,
 		CounterpartyConnectionID: msgOpenTry.ConnID,
-		ProofTry:                 proof.ConnectionStateProof,
-		ProofClient:              proof.ClientStateProof,
-		ProofConsensus:           proof.ConsensusStateProof,
+		ProofTry:                 types.NewHexBytes(proof.ConnectionStateProof),
+		ProofClient:              types.NewHexBytes(proof.ClientStateProof),
+		ProofConsensus:           types.NewHexBytes(proof.ConsensusStateProof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 		ConsensusHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ClientState.GetLatestHeight().GetRevisionNumber())),
-			RevisionHeight: *big.NewInt(int64(proof.ClientState.GetLatestHeight().GetRevisionHeight())),
+			RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
+			RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 		},
 	}
-	return NewIconMessage(msg, MethodConnectionOpenAck), nil
+	connectionOpenAckMsg := &types.GenericConnectionParam[types.MsgConnectionOpenAck]{
+		Msg: msg,
+	}
+	return NewIconMessage(connectionOpenAckMsg, MethodConnectionOpenAck), nil
 }
 
 func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgConnectionOpenConfirm{
+	msg := types.MsgConnectionOpenConfirm{
 		ConnectionId: msgOpenAck.CounterpartyConnID,
-		ProofAck:     proof.ConnectionStateProof,
+		ProofAck:     types.NewHexBytes(proof.ConnectionStateProof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(msg, MethodConnectionOpenConfirm), nil
+	connectionOpenConfirmMsg := &types.GenericConnectionParam[types.MsgConnectionOpenConfirm]{
+		Msg: msg,
+	}
+	return NewIconMessage(connectionOpenConfirmMsg, MethodConnectionOpenConfirm), nil
 }
 
 func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
@@ -524,12 +520,12 @@ func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelI
 }
 
 func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgChannelOpenInit{
+	msg := types.MsgChannelOpenInit{
 		PortId: info.PortID,
 		Channel: types.Channel{
-			State:    chantypes.UNINITIALIZED,
-			Ordering: info.Order,
-			Counterparty: types.ChannelCounterparty{
+			State:    types.Channel_STATE_UNINITIALIZED_UNSPECIFIED,
+			Ordering: types.Channel_ORDER_ORDERED,
+			Counterparty: &types.Channel_Counterparty{
 				PortId:    info.CounterpartyPortID,
 				ChannelId: "",
 			},
@@ -537,17 +533,21 @@ func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pro
 			Version:        info.Version,
 		},
 	}
-	return NewIconMessage(msg, MethodChannelOpenInit), nil
+
+	channelOpenMsg := &types.GenericChannelParam[types.MsgChannelOpenInit]{
+		Msg: msg,
+	}
+	return NewIconMessage(channelOpenMsg, MethodChannelOpenInit), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgChannelOpenTry{
+	msg := types.MsgChannelOpenTry{
 		PortId:            msgOpenInit.CounterpartyPortID,
 		PreviousChannelId: msgOpenInit.CounterpartyChannelID,
 		Channel: types.Channel{
-			State:    chantypes.TRYOPEN,
-			Ordering: proof.Ordering,
-			Counterparty: types.ChannelCounterparty{
+			State:    types.Channel_STATE_TRYOPEN,
+			Ordering: types.Channel_ORDER_ORDERED,
+			Counterparty: &types.Channel_Counterparty{
 				PortId:    msgOpenInit.PortID,
 				ChannelId: msgOpenInit.ChannelID,
 			},
@@ -555,62 +555,80 @@ func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pro
 			Version:        proof.Version,
 		},
 		CounterpartyVersion: proof.Version,
-		ProofInit:           proof.Proof,
+		ProofInit:           types.NewHexBytes(proof.Proof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(msg, MethodChannelOpenTry), nil
+
+	channelOpenTryMsg := &types.GenericChannelParam[types.MsgChannelOpenTry]{
+		Msg: msg,
+	}
+	return NewIconMessage(channelOpenTryMsg, MethodChannelOpenTry), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgChannelOpenAck{
+	msg := types.MsgChannelOpenAck{
 		PortId:                msgOpenTry.CounterpartyPortID,
 		ChannelId:             msgOpenTry.CounterpartyChannelID,
 		CounterpartyVersion:   proof.Version,
 		CounterpartyChannelId: msgOpenTry.ChannelID,
-		ProofTry:              proof.Proof,
+		ProofTry:              types.NewHexBytes(proof.Proof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(msg, MethodChannelOpenAck), nil
+	channelOpenAckMsg := &types.GenericChannelParam[types.MsgChannelOpenAck]{
+		Msg: msg,
+	}
+	return NewIconMessage(channelOpenAckMsg, MethodChannelOpenAck), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgChannelOpenConfirm{
+	msg := types.MsgChannelOpenConfirm{
 		PortId:    msgOpenAck.CounterpartyPortID,
 		ChannelId: msgOpenAck.CounterpartyChannelID,
-		ProofAck:  proof.Proof,
+		ProofAck:  types.NewHexBytes(proof.Proof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(msg, MethodChannelOpenConfirm), nil
+	channelOpenConfirmMsg := &types.GenericChannelParam[types.MsgChannelOpenConfirm]{
+		Msg: msg,
+	}
+	return NewIconMessage(channelOpenConfirmMsg, MethodChannelOpenConfirm), nil
 }
 
 func (icp *IconProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgChannelCloseInit{
+	msg := types.MsgChannelCloseInit{
 		PortId:    info.PortID,
 		ChannelId: info.ChannelID,
 	}
-	return NewIconMessage(msg, MethodChannelCloseInit), nil
+
+	channelCloseInitMsg := &types.GenericChannelParam[types.MsgChannelCloseInit]{
+		Msg: msg,
+	}
+	return NewIconMessage(channelCloseInitMsg, MethodChannelCloseInit), nil
 }
 
 func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	msg := &types.MsgChannelCloseConfirm{
+	msg := types.MsgChannelCloseConfirm{
 		PortId:    msgCloseInit.CounterpartyPortID,
 		ChannelId: msgCloseInit.CounterpartyChannelID,
-		ProofInit: proof.Proof,
+		ProofInit: types.NewHexBytes(proof.Proof),
 		ProofHeight: types.Height{
-			RevisionNumber: *big.NewInt(int64(proof.ProofHeight.RevisionNumber)),
-			RevisionHeight: *big.NewInt(int64(proof.ProofHeight.RevisionHeight)),
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionHeight: proof.ProofHeight.RevisionHeight,
 		},
 	}
-	return NewIconMessage(msg, MethodChannelCloseConfirm), nil
+
+	channelCloseConfirmMsg := &types.GenericChannelParam[types.MsgChannelCloseConfirm]{
+		Msg: msg,
+	}
+	return NewIconMessage(channelCloseConfirmMsg, MethodChannelCloseConfirm), nil
 }
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
@@ -641,11 +659,14 @@ func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibc
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.MsgUpdateClient{
+	msg := types.MsgUpdateClient{
 		ClientId:      clientID,
-		ClientMessage: clientMsg.GetValue(),
+		ClientMessage: types.NewHexBytes(clientMsg.GetValue()),
 	}
-	return NewIconMessage(msg, MethodUpdateClient), nil
+	updateClientMsg := &types.GenericClientParams[types.MsgUpdateClient]{
+		Msg: msg,
+	}
+	return NewIconMessage(updateClientMsg, MethodUpdateClient), nil
 }
 
 func (icp *IconProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
@@ -697,11 +718,11 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
 		FromAddress: types.Address(icp.wallet.Address().String()),
-		ToAddress:   types.Address("IBC Handler"),
-		NetworkID:   types.HexInt(icp.ChainId()),
+		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
+		NetworkID:   types.NewHexInt(icp.PCfg.NetworkID),
 		StepLimit:   types.NewHexInt(int64(defaultStepLimit)),
 		DataType:    "call",
-		Data: &IconMessage{
+		Data: types.CallData{
 			Method: m.Method,
 			Params: m.Params,
 		},
@@ -709,30 +730,109 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	if err := icp.client.SignTransaction(icp.wallet, txParam); err != nil {
 		return nil, false, err
 	}
-	txHash, err := icp.client.SendTransaction(txParam)
-	if txHash != nil {
-		txH := &types.TransactionHashParam{
-			Hash: *txHash,
-		}
-		txResult, e := icp.client.GetTransactionResult(txH)
-		if e != nil {
-			return nil, true, err
-		}
-		return txResult, true, nil
+	fmt.Printf(" :>> %+v\n", m.Params)
+	hash, err := icp.client.SendTransaction(txParam)
+	if err != nil {
+		return nil, false, err
 	}
-	return nil, false, err
+	h, _ := hash.Value()
+	fmt.Printf("hash:: %x\n", h)
+
+	txResParams := &types.TransactionHashParam{
+		Hash: txParam.TxHash,
+	}
+
+	time.Sleep(3 * time.Second)
+
+	txResult, err := icp.client.GetTransactionResult(txResParams)
+	if err != nil {
+		fmt.Println("Error obtained: >>  ", err)
+		return nil, false, err
+	}
+	return txResult, true, err
 }
 
 func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	// return icp.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 
-	return nil, false, fmt.Errorf("Not implemented for ICON")
+	txRes, success, err := icp.SendMessageIcon(ctx, msg)
+	if err != nil {
+		fmt.Printf("tx err: %+v", err)
+	}
+
+	fmt.Printf("tx result: %+v", txRes)
+	height, err := txRes.BlockHeight.Value()
+	if err != nil {
+		return nil, false, nil
+	}
+
+	var eventLogs []provider.RelayerEvent
+	// events := txRes.EventLogs
+	// for _, event := range events {
+	// 	eventSignature := parseEventName(&zap.Logger{}, event, uint64(height))
+	// 	var evt provider.RelayerEvent
+	// 	switch eventSignature {
+	// 	case EventTypeCreateClient:
+	// 		evt = provider.RelayerEvent{
+	// 			EventType: eventSignature,
+	// 			Attributes: map[string]string{
+	// 				"client": parseIdentifier(event),
+	// 			},
+	// 		}
+	// 	case EventTypeGenerateConnectionIdentifier:
+	// 		connId := parseIdentifier(event)
+	// 		connectionData, err := icp.QueryConnection(ctx, height, connId)
+	// 		if err != nil {
+	// 			return nil, false, err
+	// 		}
+
+	// 		evt = provider.RelayerEvent{
+	// 			EventType: eventSignature,
+	// 			Attributes: map[string]string{
+	// 				"connID":               connId,
+	// 				"height":               fmt.Sprintf("%d", height),
+	// 				"clientID":             connectionData.Connection.ClientId,
+	// 				"counterpartyClientID": connectionData.Connection.Counterparty.ClientId,
+	// 				"counterpartyConnID":   connectionData.Connection.Counterparty.ConnectionId,
+	// 			},
+	// 		}
+	// 	case EventTypeGenerateClientIdentifier:
+	// 		channelId := parseIdentifier(event)
+	// 		channelData, err := icp.QueryChannel(ctx, height, channelId, "xcall") // todo: port id
+	// 		if err != nil {
+	// 			return nil, false, err
+	// 		}
+	// 		evt = provider.RelayerEvent{
+	// 			EventType: eventSignature,
+	// 			Attributes: map[string]string{
+	// 				"channelID":             channelId,
+	// 				"portId":                "port",
+	// 				"counterpartyChannelId": channelData.Channel.Counterparty.ChannelId,
+	// 				"counterpartyPortdId":   channelData.Channel.Counterparty.PortId,
+	// 			},
+	// 		}
+	// 	}
+	// 	eventLogs = append(eventLogs, evt)
+	// }
+
+	status, err := txRes.Status.Int()
+
+	rlyResp := &provider.RelayerTxResponse{
+		Height: height,
+		TxHash: string(txRes.TxHash),
+		Code:   uint32(status),
+		Data:   memo,
+		Events: eventLogs,
+	}
+
+	return rlyResp, success, err
 }
 
 func (icp *IconProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-	return nil, false, fmt.Errorf("Not implemented for ICON")
-
-	//a transaction should be implemented
+	// Handles 1st msg only
+	for _, msg := range msgs {
+		return icp.SendMessage(ctx, msg, memo)
+	}
+	return nil, false, fmt.Errorf("Use SendMessage and one txn at a time")
 }
 
 func (icp *IconProvider) ChainName() string {
@@ -768,7 +868,7 @@ func (icp *IconProvider) Timeout() string {
 }
 
 func (icp *IconProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	return 0, nil
+	return 1000, nil
 }
 
 // not required initially
@@ -790,16 +890,4 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([]string, error) {
 		return nil, err
 	}
 	return mgs, nil
-}
-
-// TODO:
-func (icp *IconProvider) SendMessagesToMempool(
-	ctx context.Context,
-	msgs []provider.RelayerMessage,
-	memo string,
-
-	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error),
-) error {
-	return nil
 }
