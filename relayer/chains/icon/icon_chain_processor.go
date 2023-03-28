@@ -210,15 +210,15 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	//checking handlerAddress
-	if icp.chainProvider.PCfg.IbcHandlerAddress == "" || icp.chainProvider.NetworkID == "" {
+	if icp.chainProvider.PCfg.IbcHandlerAddress == "" || icp.chainProvider.PCfg.BTPNetworkID == 0 {
 		return errors.New("IbcHandlerAddress is not provided")
 	}
 
 	// request parameters
 	reqBTPBlocks := &types.BTPRequest{
-		Height:    types.NewHexInt((persistence.lastQueriedHeight)),
-		NetworkID: icp.chainProvider.NetworkID,
-		ProofFlag: types.NewHexInt(0),
+		Height:       types.NewHexInt((persistence.lastQueriedHeight)),
+		BTPNetworkID: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
+		ProofFlag:    types.NewHexInt(0),
 	}
 	reqIconBlocks := &types.BlockRequest{
 		Height:       types.NewHexInt(int64(persistence.lastQueriedHeight)),

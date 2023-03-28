@@ -145,7 +145,7 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 
 	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
 		"clientId": srcClientId,
-	}, callParamsWithHeight(types.HexInt(height)))
+	}, callParamsWithHeight(types.NewHexInt(height)))
 
 	//similar should be implemented
 	var clientStateByte []byte

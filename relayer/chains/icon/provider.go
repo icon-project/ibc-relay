@@ -53,7 +53,8 @@ type IconProviderConfig struct {
 	Timeout           string `json:"timeout" yaml:"timeout"`
 	Keystore          string `json:"keystore" yaml:"keystore"`
 	Password          string `json:"password" yaml:"password"`
-	NetworkID         int64  `json:"network-id" yaml:"network-id"`
+	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
+	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
 	IbcHandlerAddress string `json:"ibc-handler-address"`
 }
 
@@ -92,11 +93,10 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 	}
 
 	return &IconProvider{
-		log:       log.With(zap.String("sys", "chain_client")),
-		client:    NewClient(pp.getRPCAddr(), log),
-		PCfg:      pp,
-		wallet:    wallet,
-		NetworkID: types.NewHexInt(pp.NetworkID),
+		log:    log.With(zap.String("sys", "chain_client")),
+		client: NewClient(pp.getRPCAddr(), log),
+		PCfg:   pp,
+		wallet: wallet,
 	}, nil
 }
 
@@ -109,14 +109,13 @@ func (pp IconProviderConfig) getRPCAddr() string {
 }
 
 type IconProvider struct {
-	log       *zap.Logger
-	PCfg      IconProviderConfig
-	txMu      sync.Mutex
-	client    *Client
-	wallet    module.Wallet
-	metrics   *processor.PrometheusMetrics
-	codec     codec.ProtoCodecMarshaler
-	NetworkID types.HexInt
+	log     *zap.Logger
+	PCfg    IconProviderConfig
+	txMu    sync.Mutex
+	client  *Client
+	wallet  module.Wallet
+	metrics *processor.PrometheusMetrics
+	codec   codec.ProtoCodecMarshaler
 }
 
 type SignedHeader struct {
@@ -178,41 +177,6 @@ func (icp *IconProvider) NewClientState(
 ) (ibcexported.ClientState, error) {
 	return &tendermint.ClientState{}, fmt.Errorf("Not implemented for ICON. Use NewClientStateIcon instead.")
 
-}
-
-func (icp *IconProvider) NewClientStateIcon(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (*types.ClientState, error) {
-	// revisionNumber := clienttypes.ParseChainID(dstChainID)
-
-	return &types.ClientState{
-		// ChainId: dstChainID,
-		// TrustLevel: types.Fraction{
-		// 	Numerator:   *big.NewInt(int64(light.DefaultTrustLevel.Numerator)),
-		// 	Denominator: *big.NewInt(int64(light.DefaultTrustLevel.Denominator)),
-		// },
-		// TrustingPeriod: types.Duration{
-		// 	Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
-		// 	Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
-		// },
-		// UnbondingPeriod: types.Duration{
-		// 	Seconds: *big.NewInt(int64(dstUbdPeriod.Seconds())),
-		// 	Nanos:   *big.NewInt(int64(dstUbdPeriod.Nanoseconds())),
-		// },
-		// MaxClockDrift: types.Duration{
-		// 	Seconds: *big.NewInt(int64(dstTrustingPeriod.Seconds())),
-		// 	Nanos:   *big.NewInt(int64(dstTrustingPeriod.Nanoseconds())),
-		// },
-		// FrozenHeight: types.Height{
-		// 	RevisionNumber: *big.NewInt(0),
-		// 	RevisionHeight: *big.NewInt(0),
-		// },
-		// LatestHeight: types.Height{
-		// 	RevisionNumber: *big.NewInt(int64(revisionNumber)),
-		// 	RevisionHeight: *big.NewInt(int64(dstIBCHeader.Height())),
-		// },
-		// // ProofSpecs
-		// AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-		// AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-	}, nil
 }
 
 func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
@@ -776,8 +740,8 @@ func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 
 func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	pr := types.BTPBlockParam{
-		Height:    types.NewHexInt(height),
-		NetworkId: icp.NetworkID,
+		Height:       types.NewHexInt(height),
+		BTPNetworkID: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
