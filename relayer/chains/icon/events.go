@@ -3,44 +3,55 @@ package icon
 import (
 	"encoding/hex"
 
+	connectionType "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	channelType "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 )
 
 // Events
 var (
-
 	// Client Events
-	EventTypeCreateClient          = "create_client"
-	EventTypeUpdateClient          = "update_client"
-	EventTypeUpgradeClient         = "upgrade_client"
-	EventTypeSubmitMisbehaviour    = "client_misbehaviour"
-	EventTypeUpdateClientProposal  = "update_client_proposal"
-	EventTypeUpgradeChain          = "upgrade_chain"
-	EventTypeUpgradeClientProposal = "upgrade_client_proposal"
+	EventTypeCreateClient = "CreateClient(str)"
+	EventTypeUpdateClient = "UpdateClient(str)"
 
 	// Connection Events
-	EventTypeConnectionOpenInit    = "connection_open_init"
-	EventTypeConnectionOpenTry     = "connection_open_try"
-	EventTypeConnectionOpenAck     = "connection_open_ack"
-	EventTypeConnectionOpenConfirm = "connection_open_confirm"
+	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str)"
+	EventTypeConnectionOpenTry     = "ConnectionOpenTry(str)"
+	EventTypeConnectionOpenAck     = "ConnectionOpenAck(str)"
+	EventTypeConnectionOpenConfirm = "ConnectionOpenConfirm(str)"
 
 	// Channel Events
-	EventTypeChannelOpenInit     = "channel_open_init"
-	EventTypeChannelOpenTry      = "channel_open_try"
-	EventTypeChannelOpenAck      = "channel_open_ack"
-	EventTypeChannelOpenConfirm  = "channel_open_confirm"
-	EventTypeChannelCloseInit    = "channel_close_init"
-	EventTypeChannelCloseConfirm = "channel_close_confirm"
-	EventTypeChannelClosed       = "channel_close"
+	EventTypeChannelOpenInit     = "ChannelOpenInit(str)"
+	EventTypeChannelOpenTry      = "ChannelOpenTry(str)"
+	EventTypeChannelOpenAck      = "ChannelOpenAck(str)"
+	EventTypeChannelOpenConfirm  = "ChannelOpenConfirm(str)"
+	EventTypeChannelCloseInit    = "ChannelCloseInit(str)"
+	EventTypeChannelCloseConfirm = "ChannelCloseConfirm(str)"
 
 	// Packet Events
-	EventTypeSendPacket           = "SendPacket(bytes)"
-	EventTypeRecvPacket           = "RecvPacket(bytes)"
-	EventTypeWriteAck             = "WriteAcknowledgement(string,string,int,bytes)"
-	EventTypeAcknowledgePacket    = "AcknowledgePacket(bytes, bytes)"
-	EventTypeTimeoutPacket        = "timeout_packet"
-	EventTypeTimeoutPacketOnClose = "timeout_on_close_packet"
+	EventTypeSendPacket           = "SendPacket()"
+	EventTypeRecvPacket           = "RecvPacket()"
+	EventTypeWriteAcknowledgement = "WriteAcknowledgement()"
+	EventTypeAcknowledgePacket    = "AcknowledgePacket()"
+	EventTypeTimeoutRequest       = "TimeoutRequest()"
+	EventTypePacketTimeout        = "PacketTimeout()"
 )
+
+var IconCosmosEventMap = map[string]string{
+	// connection events
+	EventTypeConnectionOpenInit:    connectionType.EventTypeConnectionOpenInit,
+	EventTypeConnectionOpenTry:     connectionType.EventTypeConnectionOpenTry,
+	EventTypeConnectionOpenAck:     connectionType.EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm: connectionType.EventTypeConnectionOpenConfirm,
+
+	// channel events
+	EventTypeChannelOpenInit:     channelType.EventTypeChannelOpenInit,
+	EventTypeChannelOpenTry:      channelType.EventTypeChannelOpenTry,
+	EventTypeChannelOpenAck:      channelType.EventTypeChannelOpenAck,
+	EventTypeChannelOpenConfirm:  channelType.EventTypeChannelOpenConfirm,
+	EventTypeChannelCloseInit:    channelType.EventTypeChannelCloseInit,
+	EventTypeChannelCloseConfirm: channelType.EventTypeChannelCloseConfirm,
+}
 
 func MustConvertEventNameToBytes(eventName string) []byte {
 	input, err := hex.DecodeString(eventName)
