@@ -11,11 +11,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	//this import should be letter converted to icon types
 
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/cryptoutils"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/goloop/common/codec"
@@ -97,18 +99,9 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	param := &types.BTPBlockParam{
 		Height:    types.NewHexInt(icp.PCfg.BTPHeight),
-		NetworkId: types.NewHexInt(1),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 	btpHeader, err := icp.client.GetBTPHeader(param)
-	if err != nil {
-		return nil, err
-	}
-	btpProof, err := icp.client.GetBTPProof(param)
-	if err != nil {
-		return nil, err
-	}
-
-	messages, err := icp.client.GetBTPMessage(param)
 	if err != nil {
 		return nil, err
 	}
@@ -117,21 +110,6 @@ func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.
 	rlpBTPHeader, err := base64.StdEncoding.DecodeString(btpHeader)
 	if err != nil {
 		return nil, err
-	}
-
-	rlpProof, err := base64.StdEncoding.DecodeString(btpProof)
-	if err != nil {
-		return nil, err
-	}
-
-	msgs := make([]string, 0)
-	for _, message := range messages {
-		msg, err := base64.StdEncoding.DecodeString(message)
-		if err != nil {
-			zap.Error(err)
-			return nil, err
-		}
-		msgs = append(msgs, string(msg))
 	}
 
 	// rlp to hex
@@ -143,9 +121,7 @@ func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.
 	}
 
 	return &IconIBCHeader{
-		Messages: messages,
-		Header:   &header,
-		Proof:    types.HexBytes(rlpProof),
+		Header: &header,
 	}, nil
 }
 

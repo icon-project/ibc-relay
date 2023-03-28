@@ -3,9 +3,9 @@ package icon
 import (
 	"encoding/hex"
 
-	clientType "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	connectionType "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
-	channelType "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 )
 
@@ -37,14 +37,51 @@ var (
 	EventTypeTimeoutRequest       = "TimeoutRequest()"
 	EventTypePacketTimeout        = "PacketTimeout()"
 )
-var iconEventNameToEventTypeMap = map[string]string{
-	// packet Events
-	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
-	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
-	EventTypeWriteAck:             chantypes.EventTypeWriteAck,
-	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
-	EventTypeTimeoutPacket:        chantypes.EventTypeTimeoutPacket,
-	EventTypeTimeoutPacketOnClose: chantypes.EventTypeTimeoutPacketOnClose,
+
+// var iconEventNameToEventTypeMap = map[string]string{
+// 	// packet Events
+// 	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
+// 	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
+// 	EventTypeWriteAck:             chantypes.EventTypeWriteAck,
+// 	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
+// 	EventTypeTimeoutPacket:        chantypes.EventTypeTimeoutPacket,
+// 	EventTypeTimeoutPacketOnClose: chantypes.EventTypeTimeoutPacketOnClose,
+
+// 	// channel events
+// 	EventTypeChannelOpenInit:     chantypes.EventTypeChannelOpenInit,
+// 	EventTypeChannelOpenTry:      chantypes.EventTypeChannelOpenTry,
+// 	EventTypeChannelOpenAck:      chantypes.EventTypeChannelOpenAck,
+// 	EventTypeChannelOpenConfirm:  chantypes.EventTypeChannelOpenConfirm,
+// 	EventTypeChannelCloseInit:    chantypes.EventTypeChannelCloseInit,
+// 	EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseConfirm,
+// 	EventTypeChannelClosed:       chantypes.EventTypeChannelClosed,
+
+// 	// connection Events
+// 	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
+// 	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
+// 	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
+// 	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
+
+// 	// client Events
+// 	EventTypeCreateClient:          clienttypes.EventTypeCreateClient,
+// 	EventTypeUpdateClient:          clienttypes.EventTypeUpdateClient,
+// 	EventTypeUpgradeClient:         clienttypes.EventTypeUpgradeClient,
+// 	EventTypeSubmitMisbehaviour:    clienttypes.EventTypeSubmitMisbehaviour,
+// 	EventTypeUpdateClientProposal:  clienttypes.EventTypeUpdateClientProposal,
+// 	EventTypeUpgradeChain:          clienttypes.EventTypeUpgradeChain,
+// 	EventTypeUpgradeClientProposal: clienttypes.EventTypeUpgradeClientProposal,
+// }
+
+var IconCosmosEventMap = map[string]string{
+	// client events
+	EventTypeCreateClient: clienttypes.EventTypeCreateClient,
+	EventTypeUpdateClient: clienttypes.EventTypeUpdateClient,
+
+	// connection events
+	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
+	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
+	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
 
 	// channel events
 	EventTypeChannelOpenInit:     chantypes.EventTypeChannelOpenInit,
@@ -53,49 +90,13 @@ var iconEventNameToEventTypeMap = map[string]string{
 	EventTypeChannelOpenConfirm:  chantypes.EventTypeChannelOpenConfirm,
 	EventTypeChannelCloseInit:    chantypes.EventTypeChannelCloseInit,
 	EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseConfirm,
-	EventTypeChannelClosed:       chantypes.EventTypeChannelClosed,
-
-	// connection Events
-	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
-	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
-	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
-	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
-
-	// client Events
-	EventTypeCreateClient:          clientTypes.EventTypeCreateClient,
-	EventTypeUpdateClient:          clientTypes.EventTypeUpdateClient,
-	EventTypeUpgradeClient:         clientTypes.EventTypeUpgradeClient,
-	EventTypeSubmitMisbehaviour:    clientTypes.EventTypeSubmitMisbehaviour,
-	EventTypeUpdateClientProposal:  clientTypes.EventTypeUpdateClientProposal,
-	EventTypeUpgradeChain:          clientTypes.EventTypeUpgradeChain,
-	EventTypeUpgradeClientProposal: clientTypes.EventTypeUpgradeClientProposal,
-}
-
-var IconCosmosEventMap = map[string]string{
-	// client events
-	EventTypeCreateClient: clientType.EventTypeCreateClient,
-	EventTypeUpdateClient: clientType.EventTypeUpdateClient,
-
-	// connection events
-	EventTypeConnectionOpenInit:    connectionType.EventTypeConnectionOpenInit,
-	EventTypeConnectionOpenTry:     connectionType.EventTypeConnectionOpenTry,
-	EventTypeConnectionOpenAck:     connectionType.EventTypeConnectionOpenAck,
-	EventTypeConnectionOpenConfirm: connectionType.EventTypeConnectionOpenConfirm,
-
-	// channel events
-	EventTypeChannelOpenInit:     channelType.EventTypeChannelOpenInit,
-	EventTypeChannelOpenTry:      channelType.EventTypeChannelOpenTry,
-	EventTypeChannelOpenAck:      channelType.EventTypeChannelOpenAck,
-	EventTypeChannelOpenConfirm:  channelType.EventTypeChannelOpenConfirm,
-	EventTypeChannelCloseInit:    channelType.EventTypeChannelCloseInit,
-	EventTypeChannelCloseConfirm: channelType.EventTypeChannelCloseConfirm,
 
 	// packet events
-	EventTypeSendPacket:           channelType.EventTypeSendPacket,
-	EventTypeRecvPacket:           channelType.EventTypeRecvPacket,
-	EventTypeWriteAcknowledgement: channelType.EventTypeWriteAck,
-	EventTypeAcknowledgePacket:    channelType.EventTypeAcknowledgePacket,
-	EventTypePacketTimeout:        channelType.EventTypeTimeoutPacket,
+	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
+	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
+	EventTypeWriteAcknowledgement: chantypes.EventTypeWriteAck,
+	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
+	EventTypePacketTimeout:        chantypes.EventTypeTimeoutPacket,
 }
 
 func MustConvertEventNameToBytes(eventName string) []byte {

@@ -2,9 +2,8 @@ package icon
 
 import (
 	"bytes"
-	"strconv"
-	"strings"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"google.golang.org/protobuf/proto"
@@ -182,7 +181,7 @@ func parseIBCMessageFromEvent(
 }
 
 func getEventTypeFromEventName(eventName string) string {
-	return iconEventNameToEventTypeMap[eventName]
+	return IconCosmosEventMap[eventName]
 }
 
 func GetEventLogSignature(indexed [][]byte) []byte {

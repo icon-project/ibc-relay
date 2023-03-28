@@ -56,6 +56,7 @@ type IconProviderConfig struct {
 	Password          string `json:"password" yaml:"password"`
 	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
 	IbcHandlerAddress string `json:"ibc-handler-address"`
 }
 
@@ -130,7 +131,6 @@ type ValidatorSet struct {
 
 type IconIBCHeader struct {
 	Header *types.BTPBlockHeader
-	// Proof  types.HexBytes
 }
 
 func NewIconIBCHeader(header *types.BTPBlockHeader) *IconIBCHeader {
@@ -725,7 +725,7 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
 		FromAddress: types.Address(icp.wallet.Address().String()),
 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
-		NetworkID:   types.NewHexInt(icp.PCfg.NetworkID),
+		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
 		StepLimit:   types.NewHexInt(int64(defaultStepLimit)),
 		DataType:    "call",
 		Data: types.CallData{
@@ -900,8 +900,8 @@ func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 
 func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	pr := types.BTPBlockParam{
-		Height:       types.NewHexInt(height),
-		BTPNetworkID: types.NewHexInt(icp.PCfg.BTPNetworkID),
+		Height:    types.NewHexInt(height),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
