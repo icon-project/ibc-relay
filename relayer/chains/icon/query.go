@@ -2,15 +2,21 @@ package icon
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
+
+	//this import should be letter converted to icon types
+
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"golang.org/x/sync/errgroup"
+	"github.com/icon-project/goloop/common/codec"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -68,11 +74,64 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 }
 
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
-	return nil, nil
+	param := &types.BTPBlockParam{
+		Height:    types.NewHexInt(icp.PCfg.BTPHeight),
+		NetworkId: types.NewHexInt(1),
+	}
+	btpHeader, err := icp.client.GetBTPHeader(param)
+	if err != nil {
+		return nil, err
+	}
+	btpProof, err := icp.client.GetBTPProof(param)
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := icp.client.GetBTPMessage(param)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert to rlp
+	rlpBTPHeader, err := base64.StdEncoding.DecodeString(btpHeader)
+	if err != nil {
+		return nil, err
+	}
+
+	rlpProof, err := base64.StdEncoding.DecodeString(btpProof)
+	if err != nil {
+		return nil, err
+	}
+
+	msgs := make([]string, 0)
+	for _, message := range messages {
+		msg, err := base64.StdEncoding.DecodeString(message)
+		if err != nil {
+			zap.Error(err)
+			return nil, err
+		}
+		msgs = append(msgs, string(msg))
+	}
+
+	// rlp to hex
+	var header types.BTPBlockHeader
+	_, err = codec.RLP.UnmarshalFromBytes(rlpBTPHeader, &header)
+	if err != nil {
+		zap.Error(err)
+		return nil, err
+	}
+
+	return &IconIBCHeader{
+		Messages: messages,
+		Header:   &header,
+		Proof:    types.HexBytes(rlpProof),
+	}, nil
 }
+
 func (icp *IconProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, nil
 }
+
 func (icp *IconProvider) QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, nil
 }
