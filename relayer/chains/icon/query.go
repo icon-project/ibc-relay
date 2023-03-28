@@ -204,6 +204,7 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 	}
 
 	// TODO: marshal proof using protobuf
+	fmt.Println("Proof of QueryClientConsensusState", proof)
 
 	return &clienttypes.QueryConsensusStateResponse{
 		ConsensusState: any,
@@ -430,6 +431,14 @@ func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, cha
 	// TODO: Get proof and proofheight
 	key := cryptoutils.GetNextSequenceRecvCommitmentKey(portid, channelid)
 	keyHash := cryptoutils.Sha3keccak256(key, []byte(types.NewHexInt(int64(nextSeqRecv))))
+
+	proof, err := icp.QueryIconProof(ctx, height, keyHash)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: marshal proof using protobuf
+	fmt.Println("QueryNextSeqRecv:", proof)
 
 	return &chantypes.QueryNextSequenceReceiveResponse{
 		NextSequenceReceive: nextSeqRecv,
