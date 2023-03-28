@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 
-	chanTypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/gorilla/websocket"
 	"github.com/icon-project/goloop/common"
 
@@ -110,18 +109,18 @@ type TransactionResult struct {
 }
 
 type TransactionParam struct {
-	Version     HexInt      `json:"version" validate:"required,t_int"`
-	FromAddress Address     `json:"from" validate:"required,t_addr_eoa"`
-	ToAddress   Address     `json:"to" validate:"required,t_addr"`
-	Value       HexInt      `json:"value,omitempty" validate:"optional,t_int"`
-	StepLimit   HexInt      `json:"stepLimit" validate:"required,t_int"`
-	Timestamp   HexInt      `json:"timestamp" validate:"required,t_int"`
-	NetworkID   HexInt      `json:"nid" validate:"required,t_int"`
-	Nonce       HexInt      `json:"nonce,omitempty" validate:"optional,t_int"`
-	Signature   string      `json:"signature" validate:"required,t_sig"`
-	DataType    string      `json:"dataType,omitempty" validate:"optional,call|deploy|message"`
-	Data        interface{} `json:"data,omitempty"`
-	TxHash      HexBytes    `json:"-"`
+	Version     HexInt   `json:"version" validate:"required,t_int"`
+	FromAddress Address  `json:"from" validate:"required,t_addr_eoa"`
+	ToAddress   Address  `json:"to" validate:"required,t_addr"`
+	Value       HexInt   `json:"value,omitempty" validate:"optional,t_int"`
+	StepLimit   HexInt   `json:"stepLimit" validate:"required,t_int"`
+	Timestamp   HexInt   `json:"timestamp" validate:"required,t_int"`
+	NetworkID   HexInt   `json:"nid" validate:"required,t_int"`
+	Nonce       HexInt   `json:"nonce,omitempty" validate:"optional,t_int"`
+	Signature   string   `json:"signature" validate:"required,t_sig"`
+	DataType    string   `json:"dataType,omitempty" validate:"optional,call|deploy|message"`
+	Data        CallData `json:"data,omitempty"`
+	TxHash      HexBytes `json:"-"`
 }
 
 type BlockHeaderResult struct {
@@ -152,19 +151,6 @@ type CallData struct {
 type ClientStateParam struct {
 	ClientID string `json:"client_id"`
 	Height   string `json:"height"`
-}
-
-type ClientState struct {
-	ChainId                      string
-	TrustLevel                   Fraction
-	TrustingPeriod               Duration
-	UnbondingPeriod              Duration
-	MaxClockDrift                Duration
-	FrozenHeight                 Height
-	LatestHeight                 Height
-	ProofSpecs                   ProofSpec
-	AllowUpdateAfterExpiry       bool
-	AllowUpdateAfterMisbehaviour bool
 }
 
 type ConsensusState struct {
@@ -202,121 +188,113 @@ type MsgCreateClient struct {
 }
 
 type MsgUpdateClient struct {
-	ClientId      string `json:"clientId"`
-	ClientMessage []byte `json:"clientMessage"`
+	ClientId      string   `json:"clientId"`
+	ClientMessage HexBytes `json:"clientMessage"`
+}
 
 type GenericChannelParam[T MsgChannelOpenInit | MsgChannelOpenTry | MsgChannelOpenAck | MsgChannelOpenConfirm | MsgChannelCloseInit | MsgChannelCloseConfirm] struct {
 	Msg T `json:"msg"`
 }
 
 type MsgChannelCloseConfirm struct {
-	PortId      string
-	ChannelId   string
-	ProofInit   []byte
-	ProofHeight Height
+	PortId      string   `json:"portId"`
+	ChannelId   string   `json:"channelId"`
+	ProofInit   HexBytes `json:"proofInit"`
+	ProofHeight Height   `json:"proofHeight"`
 }
 
 type MsgChannelCloseInit struct {
-	PortId    string
-	ChannelId string
+	PortId    string `json:"portId"`
+	ChannelId string `json:"channelId"`
 }
 
 type MsgChannelOpenAck struct {
-	PortId                string
-	ChannelId             string
-	CounterpartyVersion   string
-	CounterpartyChannelId string
-	ProofTry              []byte
-	ProofHeight           Height
+	PortId                string   `json:"portId"`
+	ChannelId             string   `json:"channelId"`
+	CounterpartyVersion   string   `json:"counterpartyVersion"`
+	CounterpartyChannelId string   `json:"counterpartyChannelId"`
+	ProofTry              HexBytes `json:"proofTry"`
+	ProofHeight           Height   `json:"proofHeight"`
 }
 
 type MsgChannelOpenConfirm struct {
-	PortId      string
-	ChannelId   string
-	ProofAck    []byte
-	ProofHeight Height
+	PortId      string   `json:"portId"`
+	ChannelId   string   `json:"channelId"`
+	ProofAck    HexBytes `json:"proofAck"`
+	ProofHeight Height   `json:"proofHeight"`
 }
 
 type MsgChannelOpenInit struct {
-	PortId  string
-	Channel Channel
+	PortId  string  `json:"portId"`
+	Channel Channel `json:"channel"` // HexBytes
 }
 
 type MsgChannelOpenTry struct {
-	PortId              string
-	PreviousChannelId   string
-	Channel             Channel
-	CounterpartyVersion string
-	ProofInit           []byte
-	ProofHeight         Height
+	PortId              string   `json:"portId"`
+	PreviousChannelId   string   `json:"previousChannelId"`
+	Channel             Channel  `json:"channel"`
+	CounterpartyVersion string   `json:"counterpartyVersion"`
+	ProofInit           HexBytes `json:"proofInit"`
+	ProofHeight         Height   `json:"proofHeight"`
+}
+
 type GenericConnectionParam[T MsgConnectionOpenInit | MsgConnectionOpenTry | MsgConnectionOpenAck | MsgConnectionOpenConfirm] struct {
 	Msg T `json:"msg"`
 }
 
 type MsgConnectionOpenAck struct {
-	ConnectionId             string
-	ClientStateBytes         []byte
-	Version                  Version
-	CounterpartyConnectionID string
-	ProofTry                 []byte
-	ProofClient              []byte
-	ProofConsensus           []byte
-	ProofHeight              Height
-	ConsensusHeight          Height
+	ConnectionId             string   `json:"connectionId"`
+	ClientStateBytes         HexBytes `json:"clientStateBytes"`
+	Version                  Version  `json:"version"`
+	CounterpartyConnectionID string   `json:"counterpartyConnectionId"`
+	ProofTry                 HexBytes `json:"proofTry"`
+	ProofClient              HexBytes `json:"proofClient"`
+	ProofConsensus           HexBytes `json:"proofConsensus"`
+	ProofHeight              Height   `json:"proofHeight"`
+	ConsensusHeight          Height   `json:"consensusHeight"`
 }
 
 type MsgConnectionOpenConfirm struct {
-	ConnectionId string
-	ProofAck     []byte
-	ProofHeight  Height
+	ConnectionId string   `json:"connectionId"`
+	ProofAck     HexBytes `json:"proofAck"`
+	ProofHeight  Height   `json:"proofHeight"`
 }
 
 type MsgConnectionOpenInit struct {
-	ClientId     string
-	Counterparty ConnectionCounterparty
-	DelayPeriod  big.Int
+	ClientId     string                 `json:"clientId"`
+	Counterparty ConnectionCounterparty `json:"counterparty"`
+	DelayPeriod  HexInt                 `json:"delayPeriod"`
 }
 
 type MsgConnectionOpenTry struct {
-	PreviousConnectionId string
-	Counterparty         ConnectionCounterparty
-	DelayPeriod          big.Int
-	ClientId             string
-	ClientStateBytes     []byte
-	CounterpartyVersions []Version
-	ProofInit            []byte
-	ProofClient          []byte
-	ProofConsensus       []byte
-	ProofHeight          Height
-	ConsensusHeight      Height
+	PreviousConnectionId string                 `json:"previousConnectionId"`
+	Counterparty         ConnectionCounterparty `json:"counterparty"`
+	DelayPeriod          HexInt                 `json:"delayPeriod"`
+	ClientId             string                 `json:"clientId"`
+	ClientStateBytes     HexBytes               `json:"clientStateBytes"`
+	CounterpartyVersions []Version              `json:"counterpartyVersion"`
+	ProofInit            HexBytes               `json:"proofInit"`
+	ProofClient          HexBytes               `json:"proofClient"`
+	ProofConsensus       HexBytes               `json:"proofConsensus"`
+	ProofHeight          Height                 `json:"proofHeight"`
+	ConsensusHeight      Height                 `json:"consensusHeight"`
+}
+
 type GenericPacketParams[T MsgPacketRecv | MsgPacketAcknowledgement] struct {
 	Msg T `json:"msg"`
 }
 
 type MsgPacketAcknowledgement struct {
-	Packet          Packet
-	Acknowledgement []byte
-	Proof           []byte
-	ProofHeight     Height
+	Packet          Packet   `json:"packet"`
+	Acknowledgement HexBytes `json:"acknowledgement"`
+	Proof           HexBytes `json:"proof"`
+	ProofHeight     Height   `json:"proofHeight"`
 }
 
 type MsgPacketRecv struct {
-	Packet      Packet
-	Proof       []byte
-	ProofHeight Height
-}
-
-type Version struct {
-	Identifier string
-	Features   []string
-}
-
-type Channel struct {
-	State          chanTypes.State
-	Ordering       chanTypes.Order
-	Counterparty   ChannelCounterparty
-	ConnectionHops []string
-	Version        string
+	Packet      Packet   `json:"packet"`
+	Proof       HexBytes `json:"proof"`
+	ProofHeight Height   `json:"proofHeight"`
 }
 
 type ChannelCounterparty struct {
@@ -328,10 +306,6 @@ type ConnectionCounterparty struct {
 	ClientId     string
 	ConnectionId string
 	Prefix       MerklePrefix
-}
-
-type MerklePrefix struct {
-	KeyPrefix []byte `protobuf:"bytes,1,opt,name=key_prefix,json=keyPrefix,proto3" json:"key_prefix,omitempty" yaml:"key_prefix"`
 }
 
 func NewMerklePrefix(keyPrefix []byte) MerklePrefix {
@@ -633,20 +607,4 @@ type BTPBlockHeader struct {
 	MessageCount           int64
 	MessagesRoot           []byte
 	NextProofContext       []byte
-}
-
-type Packet struct {
-	Sequence           big.Int `json:"sequence"`
-	SourcePort         string  `json:"sourcePort"`
-	SourceChannel      string  `json:"sourceChannel"`
-	DestinationPort    string  `json:"destinationPort"`
-	DestinationChannel string  `json:"destionationChannel"`
-	Data               []byte  `json:"data"`
-	TimeoutHeight      Height  `json:"timeoutHeight"`
-	Timestamp          big.Int `json:"timestamp"`
-}
-
-type Height struct {
-	RevisionNumber big.Int `json:"revisionNumber"`
-	RevisionHeight big.Int `json:"revisionHeight"`
 }
