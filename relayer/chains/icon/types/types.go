@@ -193,10 +193,12 @@ type ProofSpec struct {
 type GenericClientParams[T MsgCreateClient | MsgUpdateClient] struct {
 	Msg T `json:"msg"`
 }
+
 type MsgCreateClient struct {
-	ClientState    []byte `json:"clientState"`
-	ConsensusState []byte `json:"consensusState"`
-	ClientType     string `json:"clientType"`
+	ClientState    HexBytes `json:"clientState"`
+	ConsensusState HexBytes `json:"consensusState"`
+	ClientType     string   `json:"clientType"`
+	BtpNetworkId   HexInt   `json:"btpNetworkId"`
 }
 
 type MsgUpdateClient struct {
