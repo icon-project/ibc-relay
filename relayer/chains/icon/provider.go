@@ -2,6 +2,7 @@ package icon
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"sync"
@@ -53,10 +54,9 @@ type IconProviderConfig struct {
 	Timeout           string `json:"timeout" yaml:"timeout"`
 	Keystore          string `json:"keystore" yaml:"keystore"`
 	Password          string `json:"password" yaml:"password"`
-	NetworkID         int64  `json:"network-id" yaml:"network-id"`
-	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
-	BTPHeight         int64  `json:"start-height" yaml:"start-height"`
+	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	IbcHandlerAddress string `json:"ibc-handler-address"`
 }
 
 func (pp IconProviderConfig) Validate() error {
@@ -90,11 +90,10 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 	}
 
 	return &IconProvider{
-		log:          log.With(zap.String("sys", "chain_client")),
-		client:       NewClient(pp.getRPCAddr(), log),
-		PCfg:         pp,
-		wallet:       wallet,
-		BTPNetworkID: types.NewHexInt(pp.NetworkID),
+		log:    log.With(zap.String("sys", "chain_client")),
+		client: NewClient(pp.getRPCAddr(), log),
+		PCfg:   pp,
+		wallet: wallet,
 	}, nil
 }
 
@@ -111,36 +110,33 @@ func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
 }
 
 type IconProvider struct {
-	log          *zap.Logger
-	PCfg         IconProviderConfig
-	txMu         sync.Mutex
-	client       *Client
-	wallet       module.Wallet
-	metrics      *processor.PrometheusMetrics
-	codec        codec.ProtoCodecMarshaler
-	BTPNetworkID types.HexInt
+	log     *zap.Logger
+	PCfg    IconProviderConfig
+	txMu    sync.Mutex
+	client  *Client
+	wallet  module.Wallet
+	metrics *processor.PrometheusMetrics
+	codec   codec.ProtoCodecMarshaler
 }
 
 type SignedHeader struct {
-	header         types.BTPBlockHeader
-	commitVoteList types.CommitVoteList
+	header     types.BTPBlockHeader
+	signatures []types.HexBytes
 }
 
 type ValidatorSet struct {
-	validators []byte
+	validators []types.HexBytes
 }
 
 type IconIBCHeader struct {
-	Messages []string
-	Header   *types.BTPBlockHeader
-	Proof    types.HexBytes
+	Header *types.BTPBlockHeader
+	// Proof  types.HexBytes
 }
 
-func NewIconIBCHeader(msgs []string, header *types.BTPBlockHeader, proof types.HexBytes) *IconIBCHeader {
+func NewIconIBCHeader(header *types.BTPBlockHeader) *IconIBCHeader {
 	return &IconIBCHeader{
-		Header:   header,
-		Messages: msgs,
-		Proof:    proof,
+		Header: header,
+		// Proof:  proof,
 	}
 }
 
@@ -155,10 +151,6 @@ func (h IconIBCHeader) NextValidatorsHash() []byte {
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-
-	// TODO:
-	// btpBlock timestamp, roothash, Nextvalidatorshash, messageRoothash
-
 	return nil
 }
 
@@ -906,14 +898,23 @@ func (icp *IconProvider) Sprint(toPrint proto.Message) (string, error) {
 	return "", nil
 }
 
-func (icp *IconProvider) GetBtpMessage(height int64) ([]string, error) {
+func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	pr := types.BTPBlockParam{
-		Height:    types.NewHexInt(height),
-		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
+		Height:       types.NewHexInt(height),
+		BTPNetworkID: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
-	mgs, err := icp.client.GetBTPMessage(&pr)
+	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
 		return nil, err
 	}
-	return mgs, nil
+
+	results := make([][]byte, 0)
+	for _, mg := range msgs {
+		m, err := base64.StdEncoding.DecodeString(mg)
+		if err != nil {
+			fmt.Println(err)
+		}
+		results = append(results, m)
+	}
+	return results, nil
 }

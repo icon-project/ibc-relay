@@ -37,6 +37,39 @@ var (
 	EventTypeTimeoutRequest       = "TimeoutRequest()"
 	EventTypePacketTimeout        = "PacketTimeout()"
 )
+var iconEventNameToEventTypeMap = map[string]string{
+	// packet Events
+	EventTypeSendPacket:           chantypes.EventTypeSendPacket,
+	EventTypeRecvPacket:           chantypes.EventTypeRecvPacket,
+	EventTypeWriteAck:             chantypes.EventTypeWriteAck,
+	EventTypeAcknowledgePacket:    chantypes.EventTypeAcknowledgePacket,
+	EventTypeTimeoutPacket:        chantypes.EventTypeTimeoutPacket,
+	EventTypeTimeoutPacketOnClose: chantypes.EventTypeTimeoutPacketOnClose,
+
+	// channel events
+	EventTypeChannelOpenInit:     chantypes.EventTypeChannelOpenInit,
+	EventTypeChannelOpenTry:      chantypes.EventTypeChannelOpenTry,
+	EventTypeChannelOpenAck:      chantypes.EventTypeChannelOpenAck,
+	EventTypeChannelOpenConfirm:  chantypes.EventTypeChannelOpenConfirm,
+	EventTypeChannelCloseInit:    chantypes.EventTypeChannelCloseInit,
+	EventTypeChannelCloseConfirm: chantypes.EventTypeChannelCloseConfirm,
+	EventTypeChannelClosed:       chantypes.EventTypeChannelClosed,
+
+	// connection Events
+	EventTypeConnectionOpenInit:    conntypes.EventTypeConnectionOpenInit,
+	EventTypeConnectionOpenTry:     conntypes.EventTypeConnectionOpenTry,
+	EventTypeConnectionOpenAck:     conntypes.EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm: conntypes.EventTypeConnectionOpenConfirm,
+
+	// client Events
+	EventTypeCreateClient:          clientTypes.EventTypeCreateClient,
+	EventTypeUpdateClient:          clientTypes.EventTypeUpdateClient,
+	EventTypeUpgradeClient:         clientTypes.EventTypeUpgradeClient,
+	EventTypeSubmitMisbehaviour:    clientTypes.EventTypeSubmitMisbehaviour,
+	EventTypeUpdateClientProposal:  clientTypes.EventTypeUpdateClientProposal,
+	EventTypeUpgradeChain:          clientTypes.EventTypeUpgradeChain,
+	EventTypeUpgradeClientProposal: clientTypes.EventTypeUpgradeClientProposal,
+}
 
 var IconCosmosEventMap = map[string]string{
 	// client events

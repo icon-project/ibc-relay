@@ -2,6 +2,8 @@ package icon
 
 import (
 	"bytes"
+	"strconv"
+	"strings"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -12,6 +14,7 @@ import (
 
 type ibcMessage struct {
 	eventType string
+	eventName string
 	info      ibcMessageInfo
 }
 
@@ -97,12 +100,16 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 }
 
 type clientInfo struct {
-	clientID string
+	clientID        string
+	consensusHeight clienttypes.Height
+	header          []byte
 }
 
 func (c clientInfo) ClientState() provider.ClientState {
 	return provider.ClientState{
-		ClientID: c.clientID,
+		ClientID:        c.clientID,
+		ConsensusHeight: c.consensusHeight,
+		Header:          c.header,
 	}
 }
 
@@ -124,17 +131,18 @@ func parseIBCMessageFromEvent(
 	event types.EventLog,
 	height uint64,
 ) *ibcMessage {
-	eventType := string(event.Indexed[0][:])
+	eventName := string(event.Indexed[0][:])
+	eventType := getEventTypeFromEventName(eventName)
 
-	switch eventType {
+	switch eventName {
 	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
 
-		pi := &packetInfo{Height: height}
-		pi.parseAttrs(log, event)
-
+		info := &packetInfo{Height: height}
+		info.parseAttrs(log, event)
 		return &ibcMessage{
-			eventType: eventType,
-			info:      pi,
+			eventType,
+			eventName,
+			info,
 		}
 	case EventTypeChannelOpenInit, EventTypeChannelOpenTry,
 		EventTypeChannelOpenAck, EventTypeConnectionOpenConfirm,
@@ -145,16 +153,17 @@ func parseIBCMessageFromEvent(
 
 		return &ibcMessage{
 			eventType: eventType,
+			eventName: eventName,
 			info:      ci,
 		}
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry,
 		EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-
 		ci := &connectionInfo{Height: height}
 		ci.parseAttrs(log, event)
 
 		return &ibcMessage{
 			eventType: eventType,
+			eventName: eventName,
 			info:      ci,
 		}
 	case EventTypeCreateClient, EventTypeUpdateClient:
@@ -164,11 +173,16 @@ func parseIBCMessageFromEvent(
 
 		return &ibcMessage{
 			eventType: eventType,
+			eventName: eventName,
 			info:      ci,
 		}
 
 	}
 	return nil
+}
+
+func getEventTypeFromEventName(eventName string) string {
+	return iconEventNameToEventTypeMap[eventName]
 }
 
 func GetEventLogSignature(indexed [][]byte) []byte {
