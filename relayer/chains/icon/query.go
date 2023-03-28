@@ -36,7 +36,7 @@ type CallParamOption func(*types.CallParam)
 
 func callParamsWithHeight(height types.HexInt) CallParamOption {
 	return func(cp *types.CallParam) {
-		cp.Data.Height = height
+		cp.Height = height
 	}
 }
 

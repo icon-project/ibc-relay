@@ -146,7 +146,6 @@ type TxResult struct {
 
 type CallData struct {
 	Method string      `json:"method"`
-	Height HexInt      `json:"height,omitempty"`
 	Params interface{} `json:"params,omitempty"`
 }
 
@@ -334,6 +333,7 @@ type CallParam struct {
 	ToAddress   Address   `json:"to" validate:"required,t_addr_score"`
 	DataType    string    `json:"dataType" validate:"required,call"`
 	Data        *CallData `json:"data"`
+	Height      HexInt    `json:"height,omitempty"`
 }
 
 // Added to implement RelayerMessage interface
