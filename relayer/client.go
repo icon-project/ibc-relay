@@ -10,6 +10,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -511,7 +512,7 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 // client identifier.
 func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
-		if event.EventType == clienttypes.EventTypeCreateClient {
+		if event.EventType == clienttypes.EventTypeCreateClient || event.EventType == icon.EventTypeCreateClient {
 			for attributeKey, attributeValue := range event.Attributes {
 				if attributeKey == clienttypes.AttributeKeyClientID {
 					return attributeValue, nil

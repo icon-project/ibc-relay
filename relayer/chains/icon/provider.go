@@ -757,63 +757,63 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 
 	txRes, success, err := icp.SendMessageIcon(ctx, msg)
 	if err != nil {
-		fmt.Printf("tx err: %+v", err)
+		return nil, false, err
 	}
 
-	fmt.Printf("tx result: %+v", txRes)
 	height, err := txRes.BlockHeight.Value()
 	if err != nil {
 		return nil, false, nil
 	}
 
 	var eventLogs []provider.RelayerEvent
-	// events := txRes.EventLogs
-	// for _, event := range events {
-	// 	eventSignature := parseEventName(&zap.Logger{}, event, uint64(height))
-	// 	var evt provider.RelayerEvent
-	// 	switch eventSignature {
-	// 	case EventTypeCreateClient:
-	// 		evt = provider.RelayerEvent{
-	// 			EventType: eventSignature,
-	// 			Attributes: map[string]string{
-	// 				"client": parseIdentifier(event),
-	// 			},
-	// 		}
-	// 	case EventTypeGenerateConnectionIdentifier:
-	// 		connId := parseIdentifier(event)
-	// 		connectionData, err := icp.QueryConnection(ctx, height, connId)
-	// 		if err != nil {
-	// 			return nil, false, err
-	// 		}
+	events := txRes.EventLogs
+	for _, event := range events {
+		event := ToEventLogBytes(event)
+		if event.Addr == types.Address(icp.PCfg.IbcHandlerAddress) {
+			ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, uint64(height))
+			var evt provider.RelayerEvent
+			switch ibcMsg.eventType {
+			case EventTypeCreateClient, EventTypeUpdateClient:
+				evt = provider.RelayerEvent{
+					EventType: ibcMsg.eventType,
+					Attributes: map[string]string{
+						clienttypes.AttributeKeyClientID: ibcMsg.info.(*clientInfo).clientID,
+					},
+				}
+			case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry, EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
+				connAttrs := ibcMsg.info.(*connectionInfo)
+				evt = provider.RelayerEvent{
+					EventType: ibcMsg.eventType,
+					Attributes: map[string]string{
+						conntypes.AttributeKeyConnectionID:             connAttrs.ConnID,
+						conntypes.AttributeKeyClientID:                 connAttrs.ClientID,
+						conntypes.AttributeKeyCounterpartyClientID:     connAttrs.CounterpartyClientID,
+						conntypes.AttributeKeyCounterpartyConnectionID: connAttrs.CounterpartyConnID,
+					},
+				}
+			case EventTypeChannelOpenInit, EventTypeChannelOpenTry, EventTypeChannelOpenAck, EventTypeChannelOpenConfirm, EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
+				channelAttrs := ibcMsg.info.(*channelInfo)
+				evt = provider.RelayerEvent{
+					EventType: ibcMsg.eventType,
+					Attributes: map[string]string{
+						chantypes.AttributeKeyPortID:             channelAttrs.PortID,
+						chantypes.AttributeKeyChannelID:          channelAttrs.ChannelID,
+						chantypes.AttributeCounterpartyPortID:    channelAttrs.CounterpartyPortID,
+						chantypes.AttributeCounterpartyChannelID: channelAttrs.CounterpartyChannelID,
+						chantypes.AttributeKeyConnectionID:       channelAttrs.ConnID,
+					},
+				}
+			case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
+				// packetArres := ibcMsg.info.(*packetInfo)
+				evt = provider.RelayerEvent{
+					EventType:  ibcMsg.eventType,
+					Attributes: make(map[string]string),
+				}
+			}
 
-	// 		evt = provider.RelayerEvent{
-	// 			EventType: eventSignature,
-	// 			Attributes: map[string]string{
-	// 				"connID":               connId,
-	// 				"height":               fmt.Sprintf("%d", height),
-	// 				"clientID":             connectionData.Connection.ClientId,
-	// 				"counterpartyClientID": connectionData.Connection.Counterparty.ClientId,
-	// 				"counterpartyConnID":   connectionData.Connection.Counterparty.ConnectionId,
-	// 			},
-	// 		}
-	// 	case EventTypeGenerateClientIdentifier:
-	// 		channelId := parseIdentifier(event)
-	// 		channelData, err := icp.QueryChannel(ctx, height, channelId, "xcall") // todo: port id
-	// 		if err != nil {
-	// 			return nil, false, err
-	// 		}
-	// 		evt = provider.RelayerEvent{
-	// 			EventType: eventSignature,
-	// 			Attributes: map[string]string{
-	// 				"channelID":             channelId,
-	// 				"portId":                "port",
-	// 				"counterpartyChannelId": channelData.Channel.Counterparty.ChannelId,
-	// 				"counterpartyPortdId":   channelData.Channel.Counterparty.PortId,
-	// 			},
-	// 		}
-	// 	}
-	// 	eventLogs = append(eventLogs, evt)
-	// }
+			eventLogs = append(eventLogs, evt)
+		}
+	}
 
 	status, err := txRes.Status.Int()
 

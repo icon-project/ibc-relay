@@ -3,6 +3,7 @@ package icon
 import (
 	"encoding/hex"
 
+	clientType "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	connectionType "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	channelType "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
@@ -11,7 +12,7 @@ import (
 // Events
 var (
 	// Client Events
-	EventTypeCreateClient = "CreateClient(str)"
+	EventTypeCreateClient = "CreateClient(str,bytes)"
 	EventTypeUpdateClient = "UpdateClient(str)"
 
 	// Connection Events
@@ -38,6 +39,10 @@ var (
 )
 
 var IconCosmosEventMap = map[string]string{
+	// client events
+	EventTypeCreateClient: clientType.EventTypeCreateClient,
+	EventTypeUpdateClient: clientType.EventTypeUpdateClient,
+
 	// connection events
 	EventTypeConnectionOpenInit:    connectionType.EventTypeConnectionOpenInit,
 	EventTypeConnectionOpenTry:     connectionType.EventTypeConnectionOpenTry,
@@ -51,6 +56,13 @@ var IconCosmosEventMap = map[string]string{
 	EventTypeChannelOpenConfirm:  channelType.EventTypeChannelOpenConfirm,
 	EventTypeChannelCloseInit:    channelType.EventTypeChannelCloseInit,
 	EventTypeChannelCloseConfirm: channelType.EventTypeChannelCloseConfirm,
+
+	// packet events
+	EventTypeSendPacket:           channelType.EventTypeSendPacket,
+	EventTypeRecvPacket:           channelType.EventTypeRecvPacket,
+	EventTypeWriteAcknowledgement: channelType.EventTypeWriteAck,
+	EventTypeAcknowledgePacket:    channelType.EventTypeAcknowledgePacket,
+	EventTypePacketTimeout:        channelType.EventTypeTimeoutPacket,
 }
 
 func MustConvertEventNameToBytes(eventName string) []byte {
