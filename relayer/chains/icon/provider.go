@@ -57,7 +57,7 @@ type IconProviderConfig struct {
 	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
 	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
-	IbcHandlerAddress string `json:"ibc-handler-address"`
+	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 }
 
 func (pp IconProviderConfig) Validate() error {
@@ -745,7 +745,7 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 		Hash: txParam.TxHash,
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	txResult, err := icp.client.GetTransactionResult(txResParams)
 	if err != nil {
