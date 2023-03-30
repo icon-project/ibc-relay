@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// EventType: EquivalentIBCEvent
+// EventName: IconEventLogSignature
 type ibcMessage struct {
 	eventType string
 	eventName string

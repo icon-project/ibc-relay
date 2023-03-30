@@ -512,7 +512,7 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 // client identifier.
 func parseClientIDFromEvents(events []provider.RelayerEvent) (string, error) {
 	for _, event := range events {
-		if event.EventType == clienttypes.EventTypeCreateClient || event.EventType == icon.EventTypeCreateClient {
+		if event.EventType == clienttypes.EventTypeCreateClient {
 			for attributeKey, attributeValue := range event.Attributes {
 				if attributeKey == clienttypes.AttributeKeyClientID {
 					return attributeValue, nil

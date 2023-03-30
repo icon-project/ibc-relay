@@ -151,12 +151,11 @@ func (h IconIBCHeader) NextValidatorsHash() []byte {
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return nil
+	consensusState := &types.ConsensusState{
+		MessageRoot: h.Header.MessagesRoot,
+	}
+	return consensusState
 }
-
-func (h *IconIBCHeader) Reset()         { *h = IconIBCHeader{} }
-func (h *IconIBCHeader) String() string { return proto.CompactTextString(h) }
-func (*IconIBCHeader) ProtoMessage()    {}
 
 //ChainProvider Methods
 
@@ -789,7 +788,7 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 		if event.Addr == types.Address(icp.PCfg.IbcHandlerAddress) {
 			ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, uint64(height))
 			var evt provider.RelayerEvent
-			switch ibcMsg.eventType {
+			switch ibcMsg.eventName {
 			case EventTypeCreateClient, EventTypeUpdateClient:
 				evt = provider.RelayerEvent{
 					EventType: ibcMsg.eventType,
