@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/ibc-go/modules/core/exported"
 )
 
-func TestClientState(t *testing.T) {
+func TestExportedClientState(t *testing.T) {
 	var clS exported.ClientState
 	fmt.Println(clS.ClientType())
 }
