@@ -64,7 +64,7 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 		},
 		TimeoutTimestamp: msgTransfer.TimeoutTimestamp,
 	}
-	pktEncode, err := icp.codec.MarshalInterface(pkt)
+	pktEncode, err := proto.Marshal(pkt)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 		TimeoutTimestamp: msgRecvPacket.TimeoutTimestamp,
 	}
 
-	pktEncode, err := icp.codec.MarshalInterface(pkt)
+	pktEncode, err := proto.Marshal(pkt)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 		RevisionNumber: proofAcked.ProofHeight.RevisionNumber,
 		RevisionHeight: proofAcked.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -143,34 +143,11 @@ func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pro
 		ClientId:     info.CounterpartyClientID,
 		ConnectionId: info.CounterpartyConnID,
 	}
-	ccEncode, err := icp.codec.MarshalJSON(cc)
+	ccEncode, err := proto.Marshal(cc)
 	if err != nil {
 		return nil, err
 	}
 
-	msg := types.MsgConnectionOpenInit{
-		ClientId:     info.ClientID,
-		Counterparty: types.NewHexBytes(ccEncode),
-		DelayPeriod:  defaultDelayPeriod,
-	}
-
-	connectionOpenMsg := &types.GenericConnectionParam[types.MsgConnectionOpenInit]{
-		Msg: msg,
-	}
-	return NewIconMessage(connectionOpenMsg, MethodConnectionOpenInit), nil
-}
-
-func (icp *IconProvider) MsgConnectionOpenInitTxt(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	fmt.Println("Connection Open Init---")
-	cc := &types.Counterparty{
-		ClientId:     info.CounterpartyClientID,
-		ConnectionId: info.CounterpartyConnID,
-		Prefix:       &defaultChainPrefix,
-	}
-	ccEncode, err := icp.codec.MarshalInterface(cc)
-	if err != nil {
-		return nil, err
-	}
 	msg := types.MsgConnectionOpenInit{
 		ClientId:     info.ClientID,
 		Counterparty: types.NewHexBytes(ccEncode),
@@ -189,7 +166,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		ConnectionId: msgOpenInit.ConnID,
 		Prefix:       &types.MerklePrefix{KeyPrefix: []byte("ibc")},
 	}
-	ccEncode, err := icp.codec.MarshalInterface(cc)
+	ccEncode, err := proto.Marshal(cc)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +179,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -211,12 +188,12 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
-	consHtEncode, err := icp.codec.MarshalInterface(consHt)
+	consHtEncode, err := proto.Marshal(consHt)
 	if err != nil {
 		return nil, err
 	}
 
-	versionEnc, err := icp.codec.MarshalInterface(DefaultIBCVersion)
+	versionEnc, err := proto.Marshal(DefaultIBCVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +229,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -261,12 +238,12 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
-	consHtEncode, err := icp.codec.MarshalInterface(consHt)
+	consHtEncode, err := proto.Marshal(consHt)
 	if err != nil {
 		return nil, err
 	}
 
-	versionEnc, err := icp.codec.MarshalInterface(DefaultIBCVersion)
+	versionEnc, err := proto.Marshal(DefaultIBCVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +270,7 @@ func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connection
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +313,7 @@ func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pro
 		ConnectionHops: []string{info.ConnID},
 		Version:        info.Version,
 	}
-	channelEncode, err := icp.codec.MarshalInterface(channel)
+	channelEncode, err := proto.Marshal(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +340,7 @@ func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pro
 		Version:        proof.Version,
 	}
 
-	channeEncode, err := icp.codec.MarshalInterface(channel)
+	channeEncode, err := proto.Marshal(channel)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +367,7 @@ func (icp *IconProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proo
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +390,7 @@ func (icp *IconProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, 
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
@@ -446,7 +423,7 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
-	htEncode, err := icp.codec.MarshalInterface(ht)
+	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
