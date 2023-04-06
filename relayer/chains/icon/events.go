@@ -16,26 +16,26 @@ var (
 	EventTypeUpdateClient = "UpdateClient(str)"
 
 	// Connection Events
-	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str)"
-	EventTypeConnectionOpenTry     = "ConnectionOpenTry(str)"
-	EventTypeConnectionOpenAck     = "ConnectionOpenAck(str)"
-	EventTypeConnectionOpenConfirm = "ConnectionOpenConfirm(str)"
+	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str,str,bytes)"
+	EventTypeConnectionOpenTry     = "ConnectionOpenTry(str,str,bytes)"
+	EventTypeConnectionOpenAck     = "ConnectionOpenAck(str,bytes)"
+	EventTypeConnectionOpenConfirm = "ConnectionOpenConfirm(str,bytes)"
 
 	// Channel Events
-	EventTypeChannelOpenInit     = "ChannelOpenInit(str)"
-	EventTypeChannelOpenTry      = "ChannelOpenTry(str)"
-	EventTypeChannelOpenAck      = "ChannelOpenAck(str)"
-	EventTypeChannelOpenConfirm  = "ChannelOpenConfirm(str)"
-	EventTypeChannelCloseInit    = "ChannelCloseInit(str)"
-	EventTypeChannelCloseConfirm = "ChannelCloseConfirm(str)"
+	EventTypeChannelOpenInit     = "ChannelOpenInit(str,str,bytes)"
+	EventTypeChannelOpenTry      = "ChannelOpenTry(str,str,bytes)"
+	EventTypeChannelOpenAck      = "ChannelOpenAck(str,str,bytes)"
+	EventTypeChannelOpenConfirm  = "ChannelOpenConfirm(str,str,bytes)"
+	EventTypeChannelCloseInit    = "ChannelCloseInit(str,str,bytes)"
+	EventTypeChannelCloseConfirm = "ChannelCloseConfirm(str,str,bytes)"
 
 	// Packet Events
-	EventTypeSendPacket           = "SendPacket()"
-	EventTypeRecvPacket           = "RecvPacket()"
-	EventTypeWriteAcknowledgement = "WriteAcknowledgement()"
-	EventTypeAcknowledgePacket    = "AcknowledgePacket()"
-	EventTypeTimeoutRequest       = "TimeoutRequest()"
-	EventTypePacketTimeout        = "PacketTimeout()"
+	EventTypeSendPacket           = "SendPacket(bytes)"
+	EventTypeRecvPacket           = "RecvPacket(bytes)"
+	EventTypeWriteAcknowledgement = "WriteAcknowledgement(str,str,int,bytes)"
+	EventTypeAcknowledgePacket    = "AcknowledgePacket(bytes,bytes)"
+	EventTypeTimeoutRequest       = "TimeoutRequest(bytes)"
+	EventTypePacketTimeout        = "PacketTimeout(bytes)"
 )
 
 // var iconEventNameToEventTypeMap = map[string]string{
@@ -116,8 +116,8 @@ func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 
 	data := make([][]byte, 0)
 
-	for _, d := range evt.Indexed {
-		indexed = append(indexed, []byte(d))
+	for _, d := range evt.Data {
+		data = append(data, []byte(d))
 	}
 
 	return types.EventLog{
@@ -137,6 +137,7 @@ func GetMonitorEventFilters(address string) []*types.EventFilter {
 
 	eventArr := []string{
 		EventTypeSendPacket,
+		EventTypeConnectionOpenInit,
 		// EventTypeRecvPacket,
 		// EventTypeWriteAck,
 		// EventTypeAcknowledgePacket,
