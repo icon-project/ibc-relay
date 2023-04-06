@@ -26,6 +26,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	// integration_types "github.com/icon-project/ibc-integration/libraries/go/common/icon"
 )
 
 var (
@@ -137,7 +138,6 @@ type IconIBCHeader struct {
 func NewIconIBCHeader(header *types.BTPBlockHeader) *IconIBCHeader {
 	return &IconIBCHeader{
 		Header: header,
-		// Proof:  proof,
 	}
 }
 
@@ -146,11 +146,15 @@ func (h IconIBCHeader) Height() uint64 {
 }
 
 func (h IconIBCHeader) NextValidatorsHash() []byte {
-	// TODO: Not implemented
-	return nil
+
+	// nextproofcontext hash is the nextvalidatorHash in BtpHeader
+	return h.Header.NextProofContextHash
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	// return &imports.ConsensusState{
+	// 	MessageRoot: h.Header.MessagesRoot,
+	// }
 	return nil
 }
 
@@ -390,11 +394,32 @@ func (icp *IconProvider) SendMessagesToMempool(
 	ctx context.Context,
 	msgs []provider.RelayerMessage,
 	memo string,
-
 	asyncCtx context.Context,
 	asyncCallback func(*provider.RelayerTxResponse, error),
 ) error {
-	return fmt.Errorf("Error")
+	fmt.Println("mempool segment", len(msgs))
+	if len(msgs) == 0 {
+		icp.log.Info("Length of Messages is empty ")
+		return nil
+	}
+
+	fmt.Println("this issssssssssss ")
+	for _, msg := range msgs {
+		fmt.Println("check the messagessssssss", msg)
+		if msg != nil {
+			op, _ := msg.MsgBytes()
+			fmt.Println("this is the message bytes ", op)
+			_, bool, err := icp.SendMessage(ctx, msg, memo)
+			if err != nil {
+				fmt.Println(" there is some errro in packet xx ")
+			}
+			if !bool {
+				fmt.Println("error when Executing transaction")
+			}
+		}
+	}
+
+	return nil
 }
 
 func (icp *IconProvider) ChainName() string {
@@ -414,7 +439,7 @@ func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
 }
 
 func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.MerklePrefix{}
+	return commitmenttypes.NewMerklePrefix([]byte("ibc"))
 }
 
 func (icp *IconProvider) Key() string {
@@ -461,4 +486,18 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 		results = append(results, m)
 	}
 	return results, nil
+}
+
+func (icp *IconProvider) GetBtpHeader(p *types.BTPBlockParam) (*types.BTPBlockHeader, error) {
+	var header types.BTPBlockHeader
+	encoded, err := icp.client.GetBTPHeader(p)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(encoded, &header)
+	if err != nil {
+		return nil, err
+	}
+	return &header, nil
 }
