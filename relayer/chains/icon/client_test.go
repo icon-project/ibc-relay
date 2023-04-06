@@ -10,6 +10,8 @@ import (
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 )
 
@@ -37,12 +39,21 @@ func getTestWallet() (module.Wallet, error) {
 	return wallet, nil
 }
 
+func TestClientSetup(t *testing.T) {
+	l := zap.Logger{}
+	i := NewClient("https://ctz.solidwallet.io/api/v3", &l)
+
+	hash := "0x5306e343d648250f0567e9b549d3c03430aa0ab5a80dffc944cb0db3dbe4ed74"
+	param := &types.TransactionHashParam{Hash: types.HexBytes(hash)}
+	res, err := i.GetTransactionResult(param)
+	require.NoError(t, err)
+	assert.Equal(t, types.HexInt("0x1"), res.Status)
+}
+
 func TestTransaction(t *testing.T) {
 
 	c := NewTestClient()
 
-	// ksf := "~/keystore/god_wallet.json"
-	// kpass := "gochain"
 	rpcWallet, err := getTestWallet()
 	if err != nil {
 		fmt.Println(err)
@@ -52,17 +63,16 @@ func TestTransaction(t *testing.T) {
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-		FromAddress: types.Address(rpcWallet.Address().Bytes()),
+		FromAddress: types.Address(rpcWallet.Address().String()),
 		ToAddress:   types.Address("cx6e24351b49133f2337a01c968cb864958ffadce8"),
 		Timestamp:   types.NewHexInt(time.Now().UnixNano() / int64(time.Microsecond)),
 		NetworkID:   types.NewHexInt(2),
 		StepLimit:   types.NewHexInt(int64(1000000000)),
 		DataType:    "call",
+		Data: types.CallData{
+			Method: "sendEvent",
+		},
 	}
-
-	argMap := map[string]interface{}{}
-	argMap["method"] = "sendEvent"
-	txParam.Data = argMap
 
 	err = c.SignTransaction(rpcWallet, txParam)
 	if err != nil {
@@ -84,6 +94,7 @@ func TestTransaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	assert.Equal(t, types.HexInt("0x1"), finalOp.Status)
 
 	t.Log(finalOp)
 
@@ -112,6 +123,8 @@ func TestCallFunction(t *testing.T) {
 		t.Fatal((err))
 		return
 	}
+
+	assert.Equal(t, types.HexBytes("Handler"), op)
 
 	t.Log(op)
 
