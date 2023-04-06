@@ -168,6 +168,38 @@ func (icp *IconProvider) Codec() codec.ProtoCodecMarshaler {
 	return icp.codec
 }
 
+// TODO: Remove later
+func (icp *IconProvider) NewClientStateMock(
+	dstChainID string,
+	dstUpdateHeader provider.IBCHeader,
+	dstTrustingPeriod,
+	dstUbdPeriod time.Duration,
+	allowUpdateAfterExpiry,
+	allowUpdateAfterMisbehaviour bool,
+) (ibcexported.ClientState, error) {
+
+	return &itm.ClientState{
+		ChainId: dstChainID,
+		TrustLevel: &itm.Fraction{
+			Numerator:   2,
+			Denominator: 3,
+		},
+		TrustingPeriod: &itm.Duration{
+			Seconds: int64(dstTrustingPeriod),
+		},
+		UnbondingPeriod: &itm.Duration{
+			Seconds: int64(dstUbdPeriod),
+		},
+		MaxClockDrift: &itm.Duration{
+			Seconds: int64(time.Minute) * 20,
+		},
+		FrozenHeight:                 0,
+		LatestHeight:                 int64(dstUpdateHeader.Height()),
+		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
+		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
+	}, nil
+}
+
 func (icp *IconProvider) NewClientState(
 	dstChainID string,
 	dstUpdateHeader provider.IBCHeader,
