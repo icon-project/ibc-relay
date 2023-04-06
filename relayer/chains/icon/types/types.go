@@ -578,6 +578,16 @@ const (
 // 	Value []byte
 // }
 
+type BTPQueryParam struct {
+	Height HexInt `json:"height,omitempty" validate:"optional,t_int"`
+	Id     HexInt `json:"id" validate:"required,t_int"`
+}
+
+type BTPNetworkTypeInfo struct {
+	NetworkTypeName  string   `json:"networkTypeName"`
+	NextProofContext HexBytes `json:"nextProofContext"`
+	OpenNetworkIDs   []HexInt `json:"openNetworkIDs"`
+	NetworkTypeID    HexInt   `json:"networkTypeID"`
 func (m *ConsensusState) ClientType() string {
 	return ""
 }

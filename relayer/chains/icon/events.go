@@ -2,6 +2,7 @@ package icon
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -135,12 +136,15 @@ func GetMonitorEventFilters(address string) []*types.EventFilter {
 		return filters
 	}
 
+	fmt.Println("checkkkkkkkkk", address)
+
 	eventArr := []string{
 		EventTypeSendPacket,
+		EventTypeAcknowledgePacket,
 		EventTypeConnectionOpenInit,
-		// EventTypeRecvPacket,
-		// EventTypeWriteAck,
-		// EventTypeAcknowledgePacket,
+		EventTypeConnectionOpenTry,
+		EventTypeConnectionOpenAck,
+		EventTypeConnectionOpenConfirm,
 	}
 
 	for _, event := range eventArr {

@@ -1,6 +1,9 @@
 package icon
 
 import (
+	"encoding/base64"
+	"fmt"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/db"
@@ -25,4 +28,17 @@ func MptProve(key types.HexInt, proofs [][]byte, hash []byte) ([]byte, error) {
 
 	}
 	return trie, nil
+}
+
+func Base64ToData(encoded string, v interface{}) ([]byte, error) {
+	if encoded == "" {
+		return nil, fmt.Errorf("Encoded string is empty ")
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, err
+	}
+
+	return codec.RLP.UnmarshalFromBytes(decoded, v)
 }

@@ -3,16 +3,16 @@ package icon
 import (
 	"container/heap"
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -43,10 +43,9 @@ type IconChainProcessor struct {
 
 	inSync bool
 
-	//highest block
-	latestBlock provider.LatestBlock
+	latestBlock   provider.LatestBlock
+	latestBlockMu sync.Mutex
 
-	//
 	latestClientState
 
 	// holds open state for known connections
@@ -63,6 +62,19 @@ type IconChainProcessor struct {
 
 	// metrics to monitor lifetime of processor
 	metrics *processor.PrometheusMetrics
+}
+
+func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
+	return &IconChainProcessor{
+		log:                  log.With(zap.String("chain_name", "Icon")),
+		chainProvider:        provider,
+		latestClientState:    make(latestClientState),
+		connectionStateCache: make(processor.ConnectionStateCache),
+		channelStateCache:    make(processor.ChannelStateCache),
+		connectionClients:    make(map[string]string),
+		channelConnections:   make(map[string]string),
+		metrics:              metrics,
+	}
 }
 
 // Arrangement For the Latest height
@@ -92,7 +104,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ic
 	l[clientInfo.clientID] = clientState
 }
 
-// Implementing the Priority queue interface for BlockNotification
+// ********************************* Priority queue interface for BlockNotification *********************************
 type BlockNotificationPriorityQueue []*types.BlockNotification
 
 func (pq BlockNotificationPriorityQueue) Len() int { return len(pq) }
@@ -119,28 +131,22 @@ func (pq *BlockNotificationPriorityQueue) Pop() interface{} {
 	return item
 }
 
-// For persistence
+// ************************************************** For persistence **************************************************
 type queryCyclePersistence struct {
-	latestHeight      int64
-	lastQueriedHeight int64
-}
+	latestHeight int64
+	// latestHeightMu sync.Mutex
 
-func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
-	return &IconChainProcessor{
-		log:                  log.With(zap.String("chain_name", "Icon")),
-		chainProvider:        provider,
-		latestClientState:    make(latestClientState),
-		connectionStateCache: make(processor.ConnectionStateCache),
-		channelStateCache:    make(processor.ChannelStateCache),
-		connectionClients:    make(map[string]string),
-		channelConnections:   make(map[string]string),
-		metrics:              metrics,
-	}
+	lastQueriedHeight int64
+	// latestQueriedHeightMu sync.Mutex
+
+	minQueryLoopDuration time.Duration
 }
 
 func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 
-	persistence := queryCyclePersistence{}
+	persistence := queryCyclePersistence{
+		minQueryLoopDuration: time.Second,
+	}
 
 	height, err := icp.getLatestHeightWithRetry(ctx)
 	if err != nil {
@@ -170,7 +176,7 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	}
 
 	// start_query_cycle
-	icp.log.Debug("Entering main query loop")
+	icp.log.Debug(" **************** Entering main query loop **************** ")
 	err = icp.monitoring(ctx, persistence)
 	return err
 }
@@ -199,31 +205,65 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 
 func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence queryCyclePersistence) error {
 
-	// chan
+	// chans
 	btpBlockReceived := make(chan IconIBCHeader, BTP_MESSAGE_CHAN_CAPACITY)
 	incomingEventsBN := make(chan *types.BlockNotification, INCOMING_BN_CAPACITY)
 	monitorErr := make(chan error, ERROR_CAPACITY)
-	chainID := icp.chainProvider.ChainId()
-
-	// caches
-	ibcHeaderCache := make(processor.IBCHeaderCache)
-	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	//checking handlerAddress
 	if icp.chainProvider.PCfg.IbcHandlerAddress == "" || icp.chainProvider.PCfg.BTPNetworkID == 0 {
-		return errors.New("IbcHandlerAddress is not provided")
+		return errors.New("IbcHandlerAddress or NetworkId is not provided")
+	}
+
+	ibcHeaderCache := make(processor.IBCHeaderCache)
+
+	header := &types.BTPBlockHeader{}
+	if err := retry.Do(func() error {
+		var err error
+		header, err = icp.chainProvider.GetBtpHeader(&types.BTPBlockParam{
+			Height:    types.NewHexInt(icp.chainProvider.PCfg.BTPHeight),
+			NetworkId: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
+		})
+		if err != nil {
+			return err
+		}
+
+		icp.inSync = true
+
+		return nil
+	}, retry.Context(ctx), retry.OnRetry(func(n uint, err error) {
+		icp.log.Info(
+			"Failed to get header",
+			zap.String("ChainName", icp.chainProvider.ChainId()),
+			zap.Int64("Height", icp.chainProvider.PCfg.BTPHeight),
+			zap.Int64("Network Id", icp.chainProvider.PCfg.BTPNetworkID),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return err
+	}
+
+	// initialize the pathProcessor
+	ibcHeader := NewIconIBCHeader(header)
+	ibcHeaderCache[uint64(header.MainHeight)] = ibcHeader
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+	err := icp.handlePathProcessorUpdate(ctx, ibcHeader, ibcMessagesCache, ibcHeaderCache.Clone())
+	if err != nil {
+		return err
 	}
 
 	// request parameters
 	reqBTPBlocks := &types.BTPRequest{
-		Height:    types.NewHexInt((persistence.lastQueriedHeight)),
+		Height:    types.NewHexInt(icp.chainProvider.PCfg.BTPHeight),
 		NetworkID: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
 		ProofFlag: types.NewHexInt(0),
 	}
 	reqIconBlocks := &types.BlockRequest{
-		Height:       types.NewHexInt(int64(persistence.lastQueriedHeight)),
+		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.BTPHeight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
+
+	// initalize the processors
 
 	// Create the priority queue and initialize it.
 	incomingEventsQueue := &BlockNotificationPriorityQueue{}
@@ -235,6 +275,10 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 	// Start monitoring Icon blocks for eventlogs
 	go icp.monitorIconBlock(ctx, reqIconBlocks, incomingEventsBN, monitorErr)
 
+	// ticker
+	ticker := time.NewTicker(persistence.minQueryLoopDuration)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -245,16 +289,17 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 		case err := <-monitorErr:
 			return err
 		case h := <-btpBlockReceived:
+			fmt.Println("Stored the header to the ibcheaderCache", h)
 			ibcHeaderCache[h.Height()] = &h
 
 		case incomingBN := <-incomingEventsBN:
-
 			// Add the incoming block notification to the priority queue.
 			heap.Push(incomingEventsQueue, incomingBN)
 
-		default:
+		case <-ticker.C:
 			// Process the block notifications from the priority queue.
 			for incomingEventsQueue.Len() > 0 {
+				ibcMessagesCache := processor.NewIBCMessagesCache()
 				incomingBN := heap.Pop(incomingEventsQueue).(*types.BlockNotification)
 				h, _ := (incomingBN.Height).Int()
 				header, ok := ibcHeaderCache[uint64(h)]
@@ -264,7 +309,10 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 					// Break the loop and wait for the missing header.
 					break
 				}
+				// persistence.latestQueriedHeightMu.Lock()
 				persistence.lastQueriedHeight = int64(header.Height())
+				// persistence.latestQueriedHeightMu.Unlock()
+
 				ibcMessages, err := icp.handleBlockEventRequest(incomingBN)
 				if err != nil {
 					icp.log.Error(
@@ -276,27 +324,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 					icp.handleMessage(ctx, *m, ibcMessagesCache)
 				}
 
-				for _, pp := range icp.pathProcessors {
-					clientID := pp.RelevantClientID(chainID)
-					clientState, err := icp.clientState(ctx, clientID)
-					if err != nil {
-						icp.log.Error("Error fetching client state",
-							zap.String("client_id", clientID),
-							zap.Error(err),
-						)
-						continue
-					}
-					pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
-						LatestBlock:          icp.latestBlock,
-						LatestHeader:         ibcHeaderCache[uint64(h)],
-						IBCMessagesCache:     ibcMessagesCache.Clone(),
-						InSync:               true,
-						ClientState:          clientState,
-						ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
-						ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
-						IBCHeaderCache:       ibcHeaderCache.Clone(),
-					})
-				}
+				icp.handlePathProcessorUpdate(ctx, header, ibcMessagesCache, ibcHeaderCache.Clone())
 			}
 
 		}
@@ -304,18 +332,45 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence query
 	}
 }
 
+func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
+	latestHeader provider.IBCHeader, messageCache processor.IBCMessagesCache,
+	ibcHeaderCache processor.IBCHeaderCache) error {
+	chainID := icp.chainProvider.ChainId()
+
+	for _, pp := range icp.pathProcessors {
+		clientID := pp.RelevantClientID(chainID)
+		clientState, err := icp.clientState(ctx, clientID)
+		if err != nil {
+			icp.log.Error("Error fetching client state",
+				zap.String("client_id", clientID),
+				zap.Error(err),
+			)
+			continue
+		}
+		// fmt.Printf("check the value %v \n", ibcHeaderCache[uint64(h)].NextValidatorsHash())
+		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+			LatestBlock:          icp.latestBlock,
+			LatestHeader:         latestHeader,
+			IBCMessagesCache:     messageCache,
+			InSync:               icp.inSync,
+			ClientState:          clientState,
+			ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
+			ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
+			IBCHeaderCache:       ibcHeaderCache,
+		})
+	}
+	return nil
+
+}
+
 func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.BTPRequest, receiverChan chan IconIBCHeader, errChan chan error) {
 
 	go func() {
 		err := icp.chainProvider.client.MonitorBTP(ctx, req, func(conn *websocket.Conn, v *types.BTPNotification) error {
 
-			h, err := base64.StdEncoding.DecodeString(v.Header)
-			if err != nil {
-				return err
-			}
-
 			bh := &types.BTPBlockHeader{}
-			if _, err = codec.RLP.UnmarshalFromBytes(h, bh); err != nil {
+			_, err := Base64ToData(v.Header, bh)
+			if err != nil {
 				return err
 			}
 
