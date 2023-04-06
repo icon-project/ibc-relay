@@ -577,3 +577,15 @@ const (
 // 	Dir   Dir
 // 	Value []byte
 // }
+
+func (m *ConsensusState) ClientType() string {
+	return ""
+}
+
+func (m *ConsensusState) GetTimestamp() uint64 {
+	return 0
+}
+
+func (m *ConsensusState) ValidateBasic() error {
+	return nil
+}
