@@ -155,12 +155,6 @@ type ClientStateParam struct {
 	Height   string `json:"height"`
 }
 
-type ConsensusState struct {
-	Timestamp          Duration
-	Root               MerkleRoot
-	NextValidatorsHash []byte
-}
-
 type MerkleRoot struct {
 	Hash []byte
 }
@@ -579,7 +573,7 @@ const (
 	DirRight
 )
 
-type MerkleNode struct {
-	Dir   Dir
-	Value []byte
-}
+// type MerkleNode struct {
+// 	Dir   Dir
+// 	Value []byte
+// }

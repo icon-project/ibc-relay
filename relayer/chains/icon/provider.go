@@ -151,10 +151,7 @@ func (h IconIBCHeader) NextValidatorsHash() []byte {
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	consensusState := &types.ConsensusState{
-		MessageRoot: h.Header.MessagesRoot,
-	}
-	return consensusState
+	return nil
 }
 
 //ChainProvider Methods
