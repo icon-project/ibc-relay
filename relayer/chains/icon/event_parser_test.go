@@ -1,34 +1,32 @@
 package icon
 
-// import (
-// 	"context"
-// 	"encoding/hex"
-// 	"fmt"
-// 	"math/big"
-// 	"strings"
-// 	"sync"
-// 	"testing"
-// 	"time"
+import (
+	"context"
+	"encoding/hex"
+	"fmt"
+	"sync"
+	"testing"
+	"time"
 
-// 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-// 	"github.com/gorilla/websocket"
-// 	"github.com/stretchr/testify/assert"
-// 	"github.com/stretchr/testify/require"
-// 	"go.uber.org/zap"
-// )
+	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/gorilla/websocket"
+	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+)
 
-// // func TestPrint(t *testing.T) {
-// // 	hash := "0x5306e343d648250f0567e9b549d3c03430aa0ab5a80dffc944cb0db3dbe4ed74"
-// // 	param := jsonrpc.HexBytes(hash)
-// // 	res, _ := EventFromTransaction(types.HexBytes(param))
-// // 	fmt.Printf("%+v", res)
-// // }
+// func TestPrint(t *testing.T) {
+// 	hash := "0x5306e343d648250f0567e9b549d3c03430aa0ab5a80dffc944cb0db3dbe4ed74"
+// 	param := jsonrpc.HexBytes(hash)
+// 	res, _ := EventFromTransaction(types.HexBytes(param))
+// 	fmt.Printf("%+v", res)
+// }
 
-// // func TestEventFormat(t *testing.T) {
-// // 	hash := "0xee01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c6840098967f028463f40509"
-// // 	param := jsonrpc.HexBytes(hash)
-// // 	fmt.Printf("%+v", param)
-// // }
+// func TestEventFormat(t *testing.T) {
+// 	hash := "0xee01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c6840098967f028463f40509"
+// 	param := jsonrpc.HexBytes(hash)
+// 	fmt.Printf("%+v", param)
+// }
 
 // func TestParseIBCMessageFromEvent(t *testing.T) {
 // 	eventSignature := []byte{83, 101, 110, 100, 80, 97, 99, 107, 101, 116, 40, 98, 121, 116, 101, 115, 41}
@@ -44,9 +42,43 @@ package icon
 // 	}
 // 	msg := parseIBCMessageFromEvent(&zap.Logger{}, *event, 9_999_999)
 // 	ibcMessage := *msg
-// 	assert.Equal(t, EventTypeSendPacket, ibcMessage.eventType)
+// 	// assert.Equal(t, EventTypeSendPacket, ibcMessage.eventType)
 // 	assert.NotNil(t, ibcMessage.info)
 // }
+
+func TestParseEvent(t *testing.T) {
+	eventData := "0a0f30372d74656e6465726d696e742d34120261611a050a03696263"
+	filtered, _ := hex.DecodeString(eventData)
+
+	p := &types.Counterparty{}
+	err := proto.Unmarshal(filtered, p)
+	if err != nil {
+		fmt.Println(err)
+	}
+	assert.NoError(t, err)
+	assert.Equal(t, "07-tendermint-4", p.ClientId)
+}
+
+func TestConnectionOpenInit(t *testing.T) {
+	evt := types.EventLogStr{
+		Addr:    types.Address("cx8123b80f58f2b7a38764f6defa31cf60cc9060b4"),
+		Indexed: []string{EventTypeConnectionOpenInit, "30372d74656e6465726d696e742d30"},
+		Data:    []string{"636f6e6e656374696f6e2d30", "0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d301a050a03696263"},
+	}
+
+	cp := &types.Counterparty{
+		ClientId:     "07-tendermint-0",
+		ConnectionId: "connection-0",
+		Prefix:       &types.MerklePrefix{},
+	}
+
+	event := ToEventLogBytes(evt)
+
+	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, 0)
+	connAttrs := ibcMsg.info.(*connectionInfo)
+	assert.Equal(t, cp.ClientId, connAttrs.ClientID)
+	assert.Equal(t, cp.ConnectionId, connAttrs.ConnID)
+}
 
 // func TestDecode(t *testing.T) {
 // 	eventData := "0xef01857863616c6c896368616e6e656c2d30857863616c6c896368616e6e656c2d3180c4028207458705f6f94412638d"
@@ -70,92 +102,70 @@ package icon
 // 	assert.Equal(t, expected, packet)
 // }
 
-// func TestClientSetup(t *testing.T) {
-// 	provider := IconProviderConfig{
-// 		Key:               "icon",
-// 		ChainName:         "icon",
-// 		ChainID:           "0x1",
-// 		RPCAddr:           "https://ctz.solidwallet.io/api/v3",
-// 		Timeout:           "0",
-// 		IbcHandlerAddress: "cx997849d3920d338ed81800833fbb270c785e743d",
-// 	}
-// 	l := zap.Logger{}
-// 	ip, e := provider.NewProvider(&l, "icon", true, "icon")
-// 	i := ip.(*IconProvider)
+func TestMonitorEvents(t *testing.T) {
+	provider := IconProviderConfig{
+		Key:               "icon",
+		ChainName:         "icon",
+		ChainID:           "0x1",
+		RPCAddr:           "https://ctz.solidwallet.io/api/v3",
+		Timeout:           "0",
+		IbcHandlerAddress: "cx997849d3920d338ed81800833fbb270c785e743d",
+	}
+	l := zap.Logger{}
+	ip, _ := provider.NewProvider(&l, "icon", true, "icon")
+	i := ip.(*IconProvider)
 
-// 	require.NoError(t, e)
-// 	hash := "0x5306e343d648250f0567e9b549d3c03430aa0ab5a80dffc944cb0db3dbe4ed74"
-// 	param := &types.TransactionHashParam{Hash: types.HexBytes(hash)}
-// 	res, err := i.client.GetTransactionResult(param)
-// 	fmt.Println(res.EventLogs)
-// 	require.NoError(t, err)
-// 	assert.Equal(t, types.HexInt("0x1"), res.Status)
-// }
+	const height int64 = 59489570
 
-// func TestMonitorEvents(t *testing.T) {
-// 	provider := IconProviderConfig{
-// 		Key:               "icon",
-// 		ChainName:         "icon",
-// 		ChainID:           "0x1",
-// 		RPCAddr:           "https://ctz.solidwallet.io/api/v3",
-// 		Timeout:           "0",
-// 		IbcHandlerAddress: "cx997849d3920d338ed81800833fbb270c785e743d",
-// 	}
-// 	l := zap.Logger{}
-// 	ip, _ := provider.NewProvider(&l, "icon", true, "icon")
-// 	i := ip.(*IconProvider)
+	t.Log("test")
+	blockReq := &types.BlockRequest{
+		EventFilters: []*types.EventFilter{{
+			// Addr: types.Address(CONTRACT_ADDRESS),
+			Signature: EventTypeSendPacket,
+			// Indexed:   []*string{&dstAddr},
+		}},
+		Height: types.NewHexInt(height),
+	}
+	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
 
-// 	const height int64 = 59489570
+	h, s := int(height), 0
+	var wg sync.WaitGroup
 
-// 	t.Log("test")
-// 	blockReq := &types.BlockRequest{
-// 		EventFilters: []*types.EventFilter{{
-// 			// Addr: types.Address(CONTRACT_ADDRESS),
-// 			Signature: EventTypeSendPacket,
-// 			// Indexed:   []*string{&dstAddr},
-// 		}},
-// 		Height: types.NewHexInt(height),
-// 	}
-// 	ctx := context.Background()
-// 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-// 	defer cancel()
+	wg.Add(1)
 
-// 	h, s := int(height), 0
-// 	var wg sync.WaitGroup
+	go func() {
+		defer wg.Done()
+		t.Log("height")
 
-// 	wg.Add(1)
+		err := i.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
+			t.Log("height")
 
-// 	go func() {
-// 		defer wg.Done()
-// 		t.Log("height")
+			_h, _ := v.Height.Int()
 
-// 		err := i.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
-// 			t.Log("height")
+			if _h != h {
+				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
+				l.Warn(err.Error())
+				return err
+			}
+			h++
+			s++
 
-// 			_h, _ := v.Height.Int()
+			return nil
+		},
+			func(conn *websocket.Conn) {
+				l.Info("Connected")
+			},
+			func(conn *websocket.Conn, err error) {
+				l.Info("Disconnected")
+				_ = conn.Close()
+			})
+		if err.Error() == "context deadline exceeded" {
+			return
+		}
+	}()
 
-// 			if _h != h {
-// 				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
-// 				l.Warn(err.Error())
-// 				return err
-// 			}
-// 			h++
-// 			s++
+	wg.Wait()
 
-// 			return nil
-// 		},
-// 			func(conn *websocket.Conn) {
-// 				l.Info("Connected")
-// 			},
-// 			func(conn *websocket.Conn, err error) {
-// 				l.Info("Disconnected")
-// 				_ = conn.Close()
-// 			})
-// 		if err.Error() == "context deadline exceeded" {
-// 			return
-// 		}
-// 	}()
-
-// 	wg.Wait()
-
-// }
+}

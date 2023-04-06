@@ -2,11 +2,13 @@ package icon
 
 import (
 	"bytes"
+	"encoding/hex"
+	"strings"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"google.golang.org/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 
 	"go.uber.org/zap"
 )
@@ -28,10 +30,9 @@ type packetInfo provider.PacketInfo
 func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	eventType := GetEventLogSignature(event.Indexed)
 	packetData := event.Indexed[1]
-	packet, err := _parsePacket(packetData)
-	if err != nil {
-		log.Error("Error parsing packet", zap.ByteString("value", packetData))
-		return
+	var packet types.Packet
+	if err := proto.Unmarshal(packetData, &packet); err != nil {
+		log.Error("failed to unmarshal packet")
 	}
 	pi.SourcePort = packet.SourcePort
 	pi.SourceChannel = packet.SourceChannel
@@ -52,17 +53,16 @@ type channelInfo provider.ChannelInfo
 
 func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 
-	// the required data are not in Indexed. Placeholders for now
-
-	ch.PortID = string(event.Indexed[1][:])
-	ch.ChannelID = string(event.Indexed[2][:])
+	ch.PortID = filter(event.Indexed[1])
+	ch.ChannelID = filter(event.Indexed[2])
 
 	protoChannel := event.Data[0]
 	var channel types.Channel
 
 	if err := proto.Unmarshal(protoChannel, &channel); err != nil {
-		panic("")
+		log.Error("Error decoding channel")
 	}
+
 	ch.CounterpartyChannelID = channel.Counterparty.GetChannelId()
 	ch.CounterpartyPortID = channel.Counterparty.GetPortId()
 	ch.ConnID = "" // get connection from eventlog
@@ -73,27 +73,33 @@ type connectionInfo provider.ConnectionInfo
 
 func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	eventLog := parseEventName(log, event, 0)
-
 	switch eventLog {
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry:
-		co.ClientID = string(event.Indexed[1])
-		co.ConnID = string(event.Data[0])
-		protoCounterparty := event.Data[1]
+		co.ClientID = filter(event.Indexed[1])
+		co.ConnID = filter(event.Data[0])
+
+		protoCounterparty_ := strings.TrimPrefix(string(event.Data[1]), "0x")
+		protoCounterparty, _ := hex.DecodeString(protoCounterparty_)
 
 		var counterparty types.Counterparty
 		if err := proto.Unmarshal(protoCounterparty, &counterparty); err != nil {
-			panic("Fail to unmarshal")
+			log.Error("Error decoding counterparty")
 		}
+
 		co.CounterpartyClientID = counterparty.GetClientId()
 		co.CounterpartyConnID = counterparty.GetConnectionId()
 
 	case EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-		co.ConnID = string(event.Indexed[0])
-		protoConnection := event.Data[0]
+		co.ConnID = filter(event.Indexed[0])
+
+		protoConnection_ := strings.TrimPrefix(string(event.Data[0]), "0x")
+		protoConnection, _ := hex.DecodeString(protoConnection_)
+
 		var connection types.ConnectionEnd
 		if err := proto.Unmarshal(protoConnection, &connection); err != nil {
-			panic("Fail to unmarshal")
+			log.Error("Error decoding connectionEnd")
 		}
+
 		co.ClientID = connection.GetClientId()
 		co.CounterpartyClientID = connection.Counterparty.ClientId
 		co.CounterpartyConnID = connection.Counterparty.ConnectionId
@@ -114,7 +120,6 @@ func (c clientInfo) ClientState() provider.ClientState {
 	}
 }
 
-// eventType_signature  ,rlpPacket
 func (cl *clientInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	clientId := event.Indexed[1]
 	cl.clientID = string(clientId[:])
@@ -190,10 +195,7 @@ func GetEventLogSignature(indexed [][]byte) []byte {
 	return indexed[0][:]
 }
 
-func _parsePacket(pkt []byte) (*types.Packet, error) {
-	var p types.Packet
-	if err := proto.Unmarshal(pkt, &p); err != nil {
-		return nil, err
-	}
-	return &p, nil
+func filter(x []byte) string {
+	i, _ := hex.DecodeString(strings.TrimPrefix(string(x), "0x"))
+	return string(i)
 }
