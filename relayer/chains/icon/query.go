@@ -54,7 +54,7 @@ func (icp *IconProvider) prepareCallParams(methodName string, param map[string]i
 	}
 
 	callParam := &types.CallParam{
-		FromAddress: types.NewAddress(make([]byte, 0)),
+		FromAddress: types.NewAddress(icp.wallet.Address().Bytes()),
 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
 		DataType:    "call",
 		Data:        callData,
