@@ -34,4 +34,8 @@ const (
 	MethodGetClientConsensusState = "getClientConsensusState"
 	MethodGetConsensusState       = "getConsensusState"
 	MethodGetQueryConnection      = "getConnection"
+
+	MethodGetNextClientSequence     = "getNextClientSequence"
+	MethodGetNextChannelSequence    = "getNextChannelSequence"
+	MethodGetNextConnectionSequence = "getNextConnectionSequence"
 )
