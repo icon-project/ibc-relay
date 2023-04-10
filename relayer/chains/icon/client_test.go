@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
@@ -140,7 +141,7 @@ func TestGetTransaction(t *testing.T) {
 		return
 	}
 
-	var p types.Packet
+	var p icon.Packet
 	packetByte, err := types.HexBytes(op.EventLogs[0].Indexed[1]).Value()
 	if err != nil {
 		t.Fatal(err)

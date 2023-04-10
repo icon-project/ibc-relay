@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	itm "github.com/cosmos/relayer/v2/relayer/chains/icon/tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
+	itm "github.com/cosmos/relayer/v2/relayer/chains/icon/types/tendermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/goloop/common/wallet"
@@ -42,7 +43,7 @@ var (
 
 	DefaultIBCVersionIdentifier = "1"
 
-	DefaultIBCVersion = &types.Version{
+	DefaultIBCVersion = &icon.Version{
 		Identifier: DefaultIBCVersionIdentifier,
 		Features:   []string{"ORDER_ORDERED", "ORDER_UNORDERED"},
 	}
@@ -152,7 +153,7 @@ func (h IconIBCHeader) NextValidatorsHash() []byte {
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return &types.ConsensusState{
+	return &icon.ConsensusState{
 		MessageRoot: h.Header.MessagesRoot,
 	}
 }

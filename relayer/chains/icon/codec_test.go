@@ -5,24 +5,24 @@ import (
 	"testing"
 
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCodec(t *testing.T) {
 
-	counterparty := &types.Counterparty{
+	counterparty := &icon.Counterparty{
 		ClientId:     "07-tendermint-0",
 		ConnectionId: "connection-0",
-		Prefix:       &types.MerklePrefix{},
+		Prefix:       &icon.MerklePrefix{},
 	}
 
 	byt, e := proto.Marshal(counterparty)
 	assert.NoError(t, e)
 	assert.NotNil(t, byt)
 
-	var co types.Counterparty
+	var co icon.Counterparty
 	e = proto.Unmarshal(byt, &co)
 	assert.NoError(t, e)
 	assert.Equal(t, counterparty, &co)

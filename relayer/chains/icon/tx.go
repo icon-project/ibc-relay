@@ -10,6 +10,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
@@ -52,13 +53,13 @@ func (icp *IconProvider) MsgUpgradeClient(srcClientId string, consRes *clienttyp
 }
 
 func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
-	pkt := &types.Packet{
+	pkt := &icon.Packet{
 		Sequence:           msgTransfer.Sequence,
 		SourcePort:         msgTransfer.SourcePort,
 		SourceChannel:      msgTransfer.SourceChannel,
 		DestinationPort:    msgTransfer.DestPort,
 		DestinationChannel: msgTransfer.DestChannel,
-		TimeoutHeight: &types.Height{
+		TimeoutHeight: &icon.Height{
 			RevisionNumber: msgTransfer.TimeoutHeight.RevisionNumber,
 			RevisionHeight: msgTransfer.TimeoutHeight.RevisionHeight,
 		},
@@ -69,7 +70,7 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 		return nil, err
 	}
 
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -91,13 +92,13 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 }
 
 func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proofAcked provider.PacketProof) (provider.RelayerMessage, error) {
-	pkt := &types.Packet{
+	pkt := &icon.Packet{
 		Sequence:           msgRecvPacket.Sequence,
 		SourcePort:         msgRecvPacket.SourcePort,
 		SourceChannel:      msgRecvPacket.SourceChannel,
 		DestinationPort:    msgRecvPacket.DestPort,
 		DestinationChannel: msgRecvPacket.DestChannel,
-		TimeoutHeight: &types.Height{
+		TimeoutHeight: &icon.Height{
 			RevisionNumber: msgRecvPacket.TimeoutHeight.RevisionNumber,
 			RevisionHeight: msgRecvPacket.TimeoutHeight.RevisionHeight,
 		},
@@ -108,7 +109,7 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 	if err != nil {
 		return nil, err
 	}
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proofAcked.ProofHeight.RevisionNumber,
 		RevisionHeight: proofAcked.ProofHeight.RevisionHeight,
 	}
@@ -139,7 +140,7 @@ func (icp *IconProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proo
 
 func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 	fmt.Println("Connection Open Init---")
-	cc := &types.Counterparty{
+	cc := &icon.Counterparty{
 		ClientId:     info.CounterpartyClientID,
 		ConnectionId: info.CounterpartyConnID,
 	}
@@ -161,21 +162,21 @@ func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pro
 }
 
 func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	cc := &types.Counterparty{
+	cc := &icon.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       &types.MerklePrefix{KeyPrefix: []byte("ibc")},
+		Prefix:       &icon.MerklePrefix{KeyPrefix: []byte("ibc")},
 	}
 	ccEncode, err := proto.Marshal(cc)
 	if err != nil {
 		return nil, err
 	}
-	csAny, err := clienttypes.PackClientState(proof.ClientState)
+	clientStateEncode, err := proto.Marshal(proof.ClientState)
 	if err != nil {
 		return nil, err
 	}
 
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -184,7 +185,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		return nil, err
 	}
 
-	consHt := &types.Height{
+	consHt := &icon.Height{
 		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
@@ -201,7 +202,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	msg := types.MsgConnectionOpenTry{
 		ClientId:             msgOpenInit.CounterpartyClientID,
 		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
-		ClientStateBytes:     types.NewHexBytes(csAny.Value),
+		ClientStateBytes:     types.NewHexBytes(clientStateEncode),
 		Counterparty:         types.NewHexBytes(ccEncode),
 		DelayPeriod:          defaultDelayPeriod,
 		CounterpartyVersions: []types.HexBytes{types.NewHexBytes(versionEnc)},
@@ -220,12 +221,12 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 
-	csAny, err := clienttypes.PackClientState(proof.ClientState)
+	clientStateEncode, err := proto.Marshal(proof.ClientState)
 	if err != nil {
 		return nil, err
 	}
 
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -234,7 +235,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		return nil, err
 	}
 
-	consHt := &types.Height{
+	consHt := &icon.Height{
 		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
@@ -250,7 +251,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 
 	msg := types.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
-		ClientStateBytes:         types.NewHexBytes(csAny.GetValue()), // TODO
+		ClientStateBytes:         types.NewHexBytes(clientStateEncode), // TODO
 		Version:                  types.NewHexBytes(versionEnc),
 		CounterpartyConnectionID: msgOpenTry.ConnID,
 		ProofTry:                 types.NewHexBytes(proof.ConnectionStateProof),
@@ -266,7 +267,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 }
 
 func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -303,10 +304,10 @@ func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelI
 }
 
 func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	channel := &types.Channel{
-		State:    types.Channel_STATE_UNINITIALIZED_UNSPECIFIED,
-		Ordering: types.Channel_ORDER_ORDERED,
-		Counterparty: &types.Channel_Counterparty{
+	channel := &icon.Channel{
+		State:    icon.Channel_STATE_UNINITIALIZED_UNSPECIFIED,
+		Ordering: icon.Channel_ORDER_ORDERED,
+		Counterparty: &icon.Channel_Counterparty{
 			PortId:    info.CounterpartyPortID,
 			ChannelId: "",
 		},
@@ -329,10 +330,10 @@ func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pro
 }
 
 func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	channel := &types.Channel{
-		State:    types.Channel_STATE_TRYOPEN,
-		Ordering: types.Channel_ORDER_ORDERED,
-		Counterparty: &types.Channel_Counterparty{
+	channel := &icon.Channel{
+		State:    icon.Channel_STATE_TRYOPEN,
+		Ordering: icon.Channel_ORDER_ORDERED,
+		Counterparty: &icon.Channel_Counterparty{
 			PortId:    msgOpenInit.PortID,
 			ChannelId: msgOpenInit.ChannelID,
 		},
@@ -344,16 +345,17 @@ func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pro
 	if err != nil {
 		return nil, err
 	}
+	htEncode, err := proto.Marshal(&proof.ProofHeight)
+	if err != nil {
+		return nil, err
+	}
 	msg := types.MsgChannelOpenTry{
 		PortId:              msgOpenInit.CounterpartyPortID,
 		PreviousChannelId:   msgOpenInit.CounterpartyChannelID,
 		Channel:             types.NewHexBytes(channeEncode),
 		CounterpartyVersion: proof.Version,
 		ProofInit:           types.NewHexBytes(proof.Proof),
-		ProofHeight: types.Height{
-			RevisionNumber: proof.ProofHeight.RevisionNumber,
-			RevisionHeight: proof.ProofHeight.RevisionHeight,
-		},
+		ProofHeight:         types.NewHexBytes(htEncode),
 	}
 
 	channelOpenTryMsg := &types.GenericChannelParam[types.MsgChannelOpenTry]{
@@ -363,7 +365,7 @@ func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pro
 }
 
 func (icp *IconProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -386,7 +388,7 @@ func (icp *IconProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proo
 }
 
 func (icp *IconProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -419,7 +421,7 @@ func (icp *IconProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof pr
 }
 
 func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
-	ht := &types.Height{
+	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
 		RevisionHeight: proof.ProofHeight.RevisionHeight,
 	}
@@ -455,7 +457,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 	return nil, nil
 	// return &IconIBCHeader{
 	// 	header: latestIconHeader.header,
-	// 	trustedHeight: types.Height{
+	// 	trustedHeight: icon.Height{
 	// 		RevisionNumber: *big.NewInt(int64(trustedHeight.RevisionNumber)),
 	// 		RevisionHeight: *big.NewInt(int64(trustedHeight.RevisionHeight)),
 	// 	},
@@ -465,13 +467,13 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 }
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	clientMsg, err := clienttypes.PackClientMessage(counterpartyHeader)
-	if err != nil {
-		return nil, err
-	}
+	// clientMsg, err := proto.Marshal(counterpartyHeader)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	msg := types.MsgUpdateClient{
 		ClientId:      clientID,
-		ClientMessage: types.NewHexBytes(clientMsg.GetValue()),
+		ClientMessage: types.NewHexBytes([]byte("0x1")),
 	}
 	updateClientMsg := &types.GenericClientParams[types.MsgUpdateClient]{
 		Msg: msg,

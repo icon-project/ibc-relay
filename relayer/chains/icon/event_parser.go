@@ -7,6 +7,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gogo/protobuf/proto"
 
@@ -30,7 +31,7 @@ type packetInfo provider.PacketInfo
 func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	eventType := GetEventLogSignature(event.Indexed)
 	packetData := event.Indexed[1]
-	var packet types.Packet
+	var packet icon.Packet
 	if err := proto.Unmarshal(packetData, &packet); err != nil {
 		log.Error("failed to unmarshal packet")
 	}
@@ -57,7 +58,7 @@ func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	ch.ChannelID = filter(event.Indexed[2])
 
 	protoChannel := event.Data[0]
-	var channel types.Channel
+	var channel icon.Channel
 
 	if err := proto.Unmarshal(protoChannel, &channel); err != nil {
 		log.Error("Error decoding channel")
@@ -80,8 +81,8 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 
 		protoCounterparty_ := strings.TrimPrefix(string(event.Data[1]), "0x")
 		protoCounterparty, _ := hex.DecodeString(protoCounterparty_)
+		var counterparty icon.Counterparty
 
-		var counterparty types.Counterparty
 		if err := proto.Unmarshal(protoCounterparty, &counterparty); err != nil {
 			log.Error("Error decoding counterparty")
 		}
@@ -95,7 +96,7 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		protoConnection_ := strings.TrimPrefix(string(event.Data[0]), "0x")
 		protoConnection, _ := hex.DecodeString(protoConnection_)
 
-		var connection types.ConnectionEnd
+		var connection icon.ConnectionEnd
 		if err := proto.Unmarshal(protoConnection, &connection); err != nil {
 			log.Error("Error decoding connectionEnd")
 		}

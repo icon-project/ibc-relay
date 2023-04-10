@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/gorilla/websocket"
 	"github.com/icon-project/goloop/common"
 
@@ -231,7 +232,7 @@ type MsgChannelOpenTry struct {
 	Channel             HexBytes `json:"channel"`
 	CounterpartyVersion string   `json:"counterpartyVersion"`
 	ProofInit           HexBytes `json:"proofInit"`
-	ProofHeight         Height   `json:"proofHeight"`
+	ProofHeight         HexBytes `json:"proofHeight"`
 }
 
 type GenericConnectionParam[T MsgConnectionOpenInit | MsgConnectionOpenTry | MsgConnectionOpenAck | MsgConnectionOpenConfirm] struct {
@@ -301,11 +302,11 @@ type ChannelCounterparty struct {
 type ConnectionCounterparty struct {
 	ClientId     string
 	ConnectionId string
-	Prefix       MerklePrefix
+	Prefix       icon.MerklePrefix
 }
 
-func NewMerklePrefix(keyPrefix []byte) MerklePrefix {
-	return MerklePrefix{
+func NewMerklePrefix(keyPrefix []byte) icon.MerklePrefix {
+	return icon.MerklePrefix{
 		KeyPrefix: keyPrefix,
 	}
 }
@@ -557,7 +558,7 @@ type BTPBlockHeader struct {
 	MainHeight             int64
 	Round                  int32
 	NextProofContextHash   []byte
-	NetworkSectionToRoot   []MerkleNode
+	NetworkSectionToRoot   []icon.MerkleNode
 	NetworkID              int64
 	UpdateNumber           int64
 	PrevNetworkSectionHash []byte
@@ -588,14 +589,4 @@ type BTPNetworkTypeInfo struct {
 	NextProofContext HexBytes `json:"nextProofContext"`
 	OpenNetworkIDs   []HexInt `json:"openNetworkIDs"`
 	NetworkTypeID    HexInt   `json:"networkTypeID"`
-func (m *ConsensusState) ClientType() string {
-	return ""
-}
-
-func (m *ConsensusState) GetTimestamp() uint64 {
-	return 0
-}
-
-func (m *ConsensusState) ValidateBasic() error {
-	return nil
 }

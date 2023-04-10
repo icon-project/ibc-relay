@@ -10,6 +10,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -50,7 +51,7 @@ func TestParseEvent(t *testing.T) {
 	eventData := "0a0f30372d74656e6465726d696e742d34120261611a050a03696263"
 	filtered, _ := hex.DecodeString(eventData)
 
-	p := &types.Counterparty{}
+	p := &icon.Counterparty{}
 	err := proto.Unmarshal(filtered, p)
 	if err != nil {
 		fmt.Println(err)
