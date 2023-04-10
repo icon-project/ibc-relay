@@ -533,50 +533,52 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 	var eventLogs []provider.RelayerEvent
 	events := txRes.EventLogs
 	for _, event := range events {
-		event := ToEventLogBytes(event)
-		if event.Addr == types.Address(icp.PCfg.IbcHandlerAddress) {
-			ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, uint64(height))
-			var evt provider.RelayerEvent
-			switch ibcMsg.eventName {
-			case EventTypeCreateClient, EventTypeUpdateClient:
-				evt = provider.RelayerEvent{
-					EventType: ibcMsg.eventType,
-					Attributes: map[string]string{
-						clienttypes.AttributeKeyClientID: ibcMsg.info.(*clientInfo).clientID,
-					},
+		if IconCosmosEventMap[event.Indexed[0]] != "" {
+			event := ToEventLogBytes(event)
+			if event.Addr == types.Address(icp.PCfg.IbcHandlerAddress) {
+				ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, uint64(height))
+				var evt provider.RelayerEvent
+				switch ibcMsg.eventName {
+				case EventTypeCreateClient, EventTypeUpdateClient:
+					evt = provider.RelayerEvent{
+						EventType: ibcMsg.eventType,
+						Attributes: map[string]string{
+							clienttypes.AttributeKeyClientID: ibcMsg.info.(*clientInfo).clientID,
+						},
+					}
+				case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry, EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
+					connAttrs := ibcMsg.info.(*connectionInfo)
+					evt = provider.RelayerEvent{
+						EventType: ibcMsg.eventType,
+						Attributes: map[string]string{
+							conntypes.AttributeKeyConnectionID:             connAttrs.ConnID,
+							conntypes.AttributeKeyClientID:                 connAttrs.ClientID,
+							conntypes.AttributeKeyCounterpartyClientID:     connAttrs.CounterpartyClientID,
+							conntypes.AttributeKeyCounterpartyConnectionID: connAttrs.CounterpartyConnID,
+						},
+					}
+				case EventTypeChannelOpenInit, EventTypeChannelOpenTry, EventTypeChannelOpenAck, EventTypeChannelOpenConfirm, EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
+					channelAttrs := ibcMsg.info.(*channelInfo)
+					evt = provider.RelayerEvent{
+						EventType: ibcMsg.eventType,
+						Attributes: map[string]string{
+							chantypes.AttributeKeyPortID:             channelAttrs.PortID,
+							chantypes.AttributeKeyChannelID:          channelAttrs.ChannelID,
+							chantypes.AttributeCounterpartyPortID:    channelAttrs.CounterpartyPortID,
+							chantypes.AttributeCounterpartyChannelID: channelAttrs.CounterpartyChannelID,
+							chantypes.AttributeKeyConnectionID:       channelAttrs.ConnID,
+						},
+					}
+				case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
+					// packetArres := ibcMsg.info.(*packetInfo)
+					evt = provider.RelayerEvent{
+						EventType:  ibcMsg.eventType,
+						Attributes: make(map[string]string),
+					}
 				}
-			case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry, EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-				connAttrs := ibcMsg.info.(*connectionInfo)
-				evt = provider.RelayerEvent{
-					EventType: ibcMsg.eventType,
-					Attributes: map[string]string{
-						conntypes.AttributeKeyConnectionID:             connAttrs.ConnID,
-						conntypes.AttributeKeyClientID:                 connAttrs.ClientID,
-						conntypes.AttributeKeyCounterpartyClientID:     connAttrs.CounterpartyClientID,
-						conntypes.AttributeKeyCounterpartyConnectionID: connAttrs.CounterpartyConnID,
-					},
-				}
-			case EventTypeChannelOpenInit, EventTypeChannelOpenTry, EventTypeChannelOpenAck, EventTypeChannelOpenConfirm, EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
-				channelAttrs := ibcMsg.info.(*channelInfo)
-				evt = provider.RelayerEvent{
-					EventType: ibcMsg.eventType,
-					Attributes: map[string]string{
-						chantypes.AttributeKeyPortID:             channelAttrs.PortID,
-						chantypes.AttributeKeyChannelID:          channelAttrs.ChannelID,
-						chantypes.AttributeCounterpartyPortID:    channelAttrs.CounterpartyPortID,
-						chantypes.AttributeCounterpartyChannelID: channelAttrs.CounterpartyChannelID,
-						chantypes.AttributeKeyConnectionID:       channelAttrs.ConnID,
-					},
-				}
-			case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
-				// packetArres := ibcMsg.info.(*packetInfo)
-				evt = provider.RelayerEvent{
-					EventType:  ibcMsg.eventType,
-					Attributes: make(map[string]string),
-				}
-			}
 
-			eventLogs = append(eventLogs, evt)
+				eventLogs = append(eventLogs, evt)
+			}
 		}
 	}
 
