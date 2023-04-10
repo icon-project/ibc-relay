@@ -54,8 +54,8 @@ type channelInfo provider.ChannelInfo
 
 func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 
-	ch.PortID = filter(event.Indexed[1])
-	ch.ChannelID = filter(event.Indexed[2])
+	ch.PortID = string(event.Indexed[1])
+	ch.ChannelID = string(event.Indexed[2])
 
 	protoChannel := event.Data[0]
 	var channel icon.Channel
@@ -76,11 +76,11 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	eventLog := parseEventName(log, event, 0)
 	switch eventLog {
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry:
-		co.ClientID = filter(event.Indexed[1])
-		co.ConnID = filter(event.Data[0])
+		co.ClientID = string(event.Indexed[1][:])
+		co.ConnID = string(event.Data[0][:])
 
-		protoCounterparty_ := strings.TrimPrefix(string(event.Data[1]), "0x")
-		protoCounterparty, _ := hex.DecodeString(protoCounterparty_)
+		protoCounterparty := event.Data[1]
+
 		var counterparty icon.Counterparty
 
 		if err := proto.Unmarshal(protoCounterparty, &counterparty); err != nil {
@@ -91,7 +91,7 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		co.CounterpartyConnID = counterparty.GetConnectionId()
 
 	case EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-		co.ConnID = filter(event.Indexed[0])
+		co.ConnID = string(event.Indexed[0])
 
 		protoConnection_ := strings.TrimPrefix(string(event.Data[0]), "0x")
 		protoConnection, _ := hex.DecodeString(protoConnection_)
@@ -194,9 +194,4 @@ func getEventTypeFromEventName(eventName string) string {
 
 func GetEventLogSignature(indexed [][]byte) []byte {
 	return indexed[0][:]
-}
-
-func filter(x []byte) string {
-	i, _ := hex.DecodeString(strings.TrimPrefix(string(x), "0x"))
-	return string(i)
 }

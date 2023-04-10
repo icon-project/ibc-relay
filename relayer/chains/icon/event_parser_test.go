@@ -60,22 +60,94 @@ func TestParseEvent(t *testing.T) {
 	assert.Equal(t, "07-tendermint-4", p.ClientId)
 }
 
-func TestConnectionOpenInit(t *testing.T) {
-	evt := types.EventLogStr{
-		Addr:    types.Address("cx8123b80f58f2b7a38764f6defa31cf60cc9060b4"),
-		Indexed: []string{EventTypeConnectionOpenInit, "30372d74656e6465726d696e742d30"},
-		Data:    []string{"636f6e6e656374696f6e2d30", "0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d301a050a03696263"},
-	}
-
-	cp := &types.Counterparty{
-		ClientId:     "07-tendermint-0",
+func TestParseCounterParty(t *testing.T) {
+	cp := &icon.Counterparty{
+		ClientId:     "07-tendermint-2",
 		ConnectionId: "connection-0",
-		Prefix:       &types.MerklePrefix{},
+		Prefix: &icon.MerklePrefix{
+			KeyPrefix: []byte("ibc"),
+		},
+	}
+	byt, err := proto.Marshal(cp)
+	assert.NoError(t, err)
+	fmt.Printf("%x\n", byt)
+}
+
+func TestEventMap(t *testing.T) {
+	eventName := "BTPMessage(int,int)"
+	assert.Equal(t, IconCosmosEventMap[eventName], "")
+
+	eventName = EventTypeCreateClient
+	assert.Equal(t, IconCosmosEventMap[eventName], "create_client")
+
+}
+
+func TestCreateClientEvent(t *testing.T) {
+
+	event := types.EventLogStr{
+		Addr:    types.Address("cxc598844f5a0b8997a9f9d280c3f228a20c93e1d5"),
+		Indexed: []string{"CreateClient(str,bytes)", "07-tendermint-1"},
+		Data:    []string{"0x0a0569636f6e781204080210031a0308e80722050880b899292a070880c0cbacf622384340014801"},
 	}
 
-	event := ToEventLogBytes(evt)
+	evt := ToEventLogBytes(event)
+	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, evt, 0)
+	clientMsg := ibcMsg.info.(*clientInfo)
+	assert.Equal(t, "07-tendermint-1", clientMsg.clientID)
+}
+
+func TestConnectionOpenInitByte(t *testing.T) {
+	// format of event received from block notification
+	event := types.EventLog{
+		Addr: types.Address("cxc598844f5a0b8997a9f9d280c3f228a20c93e1d5"),
+		Indexed: [][]byte{
+			{67, 111, 110, 110, 101, 99, 116, 105, 111, 110, 79, 112, 101, 110, 73, 110, 105, 116, 40, 115, 116, 114, 44, 115, 116, 114, 44, 98, 121, 116, 101, 115, 41},
+			{48, 55, 45, 116, 101, 110, 100, 101, 114, 109, 105, 110, 116, 45, 48},
+		},
+		Data: [][]byte{
+			{99, 111, 110, 110, 101, 99, 116, 105, 111, 110, 45, 49},
+			{10, 15, 48, 55, 45, 116, 101, 110, 100, 101, 114, 109, 105, 110, 116, 45, 50, 18, 12, 99, 111, 110, 110, 101, 99, 116, 105, 111, 110, 45, 48, 26, 5, 10, 3, 105, 98, 99},
+		},
+	}
 
 	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, 0)
+	connAttrs := ibcMsg.info.(*connectionInfo)
+	fmt.Printf("%+v", connAttrs)
+}
+
+func TestConnectionOpenInit(t *testing.T) {
+	event := types.EventLog{
+		Addr: types.Address("cxc598844f5a0b8997a9f9d280c3f228a20c93e1d5"),
+		Indexed: [][]byte{
+			{67, 111, 110, 110, 101, 99, 116, 105, 111, 110, 79, 112, 101, 110, 73, 110, 105, 116, 40, 115, 116, 114, 44, 115, 116, 114, 44, 98, 121, 116, 101, 115, 41},
+			{48, 55, 45, 116, 101, 110, 100, 101, 114, 109, 105, 110, 116, 45, 48},
+		},
+		Data: [][]byte{
+			{99, 111, 110, 110, 101, 99, 116, 105, 111, 110, 45, 49},
+			{10, 15, 48, 55, 45, 116, 101, 110, 100, 101, 114, 109, 105, 110, 116, 45, 50, 18, 12, 99, 111, 110, 110, 101, 99, 116, 105, 111, 110, 45, 48, 26, 5, 10, 3, 105, 98, 99},
+		},
+	}
+	evt := types.EventLogStr{
+		Addr:    types.Address("cxc598844f5a0b8997a9f9d280c3f228a20c93e1d5"),
+		Indexed: []string{EventTypeConnectionOpenInit, "07-tendermint-0"},
+		Data:    []string{"connection-1", "0x0a0f30372d74656e6465726d696e742d32120c636f6e6e656374696f6e2d301a050a03696263"},
+	}
+
+	encodedEvent := ToEventLogBytes(evt)
+
+	assert.Equal(t, event.Addr, encodedEvent.Addr)
+	assert.Equal(t, event.Indexed[0], encodedEvent.Indexed[0])
+	assert.Equal(t, event.Indexed[1], encodedEvent.Indexed[1])
+	assert.Equal(t, event.Data[0], encodedEvent.Data[0])
+	assert.Equal(t, event.Data[1], encodedEvent.Data[1])
+
+	cp := &icon.Counterparty{
+		ClientId:     "07-tendermint-0",
+		ConnectionId: "connection-1",
+		Prefix:       &icon.MerklePrefix{},
+	}
+
+	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, encodedEvent, 0)
 	connAttrs := ibcMsg.info.(*connectionInfo)
 	assert.Equal(t, cp.ClientId, connAttrs.ClientID)
 	assert.Equal(t, cp.ConnectionId, connAttrs.ConnID)

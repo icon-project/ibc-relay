@@ -3,6 +3,7 @@ package icon
 import (
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -117,9 +118,12 @@ func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 
 	data := make([][]byte, 0)
 
-	for _, d := range evt.Data {
+	for _, d := range evt.Data[:1] {
 		data = append(data, []byte(d))
 	}
+
+	filtered, _ := hex.DecodeString(strings.TrimPrefix(evt.Data[len(evt.Data)-1], "0x"))
+	data = append(data, filtered)
 
 	return types.EventLog{
 		Addr:    evt.Addr,
