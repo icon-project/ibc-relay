@@ -13,6 +13,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/avast/retry-go/v4"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -183,6 +185,21 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) error {
 	// TODO:
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	defer cancel()
+	connections, err := icp.chainProvider.QueryConnections(ctx)
+	if err != nil {
+		return fmt.Errorf("error querying connections: %w", err)
+	}
+	for _, c := range connections {
+		icp.connectionClients[c.Id] = c.ClientId
+		icp.connectionStateCache[processor.ConnectionKey{
+			ConnectionID:         c.Id,
+			ClientID:             c.ClientId,
+			CounterpartyConnID:   c.Counterparty.ConnectionId,
+			CounterpartyClientID: c.Counterparty.ClientId,
+		}] = c.State == conntypes.OPEN
+	}
 	return nil
 }
 
@@ -427,46 +444,51 @@ func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotif
 	}
 
 	var ibcMessages []*ibcMessage
-	for i, index := range request.Indexes[0] {
-		p := &types.ProofEventsParam{
-			Index:     index,
-			BlockHash: request.Hash,
-			Events:    request.Events[0][i],
-		}
+	for id := 0; id < len(request.Indexes); id++ {
+		for i, index := range request.Indexes[id] {
+			p := &types.ProofEventsParam{
+				Index:     index,
+				BlockHash: request.Hash,
+				Events:    request.Events[id][i],
+			}
 
-		proofs, err := icp.chainProvider.client.GetProofForEvents(p)
-		if err != nil {
-			icp.log.Info(fmt.Sprintf("error: %v\n", err))
-			continue
-		}
+			proofs, err := icp.chainProvider.client.GetProofForEvents(p)
+			if err != nil {
+				fmt.Println("error ayo teska baje")
+				icp.log.Info(fmt.Sprintf("error: %v\n", err))
+				continue
+			}
 
-		// Processing receipt index
-		serializedReceipt, err := MptProve(index, proofs[0], receiptHash.ReceiptHash)
-		if err != nil {
-			return nil, err
-		}
-		var result types.TxResult
-		_, err = codec.RLP.UnmarshalFromBytes(serializedReceipt, &result)
-		if err != nil {
-			return nil, err
-		}
-
-		for j := 0; j < len(p.Events); j++ {
-			serializedEventLog, err := MptProve(
-				p.Events[j], proofs[j+1], common.HexBytes(result.EventLogsHash))
+			// Processing receipt index
+			serializedReceipt, err := MptProve(index, proofs[0], receiptHash.ReceiptHash)
 			if err != nil {
 				return nil, err
 			}
-			var el types.EventLog
-			_, err = codec.RLP.UnmarshalFromBytes(serializedEventLog, &el)
+			var result types.TxResult
+			_, err = codec.RLP.UnmarshalFromBytes(serializedReceipt, &result)
 			if err != nil {
 				return nil, err
 			}
 
-			ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
-			ibcMessages = append(ibcMessages, ibcMessage)
-		}
+			for j := 0; j < len(p.Events); j++ {
+				serializedEventLog, err := MptProve(
+					p.Events[j], proofs[j+1], common.HexBytes(result.EventLogsHash))
+				if err != nil {
+					return nil, err
+				}
+				var el types.EventLog
+				_, err = codec.RLP.UnmarshalFromBytes(serializedEventLog, &el)
+				if err != nil {
+					return nil, err
+				}
 
+				fmt.Printf("Eventlog: %+v", el)
+
+				ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
+				ibcMessages = append(ibcMessages, ibcMessage)
+			}
+
+		}
 	}
 
 	return ibcMessages, nil
