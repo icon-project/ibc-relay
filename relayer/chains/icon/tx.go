@@ -171,14 +171,19 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	if err != nil {
 		return nil, err
 	}
-	clientStateEncode, err := proto.Marshal(proof.ClientState)
-	if err != nil {
-		return nil, err
-	}
+	// clientStateEncode, err := proto.Marshal(proof.ClientState)
+	// if err != nil {
+	// 	fmt.Println("Error: ", err)
+	// 	return nil, err
+	// }
 
+	// ht := &icon.Height{
+	// 	RevisionNumber: proof.ProofHeight.RevisionNumber,
+	// 	RevisionHeight: proof.ProofHeight.RevisionHeight,
+	// }
 	ht := &icon.Height{
-		RevisionNumber: proof.ProofHeight.RevisionNumber,
-		RevisionHeight: proof.ProofHeight.RevisionHeight,
+		RevisionNumber: 0,
+		RevisionHeight: 1999,
 	}
 	htEncode, err := proto.Marshal(ht)
 	if err != nil {
@@ -186,8 +191,8 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	}
 
 	consHt := &icon.Height{
-		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
-		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
+		RevisionNumber: 0,
+		RevisionHeight: 2000, //proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
 	consHtEncode, err := proto.Marshal(consHt)
 	if err != nil {
@@ -198,11 +203,13 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("yaha ni aayohehehehe----%+v\n", msgOpenInit.CounterpartyClientID)
+	fmt.Printf("counterpoartyConn----%+v\n", msgOpenInit.CounterpartyConnID)
 
 	msg := types.MsgConnectionOpenTry{
-		ClientId:             msgOpenInit.CounterpartyClientID,
-		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
-		ClientStateBytes:     types.NewHexBytes(clientStateEncode),
+		ClientId:             "07-tendermint-0",               //msgOpenInit.CounterpartyClientID,
+		PreviousConnectionId: "connection-0",                  //msgOpenInit.CounterpartyConnID,
+		ClientStateBytes:     types.NewHexBytes([]byte("0x")), //types.NewHexBytes(clientStateEncode),
 		Counterparty:         types.NewHexBytes(ccEncode),
 		DelayPeriod:          defaultDelayPeriod,
 		CounterpartyVersions: []types.HexBytes{types.NewHexBytes(versionEnc)},
@@ -221,23 +228,27 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 
-	clientStateEncode, err := proto.Marshal(proof.ClientState)
-	if err != nil {
-		return nil, err
-	}
+	// clientStateEncode, err := proto.Marshal(proof.ClientState)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
+	// RevisionNumber: proof.ProofHeight.RevisionNumber,
+	// RevisionHeight: proof.ProofHeight.RevisionHeight,
 	ht := &icon.Height{
-		RevisionNumber: proof.ProofHeight.RevisionNumber,
-		RevisionHeight: proof.ProofHeight.RevisionHeight,
+		RevisionNumber: 0,
+		RevisionHeight: 100,
 	}
 	htEncode, err := proto.Marshal(ht)
 	if err != nil {
 		return nil, err
 	}
 
+	// RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
+	// RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	consHt := &icon.Height{
-		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
-		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
+		RevisionNumber: 0,
+		RevisionHeight: 1000,
 	}
 	consHtEncode, err := proto.Marshal(consHt)
 	if err != nil {
@@ -251,7 +262,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 
 	msg := types.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
-		ClientStateBytes:         types.NewHexBytes(clientStateEncode), // TODO
+		ClientStateBytes:         types.NewHexBytes([]byte("helloooo")), // TODO
 		Version:                  types.NewHexBytes(versionEnc),
 		CounterpartyConnectionID: msgOpenTry.ConnID,
 		ProofTry:                 types.NewHexBytes(proof.ConnectionStateProof),
@@ -467,13 +478,13 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 }
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	// clientMsg, err := proto.Marshal(counterpartyHeader)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	clientMsg, err := proto.Marshal(counterpartyHeader)
+	if err != nil {
+		return nil, err
+	}
 	msg := types.MsgUpdateClient{
 		ClientId:      clientID,
-		ClientMessage: types.NewHexBytes([]byte("0x1")),
+		ClientMessage: types.NewHexBytes(clientMsg),
 	}
 	updateClientMsg := &types.GenericClientParams[types.MsgUpdateClient]{
 		Msg: msg,
