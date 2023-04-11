@@ -3,6 +3,7 @@ package icon
 import (
 	"bytes"
 	"encoding/hex"
+	"fmt"
 	"strings"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -94,7 +95,11 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		co.ConnID = string(event.Indexed[0])
 
 		protoConnection_ := strings.TrimPrefix(string(event.Data[0]), "0x")
-		protoConnection, _ := hex.DecodeString(protoConnection_)
+		protoConnection, err := hex.DecodeString(protoConnection_)
+		if err != nil {
+			fmt.Printf("%+w", err)
+			return
+		}
 
 		var connection icon.ConnectionEnd
 		if err := proto.Unmarshal(protoConnection, &connection); err != nil {
