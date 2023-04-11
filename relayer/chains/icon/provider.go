@@ -94,10 +94,11 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 	}
 
 	return &IconProvider{
-		log:    log.With(zap.String("sys", "chain_client")),
-		client: NewClient(pp.getRPCAddr(), log),
-		PCfg:   pp,
-		wallet: wallet,
+		log:                log.With(zap.String("sys", "chain_client")),
+		client:             NewClient(pp.getRPCAddr(), log),
+		PCfg:               pp,
+		wallet:             wallet,
+		lastBTPBlockHeight: uint64(pp.BTPHeight),
 	}, nil
 }
 
@@ -120,7 +121,21 @@ type IconProvider struct {
 	client  *Client
 	wallet  module.Wallet
 	metrics *processor.PrometheusMetrics
-	codec   codec.ProtoCodecMarshaler
+	log                  *zap.Logger
+	PCfg                 IconProviderConfig
+	txMu                 sync.Mutex
+	client               *Client
+	wallet               module.Wallet
+	metrics              *processor.PrometheusMetrics
+	codec                codec.ProtoCodecMarshaler
+	lastBTPBlockHeight   uint64
+	lastBTPBlockHeightMu sync.Mutex
+}
+
+func (i *IconProvider) UpdateLastBTPBlockHeight(height uint64) {
+	i.lastBTPBlockHeightMu.Lock()
+	defer i.lastBTPBlockHeightMu.Unlock()
+	i.lastBTPBlockHeight = height
 }
 
 type SignedHeader struct {

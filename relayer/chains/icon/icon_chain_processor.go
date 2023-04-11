@@ -390,7 +390,7 @@ func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.
 			if err != nil {
 				return err
 			}
-
+			icp.chainProvider.UpdateLastBTPBlockHeight(uint64(bh.MainHeight))
 			btpBLockWithProof := NewIconIBCHeader(bh)
 			receiverChan <- *btpBLockWithProof
 			return nil
@@ -482,7 +482,7 @@ func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotif
 					return nil, err
 				}
 
-				fmt.Printf("Eventlog: %+v", el)
+				fmt.Printf("Eventlog: %s\n\n", el.Indexed[0])
 
 				ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
 				ibcMessages = append(ibcMessages, ibcMessage)
