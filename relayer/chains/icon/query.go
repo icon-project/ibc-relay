@@ -90,18 +90,17 @@ func (icp *IconProvider) QueryTxs(ctx context.Context, page, limit int, events [
 }
 
 func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
+	// icp.lastBTPBlockHeightMu.Lock()
+	// defer icp.lastBTPBlockHeightMu.Unlock()
 
-	blk, err := icp.client.GetLastBlock()
-	if err != nil {
-		return 0, err
-	}
-	return blk.Height, nil
+	lastBtpHeight := icp.lastBTPBlockHeight
+	return int64(lastBtpHeight), nil
 }
 
 // legacy
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
 	param := &types.BTPBlockParam{
-		Height:    types.NewHexInt(icp.PCfg.BTPHeight),
+		Height:    types.NewHexInt(h),
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 	btpHeader, err := icp.client.GetBTPHeader(param)
