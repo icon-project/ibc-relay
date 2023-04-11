@@ -243,7 +243,7 @@ type MsgConnectionOpenAck struct {
 	ConnectionId             string   `json:"connectionId"`
 	ClientStateBytes         HexBytes `json:"clientStateBytes"`
 	Version                  HexBytes `json:"version"`
-	CounterpartyConnectionID string   `json:"counterpartyConnectionId"`
+	CounterpartyConnectionID string   `json:"counterpartyConnectionID"`
 	ProofTry                 HexBytes `json:"proofTry"`
 	ProofClient              HexBytes `json:"proofClient"`
 	ProofConsensus           HexBytes `json:"proofConsensus"`
@@ -269,7 +269,7 @@ type MsgConnectionOpenTry struct {
 	DelayPeriod          HexInt     `json:"delayPeriod"`
 	ClientId             string     `json:"clientId"`
 	ClientStateBytes     HexBytes   `json:"clientStateBytes"`
-	CounterpartyVersions []HexBytes `json:"counterpartyVersion"`
+	CounterpartyVersions []HexBytes `json:"counterpartyVersions"`
 	ProofInit            HexBytes   `json:"proofInit"`
 	ProofClient          HexBytes   `json:"proofClient"`
 	ProofConsensus       HexBytes   `json:"proofConsensus"`
