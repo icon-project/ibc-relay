@@ -10,16 +10,15 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
-	itm "github.com/cosmos/relayer/v2/relayer/chains/icon/types/tendermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
 
 	"go.uber.org/zap"
 
-	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -27,7 +26,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	// integration_types "github.com/icon-project/ibc-integration/libraries/go/common/icon"
+	// integration_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 )
 
 var (
@@ -93,12 +92,15 @@ func (pp IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug
 		return nil, err
 	}
 
+	codec := MakeCodec(ModuleBasics, []string{})
+
 	return &IconProvider{
 		log:                log.With(zap.String("sys", "chain_client")),
 		client:             NewClient(pp.getRPCAddr(), log),
 		PCfg:               pp,
 		wallet:             wallet,
 		lastBTPBlockHeight: uint64(pp.BTPHeight),
+		codec:              codec,
 	}, nil
 }
 
@@ -121,7 +123,7 @@ type IconProvider struct {
 	client               *Client
 	wallet               module.Wallet
 	metrics              *processor.PrometheusMetrics
-	codec                codec.ProtoCodecMarshaler
+	codec                Codec
 	lastBTPBlockHeight   uint64
 	lastBTPBlockHeightMu sync.Mutex
 }
@@ -172,10 +174,6 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 func (icp *IconProvider) Init(ctx context.Context) error {
 
 	return nil
-}
-
-func (icp *IconProvider) Codec() codec.ProtoCodecMarshaler {
-	return icp.codec
 }
 
 // TODO: Remove later
