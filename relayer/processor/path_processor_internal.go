@@ -792,13 +792,16 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			pp.pathEnd2.messageCache.PacketFlow[channelKey][eventType][0] = m.Initial.Info
 		}
 	case *ConnectionMessageLifecycle:
+
 		pp.sentInitialMsg = true
 		if m.Initial == nil {
 			return
 		}
+
 		if !pp.IsRelevantClient(m.Initial.ChainID, m.Initial.Info.ClientID) {
 			return
 		}
+
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
@@ -827,9 +830,11 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		if m.Initial == nil {
 			return
 		}
+
 		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
 			return
 		}
+
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
@@ -925,6 +930,8 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
 
+	fmt.Println("Inside processLatestMessage")
+
 	channelPairs := pp.channelPairs()
 
 	pp.queuePreInitMessages(cancel)
@@ -959,6 +966,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		SrcMsgChannelOpenAck:     pp.pathEnd1.messageCache.ChannelHandshake[chantypes.EventTypeChannelOpenAck],
 		DstMsgChannelOpenConfirm: pp.pathEnd2.messageCache.ChannelHandshake[chantypes.EventTypeChannelOpenConfirm],
 	}
+
 	pathEnd2ChannelHandshakeMessages := pathEndChannelHandshakeMessages{
 		Src:                      pp.pathEnd2,
 		Dst:                      pp.pathEnd1,
@@ -1004,6 +1012,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 		}
+
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                   pp.pathEnd2,
 			Dst:                   pp.pathEnd1,

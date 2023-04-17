@@ -1,8 +1,6 @@
 package cosmos
 
 import (
-	"fmt"
-
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -25,7 +23,6 @@ func NewCosmosMessage(msg sdk.Msg, optionalSetSigner func(string)) provider.Rela
 
 func CosmosMsg(rm provider.RelayerMessage) sdk.Msg {
 	if val, ok := rm.(CosmosMessage); !ok {
-		fmt.Printf("got data of type %T but wanted provider.CosmosMessage \n", val)
 		return nil
 	} else {
 		return val.Msg
