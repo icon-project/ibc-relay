@@ -1,5 +1,7 @@
 package processor
 
+import "fmt"
+
 // PathEnd references one chain involved in a path.
 // A path is composed of two PathEnds.
 type PathEnd struct {
@@ -73,6 +75,7 @@ func (pe PathEnd) shouldRelayChannelSingle(channelKey ChainChannelKey, listChann
 // if port ID is empty on blocklist channel, block all ports
 // if port ID is non-empty on blocklist channel, block only that specific port
 func (pe PathEnd) ShouldRelayChannel(channelKey ChainChannelKey) bool {
+	fmt.Println("ChainChannelKey", channelKey)
 	if pe.Rule == RuleAllowList {
 		for _, allowedChannel := range pe.FilterList {
 			if pe.shouldRelayChannelSingle(channelKey, allowedChannel, true) {

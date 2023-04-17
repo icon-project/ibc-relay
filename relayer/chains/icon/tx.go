@@ -2,9 +2,12 @@ package icon
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -12,14 +15,10 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
 	"go.uber.org/zap"
 )
 
 func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
-	fmt.Println("MsgCreateClientIcon---")
-
-	fmt.Printf("ClientState:: %+v", clientState)
 	clientStateBytes, err := proto.Marshal(clientState)
 	if err != nil {
 		return nil, err
@@ -139,7 +138,6 @@ func (icp *IconProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proo
 }
 
 func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	fmt.Println("Connection Open Init---")
 	cc := &icon.Counterparty{
 		ClientId:     info.CounterpartyClientID,
 		ConnectionId: info.CounterpartyConnID,
@@ -167,6 +165,9 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		ConnectionId: msgOpenInit.ConnID,
 		Prefix:       &icon.MerklePrefix{KeyPrefix: []byte("ibc")},
 	}
+
+	fmt.Printf("MsgConnectionOpenTry contruction %+v \n", msgOpenInit)
+
 	ccEncode, err := proto.Marshal(cc)
 	if err != nil {
 		return nil, err
@@ -203,13 +204,11 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("yaha ni aayohehehehe----%+v\n", msgOpenInit.CounterpartyClientID)
-	fmt.Printf("counterpoartyConn----%+v\n", msgOpenInit.CounterpartyConnID)
 
 	msg := types.MsgConnectionOpenTry{
-		ClientId:             "07-tendermint-0",               //msgOpenInit.CounterpartyClientID,
-		PreviousConnectionId: "connection-0",                  //msgOpenInit.CounterpartyConnID,
-		ClientStateBytes:     types.NewHexBytes([]byte("0x")), //types.NewHexBytes(clientStateEncode),
+		ClientId:             msgOpenInit.CounterpartyClientID, //msgOpenInit.CounterpartyClientID,
+		PreviousConnectionId: "connection-0",                   //msgOpenInit.CounterpartyConnID,
+		ClientStateBytes:     types.NewHexBytes([]byte("0x")),  //types.NewHexBytes(clientStateEncode),
 		Counterparty:         types.NewHexBytes(ccEncode),
 		DelayPeriod:          defaultDelayPeriod,
 		CounterpartyVersions: []types.HexBytes{types.NewHexBytes(versionEnc)},
@@ -248,7 +247,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 	// RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	consHt := &icon.Height{
 		RevisionNumber: 0,
-		RevisionHeight: 1000,
+		RevisionHeight: 100,
 	}
 	consHtEncode, err := proto.Marshal(consHt)
 	if err != nil {
@@ -271,6 +270,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		ProofHeight:              types.NewHexBytes(htEncode),
 		ConsensusHeight:          types.NewHexBytes(consHtEncode),
 	}
+
 	connectionOpenAckMsg := &types.GenericConnectionParam[types.MsgConnectionOpenAck]{
 		Msg: msg,
 	}
@@ -278,18 +278,19 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 }
 
 func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	ht := &icon.Height{
-		RevisionNumber: proof.ProofHeight.RevisionNumber,
-		RevisionHeight: proof.ProofHeight.RevisionHeight,
-	}
-	htEncode, err := proto.Marshal(ht)
-	if err != nil {
-		return nil, err
-	}
+	// ht := &icon.Height{
+	// 	RevisionNumber: proof.ProofHeight.RevisionNumber,
+	// 	RevisionHeight: proof.ProofHeight.RevisionHeight,
+	// }
+	// htEncode, err := proto.Marshal(ht)
+	// if err != nil {
+	// 	return nil, err
+	// }
 	msg := types.MsgConnectionOpenConfirm{
 		ConnectionId: msgOpenAck.CounterpartyConnID,
-		ProofAck:     types.NewHexBytes(proof.ConnectionStateProof),
-		ProofHeight:  types.HexBytes(htEncode),
+		// ProofAck:     types.NewHexBytes(proof.ConnectionStateProof),
+		ProofAck:    "0x",
+		ProofHeight: "0x",
 	}
 	connectionOpenConfirmMsg := &types.GenericConnectionParam[types.MsgConnectionOpenConfirm]{
 		Msg: msg,
@@ -316,7 +317,7 @@ func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelI
 
 func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
 	channel := &icon.Channel{
-		State:    icon.Channel_STATE_UNINITIALIZED_UNSPECIFIED,
+		State:    icon.Channel_STATE_INIT,
 		Ordering: icon.Channel_ORDER_ORDERED,
 		Counterparty: &icon.Channel_Counterparty{
 			PortId:    info.CounterpartyPortID,
@@ -507,6 +508,9 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 		},
 	}
 
+	fmt.Printf("transaction send:::::::::::: %+v \n", txParam)
+	fmt.Printf("transaction send params :::::::::::: %+v \n", txParam.Data.Params)
+
 	if err := icp.client.SignTransaction(icp.wallet, txParam); err != nil {
 		return nil, false, err
 	}
@@ -515,6 +519,10 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 		return nil, false, err
 	}
 
+	txhash, _ := txParam.TxHash.Value()
+
+	fmt.Printf("the transaction hash is %x \n", txhash)
+
 	txResParams := &types.TransactionHashParam{
 		Hash: txParam.TxHash,
 	}
@@ -522,10 +530,15 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	time.Sleep(2 * time.Second)
 
 	txResult, err := icp.client.GetTransactionResult(txResParams)
+
 	if err != nil {
-		fmt.Println("Error obtained: >>  ", err)
 		return nil, false, err
 	}
+
+	if txResult.Status != types.NewHexInt(1) {
+		return nil, false, fmt.Errorf("Transaction Failed")
+	}
+
 	return txResult, true, err
 }
 
@@ -545,33 +558,56 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 	events := txRes.EventLogs
 	for _, event := range events {
 		if IconCosmosEventMap[event.Indexed[0]] != "" {
-			event := ToEventLogBytes(event)
 			if event.Addr == types.Address(icp.PCfg.IbcHandlerAddress) {
-				ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, event, uint64(height))
+				eventName := event.Indexed[0]
 				var evt provider.RelayerEvent
-				switch ibcMsg.eventName {
-				case EventTypeCreateClient, EventTypeUpdateClient:
+				switch eventName {
+				case EventTypeCreateClient:
 					evt = provider.RelayerEvent{
-						EventType: ibcMsg.eventType,
+						EventType: IconCosmosEventMap[eventName],
 						Attributes: map[string]string{
-							clienttypes.AttributeKeyClientID: ibcMsg.info.(*clientInfo).clientID,
+							clienttypes.AttributeKeyClientID: event.Indexed[1],
 						},
 					}
-				case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry, EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-					connAttrs := ibcMsg.info.(*connectionInfo)
+
+				case EventTypeConnectionOpenConfirm:
+					protoConn, err := hex.DecodeString(strings.TrimPrefix(event.Data[0], "0x"))
+					if err != nil {
+						panic("huhh")
+					}
+					var connEnd icon.ConnectionEnd
+					err = proto.Unmarshal(protoConn, &connEnd)
+					if err != nil {
+						panic("")
+					}
 					evt = provider.RelayerEvent{
-						EventType: ibcMsg.eventType,
+						EventType: IconCosmosEventMap[eventName],
 						Attributes: map[string]string{
-							conntypes.AttributeKeyConnectionID:             connAttrs.ConnID,
-							conntypes.AttributeKeyClientID:                 connAttrs.ClientID,
-							conntypes.AttributeKeyCounterpartyClientID:     connAttrs.CounterpartyClientID,
-							conntypes.AttributeKeyCounterpartyConnectionID: connAttrs.CounterpartyConnID,
+							conntypes.AttributeKeyConnectionID:             event.Indexed[1],
+							conntypes.AttributeKeyClientID:                 connEnd.ClientId,
+							conntypes.AttributeKeyCounterpartyClientID:     connEnd.Counterparty.ClientId,
+							conntypes.AttributeKeyCounterpartyConnectionID: connEnd.Counterparty.ConnectionId,
 						},
 					}
-				case EventTypeChannelOpenInit, EventTypeChannelOpenTry, EventTypeChannelOpenAck, EventTypeChannelOpenConfirm, EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
+
+				case EventTypeChannelOpenConfirm, EventTypeChannelCloseConfirm:
+
+					eventa := ToEventLogBytes(event)
+					ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, eventa, uint64(height))
 					channelAttrs := ibcMsg.info.(*channelInfo)
+					// protoConn, err := hex.DecodeString(strings.TrimPrefix(event.Data[0], "0x"))
+					// if err != nil {
+					// 	icp.log.Error("Error decoding string ")
+					// 	continue
+					// }
+					// var channel icon.Channel
+					// err = proto.Unmarshal(protoConn, &channel)
+					// if err != nil {
+					// 	icp.log.Error("")
+					// 	continue
+					// }
 					evt = provider.RelayerEvent{
-						EventType: ibcMsg.eventType,
+						EventType: IconCosmosEventMap[eventName],
 						Attributes: map[string]string{
 							chantypes.AttributeKeyPortID:             channelAttrs.PortID,
 							chantypes.AttributeKeyChannelID:          channelAttrs.ChannelID,
@@ -580,14 +616,7 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 							chantypes.AttributeKeyConnectionID:       channelAttrs.ConnID,
 						},
 					}
-				case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
-					// packetArres := ibcMsg.info.(*packetInfo)
-					evt = provider.RelayerEvent{
-						EventType:  ibcMsg.eventType,
-						Attributes: make(map[string]string),
-					}
 				}
-
 				eventLogs = append(eventLogs, evt)
 			}
 		}

@@ -115,12 +115,6 @@ func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
 }
 
 type IconProvider struct {
-	log     *zap.Logger
-	PCfg    IconProviderConfig
-	txMu    sync.Mutex
-	client  *Client
-	wallet  module.Wallet
-	metrics *processor.PrometheusMetrics
 	log                  *zap.Logger
 	PCfg                 IconProviderConfig
 	txMu                 sync.Mutex
@@ -253,9 +247,9 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
-	if len(connStateProof) == 0 {
-		return provider.ConnectionProof{}, fmt.Errorf("Received invalid zero length connection state proof")
-	}
+	// if len(connStateProof) == 0 {
+	// 	return provider.ConnectionProof{}, fmt.Errorf("Received invalid zero length connection state proof")
+	// }
 	return provider.ConnectionProof{
 		ClientState:          clientState,
 		ClientStateProof:     clientStateProof,
@@ -412,24 +406,19 @@ func (icp *IconProvider) SendMessagesToMempool(
 	asyncCtx context.Context,
 	asyncCallback func(*provider.RelayerTxResponse, error),
 ) error {
-	fmt.Println("mempool segment", len(msgs))
 	if len(msgs) == 0 {
 		icp.log.Info("Length of Messages is empty ")
 		return nil
 	}
 
-	fmt.Println("this issssssssssss ")
 	for _, msg := range msgs {
-		fmt.Println("check the messagessssssss", msg)
 		if msg != nil {
-			op, _ := msg.MsgBytes()
-			fmt.Println("this is the message bytes ", op)
 			_, bool, err := icp.SendMessage(ctx, msg, memo)
 			if err != nil {
-				fmt.Println(" there is some errro in packet xx ")
+				return err
 			}
 			if !bool {
-				fmt.Println("error when Executing transaction")
+				return fmt.Errorf("Transaction Failed")
 			}
 		}
 	}

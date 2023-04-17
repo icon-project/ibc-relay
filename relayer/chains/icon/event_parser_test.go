@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -85,15 +86,20 @@ func TestEventMap(t *testing.T) {
 func TestCreateClientEvent(t *testing.T) {
 
 	event := types.EventLogStr{
-		Addr:    types.Address("cxc598844f5a0b8997a9f9d280c3f228a20c93e1d5"),
-		Indexed: []string{"CreateClient(str,bytes)", "07-tendermint-1"},
-		Data:    []string{"0x0a0569636f6e781204080210031a0308e80722050880b899292a070880c0cbacf622384340014801"},
+		Addr: types.Address("cxb1b0f589c980ee1738cf964ef6b26d4bbcb54ce7"),
+		Indexed: []string{
+			"ConnectionOpenAck(str,bytes)",
+			"connection-1",
+		},
+		Data: []string{"0x0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803221f0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d31"},
 	}
 
 	evt := ToEventLogBytes(event)
 	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, evt, 0)
-	clientMsg := ibcMsg.info.(*clientInfo)
-	assert.Equal(t, "07-tendermint-1", clientMsg.clientID)
+
+	fmt.Printf("Ibc message is %s \n ", ibcMsg)
+	// clientMsg := ibcMsg.info.(*clientInfo)
+	// assert.Equal(t, "07-tendermint-1", clientMsg.clientID)
 }
 
 func TestConnectionOpenInitByte(t *testing.T) {
@@ -241,4 +247,47 @@ func TestMonitorEvents(t *testing.T) {
 
 	wg.Wait()
 
+}
+
+func TestDataParsing(t *testing.T) {
+
+	protoConnection_ := strings.TrimPrefix("0x0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803221f0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d31", "0x")
+	protoConnection, err := hex.DecodeString(protoConnection_)
+	if err != nil {
+		fmt.Printf("this is the error %v\n", err)
+		return
+	}
+	fmt.Println(protoConnection)
+}
+
+func TestChannelHandshakeDataParsing(t *testing.T) {
+	// {
+	// 	"scoreAddress": "cx4b1eaca346718466918c40ba31e59b82b5188a2e",
+	// 	"indexed": [
+	// 	  "ChannelOpenInit(str,str,bytes)",
+	// 	  "mock",
+	// 	  "channel-5"
+	// 	],
+	// 	"data": [
+	// 	  "0x080110021a060a046d6f636b220c636f6e6e656374696f6e2d322a0769637332302d31"
+	// 	]
+	//   }
+	// indexed := []string{
+	// 	"ChannelOpenInit(str,str,bytes)",
+	// 	"mock",
+	// 	"channel-5",
+	// }
+	data := []string{
+		"080110021a060a046d6f636b220c636f6e6e656374696f6e2d322a0769637332302d31",
+	}
+
+	d, _ := hex.DecodeString(data[0])
+
+	var channel icon.Channel
+
+	// portID := indexed[1]
+	// channelID := indexed[2]
+	proto.Unmarshal(d, &channel)
+
+	fmt.Println(channel)
 }

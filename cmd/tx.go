@@ -560,7 +560,7 @@ to creating a connection and a channel between the two networks on a configured 
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s transact link demo-path --src-port transfer --dst-port transfer
 $ %s tx link demo-path
-$ %s tx connect demo-path --src-port transfer --dst-port transfer --order unordered --version ics20-1`,
+$ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --version ics20-1`,
 			appName, appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -666,6 +666,8 @@ $ %s tx connect demo-path --src-port transfer --dst-port transfer --order unorde
 					return err
 				}
 			}
+
+			fmt.Printf("Do we have code here connectionsrc %s \n connectionDst %s \n", connectionSrc, connectionDst)
 
 			// create channel if it isn't already created
 			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)

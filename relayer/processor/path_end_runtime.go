@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -76,11 +77,17 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 }
 
 func (pathEnd *pathEndRuntime) isRelevantConnection(connectionID string) bool {
+	fmt.Println("check all the cache ", pathEnd.connectionStateCache)
+	fmt.Println("Path end info when checked is  ", pathEnd.info)
 	for k := range pathEnd.connectionStateCache {
+		fmt.Printf("the value from k.connectionId %s and connectionID %s \n", k.ConnectionID, connectionID)
 		if k.ConnectionID == connectionID {
+			fmt.Println("seems like the connection is relevent")
 			return true
 		}
 	}
+	fmt.Println("Not relevent  connection ")
+
 	return false
 }
 
@@ -104,6 +111,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
+			fmt.Printf("should relay channel is true \n")
 			if inSync && pathEnd.metrics != nil {
 				for eventType, pCache := range pmc {
 					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))
@@ -112,6 +120,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 			packetMessages[ch] = pmc
 		}
 	}
+
 	pathEnd.messageCache.PacketFlow.Merge(packetMessages)
 
 	for eventType, cmc := range messageCache.ConnectionHandshake {
@@ -126,7 +135,9 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 		if len(newCmc) == 0 {
 			continue
 		}
+
 		connectionHandshakeMessages[eventType] = newCmc
+
 	}
 	pathEnd.messageCache.ConnectionHandshake.Merge(connectionHandshakeMessages)
 
@@ -136,6 +147,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 			if !pathEnd.isRelevantChannel(k.ChannelID) {
 				continue
 			}
+
 			// can complete channel handshakes on this client
 			// since PathProcessor holds reference to the counterparty chain pathEndRuntime.
 			if eventType == chantypes.EventTypeChannelOpenInit {
@@ -155,6 +167,7 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 
 		channelHandshakeMessages[eventType] = newCmc
 	}
+
 	pathEnd.messageCache.ChannelHandshake.Merge(channelHandshakeMessages)
 
 	for icqType, cm := range messageCache.ClientICQ {
@@ -250,13 +263,16 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			return true
 		}
 	case *ConnectionMessageLifecycle:
+
 		if m.Termination == nil || m.Termination.ChainID != pathEnd.info.ChainID {
 			return false
 		}
 		cache, ok := ibcMessagesCache.ConnectionHandshake[m.Termination.EventType]
+
 		if !ok {
 			return false
 		}
+
 		// check against m.Termination.Info
 		foundClientID := m.Termination.Info.ClientID == ""
 		foundConnectionID := m.Termination.Info.ConnID == ""
@@ -270,12 +286,15 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 				zap.String("observed_counterparty_client_id", ci.CounterpartyClientID),
 			)
 			if ci.ClientID == m.Termination.Info.ClientID {
+
 				foundClientID = true
 			}
 			if ci.ConnID == m.Termination.Info.ConnID {
+
 				foundConnectionID = true
 			}
 			if ci.CounterpartyClientID == m.Termination.Info.CounterpartyClientID {
+
 				foundCounterpartyClientID = true
 			}
 			if ci.CounterpartyConnID == m.Termination.Info.CounterpartyConnID {
@@ -283,7 +302,6 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 			}
 		}
 		if foundClientID && foundConnectionID && foundCounterpartyClientID && foundCounterpartyConnectionID {
-			pathEnd.log.Info("Found termination condition for connection handshake")
 			return true
 		}
 	}
@@ -372,6 +390,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	eventType := message.eventType
 	sequence := message.info.Sequence
 	k, err := message.channelKey()
+
 	if err != nil {
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
 			zap.String("event_type", eventType),
@@ -382,21 +401,21 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		return false
 	}
 
-	pathEndForHeight := counterparty
-	if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
-		pathEndForHeight = pathEnd
-	}
+	// pathEndForHeight := counterparty
+	// if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
+	// 	pathEndForHeight = pathEnd
+	// }
 
-	if message.info.Height >= pathEndForHeight.latestBlock.Height {
-		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
-			zap.String("event_type", eventType),
-			zap.Uint64("sequence", sequence),
-			zap.Uint64("message_height", message.info.Height),
-			zap.Uint64("counterparty_height", counterparty.latestBlock.Height),
-			zap.Inline(k),
-		)
-		return false
-	}
+	// if message.info.Height >= pathEndForHeight.latestBlock.Height {
+	// 	pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
+	// 		zap.String("event_type", eventType),
+	// 		zap.Uint64("sequence", sequence),
+	// 		zap.Uint64("message_height", message.info.Height),
+	// 		zap.Uint64("counterparty_height", counterparty.latestBlock.Height),
+	// 		zap.Inline(k),
+	// 	)
+	// 	return false
+	// }
 	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
@@ -481,13 +500,14 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
 	k := connectionInfoConnectionKey(message.info).Counterparty()
-	if message.info.Height >= counterparty.latestBlock.Height {
-		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
-			zap.Inline(k),
-			zap.String("event_type", eventType),
-		)
-		return false
-	}
+
+	// if message.info.Height >= counterparty.latestBlock.Height {
+	// 	pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
+	// 		zap.Inline(k),
+	// 		zap.String("event_type", eventType),
+	// 	)
+	// 	return false
+	// }
 	msgProcessCache, ok := pathEnd.connProcessing[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send.
@@ -548,13 +568,13 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
 	channelKey := channelInfoChannelKey(message.info).Counterparty()
-	if message.info.Height >= counterparty.latestBlock.Height {
-		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
-			zap.Inline(channelKey),
-			zap.String("event_type", eventType),
-		)
-		return false
-	}
+	// if message.info.Height >= counterparty.latestBlock.Height {
+	// 	pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
+	// 		zap.Inline(channelKey),
+	// 		zap.String("event_type", eventType),
+	// 	)
+	// 	return false
+	// }
 	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send.

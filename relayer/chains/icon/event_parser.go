@@ -2,15 +2,13 @@ package icon
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
-	"strings"
 
+	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/gogo/protobuf/proto"
 
 	"go.uber.org/zap"
 )
@@ -30,7 +28,8 @@ type ibcMessageInfo interface {
 type packetInfo provider.PacketInfo
 
 func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
-	eventType := GetEventLogSignature(event.Indexed)
+	eventName := GetEventLogSignature(event.Indexed)
+
 	packetData := event.Indexed[1]
 	var packet icon.Packet
 	if err := proto.Unmarshal(packetData, &packet); err != nil {
@@ -42,13 +41,19 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	pi.DestChannel = packet.DestinationChannel
 	pi.Sequence = packet.Sequence
 	pi.Data = packet.Data
-	pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight
-	pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber
+	if packet.TimeoutHeight != nil {
+		pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight
+		pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber
+	} else {
+		pi.TimeoutHeight.RevisionHeight = 200000 // TODO: should be removed
+		pi.TimeoutHeight.RevisionNumber = 0      //  TODO: should be removed
+	}
 	pi.TimeoutTimestamp = packet.TimeoutTimestamp
 
-	if bytes.Equal(eventType, MustConvertEventNameToBytes(EventTypeAcknowledgePacket)) {
+	if bytes.Equal(eventName, MustConvertEventNameToBytes(EventTypeAcknowledgePacket)) {
 		pi.Ack = []byte(event.Indexed[2])
 	}
+
 }
 
 type channelInfo provider.ChannelInfo
@@ -62,13 +67,14 @@ func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	var channel icon.Channel
 
 	if err := proto.Unmarshal(protoChannel, &channel); err != nil {
-		log.Error("Error decoding channel")
+		log.Error("Error when unmarshalling the event log")
 	}
 
 	ch.CounterpartyChannelID = channel.Counterparty.GetChannelId()
 	ch.CounterpartyPortID = channel.Counterparty.GetPortId()
-	ch.ConnID = "" // get connection from eventlog
+	ch.ConnID = channel.ConnectionHops[0]
 	ch.Version = channel.GetVersion()
+	fmt.Printf("lets check the channelInfo data %+x \n", ch)
 }
 
 type connectionInfo provider.ConnectionInfo
@@ -79,7 +85,6 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	case EventTypeConnectionOpenInit, EventTypeConnectionOpenTry:
 		co.ClientID = string(event.Indexed[1][:])
 		co.ConnID = string(event.Data[0][:])
-
 		protoCounterparty := event.Data[1]
 
 		var counterparty icon.Counterparty
@@ -92,18 +97,11 @@ func (co *connectionInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		co.CounterpartyConnID = counterparty.GetConnectionId()
 
 	case EventTypeConnectionOpenAck, EventTypeConnectionOpenConfirm:
-		co.ConnID = string(event.Indexed[0])
-
-		protoConnection_ := strings.TrimPrefix(string(event.Data[0]), "0x")
-		protoConnection, err := hex.DecodeString(protoConnection_)
-		if err != nil {
-			fmt.Printf("%+w", err)
-			return
-		}
-
+		co.ConnID = string(event.Indexed[1])
+		protoConnection_ := event.Data[0][:]
 		var connection icon.ConnectionEnd
-		if err := proto.Unmarshal(protoConnection, &connection); err != nil {
-			log.Error("Error decoding connectionEnd")
+		if err := proto.Unmarshal(protoConnection_, &connection); err != nil {
+			log.Error("Error decoding counterparty")
 		}
 
 		co.ClientID = connection.GetClientId()
@@ -147,7 +145,8 @@ func parseIBCMessageFromEvent(
 	eventType := getEventTypeFromEventName(eventName)
 
 	switch eventName {
-	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket:
+	case EventTypeSendPacket, EventTypeRecvPacket, EventTypeAcknowledgePacket, EventTypeWriteAcknowledgement:
+		//  EventTypeTimeoutPacket, EventTypeTimeoutPacketOnClose:
 
 		info := &packetInfo{Height: height}
 		info.parseAttrs(log, event)
@@ -157,7 +156,7 @@ func parseIBCMessageFromEvent(
 			info,
 		}
 	case EventTypeChannelOpenInit, EventTypeChannelOpenTry,
-		EventTypeChannelOpenAck, EventTypeConnectionOpenConfirm,
+		EventTypeChannelOpenAck, EventTypeChannelOpenConfirm,
 		EventTypeChannelCloseInit, EventTypeChannelCloseConfirm:
 
 		ci := &channelInfo{Height: height}

@@ -30,10 +30,10 @@ const (
 	MethodGetNextSequenceAcknowledgement     = "getNextSequenceAcknowledgement"
 
 	MethodGetChannel              = "getChannel"
+	MethodGetConnection           = "getConnection"
 	MethodGetClientState          = "getClientState"
 	MethodGetClientConsensusState = "getClientConsensusState"
 	MethodGetConsensusState       = "getConsensusState"
-	MethodGetQueryConnection      = "getConnection"
 
 	MethodGetNextClientSequence     = "getNextClientSequence"
 	MethodGetNextChannelSequence    = "getNextChannelSequence"

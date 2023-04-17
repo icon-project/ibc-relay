@@ -5,10 +5,10 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
-	proto "github.com/gogo/protobuf/proto"
+	proto "github.com/cosmos/gogoproto/proto"
 )
 
-func TestCosmosRegistry(t *testing.T) {
+func TestRegistry(t *testing.T) {
 
 	type IBtpHeader interface {
 		proto.Message

@@ -82,14 +82,15 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	if err != nil {
-		return err
-	}
+	needsClientUpdate := false
+	// needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
+	// if err != nil {
+	// 	return err
+	// }
 
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
-	}
+	// if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+	// 	return err
+	// }
 
 	mp.assembleMessages(ctx, messages, src, dst)
 
@@ -109,6 +110,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 			return false, fmt.Errorf("failed to get header height: %w", err)
 		}
 		consensusHeightTime = time.Unix(0, int64(h.ConsensusState().GetTimestamp()))
+		fmt.Println("shouldUpdateClientNow -> ", h)
 	} else {
 		consensusHeightTime = dst.clientState.ConsensusTime
 	}
@@ -122,13 +124,21 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	twoThirdsTrustingPeriodMs := float64(dst.clientState.TrustingPeriod.Milliseconds()) * 2 / 3
 	timeSinceLastClientUpdateMs := float64(time.Since(consensusHeightTime).Milliseconds())
 
+	fmt.Println("successfully reached here one  ")
+
 	pastTwoThirdsTrustingPeriod := dst.clientState.TrustingPeriod > 0 &&
 		timeSinceLastClientUpdateMs > twoThirdsTrustingPeriodMs
+
+	fmt.Println("successfully reached here two  ")
 
 	pastConfiguredClientUpdateThreshold := clientUpdateThresholdMs > 0 &&
 		time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs
 
+	fmt.Println("successfully reached here three  ")
+
 	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold)
+
+	fmt.Println("successfully reached here four  ")
 
 	if shouldUpdateClientNow {
 		mp.log.Info("Client update threshold condition met",
