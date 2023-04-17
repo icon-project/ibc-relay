@@ -44,8 +44,7 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 		pi.TimeoutHeight.RevisionHeight = packet.TimeoutHeight.RevisionHeight
 		pi.TimeoutHeight.RevisionNumber = packet.TimeoutHeight.RevisionNumber
 	} else {
-		pi.TimeoutHeight.RevisionHeight = 200000 // TODO: should be removed
-		pi.TimeoutHeight.RevisionNumber = 0      //  TODO: should be removed
+		log.Info("EventParser: Should specify timeout height")
 	}
 	pi.TimeoutTimestamp = packet.TimeoutTimestamp
 
