@@ -667,8 +667,6 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 				}
 			}
 
-			fmt.Printf("Do we have code here connectionsrc %s \n connectionDst %s \n", connectionSrc, connectionDst)
-
 			// create channel if it isn't already created
 			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},

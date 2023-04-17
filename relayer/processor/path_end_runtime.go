@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -77,16 +76,11 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 }
 
 func (pathEnd *pathEndRuntime) isRelevantConnection(connectionID string) bool {
-	fmt.Println("check all the cache ", pathEnd.connectionStateCache)
-	fmt.Println("Path end info when checked is  ", pathEnd.info)
 	for k := range pathEnd.connectionStateCache {
-		fmt.Printf("the value from k.connectionId %s and connectionID %s \n", k.ConnectionID, connectionID)
 		if k.ConnectionID == connectionID {
-			fmt.Println("seems like the connection is relevent")
 			return true
 		}
 	}
-	fmt.Println("Not relevent  connection ")
 
 	return false
 }
@@ -111,7 +105,6 @@ func (pathEnd *pathEndRuntime) mergeMessageCache(messageCache IBCMessagesCache, 
 
 	for ch, pmc := range messageCache.PacketFlow {
 		if pathEnd.info.ShouldRelayChannel(ChainChannelKey{ChainID: pathEnd.info.ChainID, CounterpartyChainID: counterpartyChainID, ChannelKey: ch}) {
-			fmt.Printf("should relay channel is true \n")
 			if inSync && pathEnd.metrics != nil {
 				for eventType, pCache := range pmc {
 					pathEnd.metrics.AddPacketsObserved(pathEnd.info.PathName, pathEnd.info.ChainID, ch.ChannelID, ch.PortID, eventType, len(pCache))

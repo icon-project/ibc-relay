@@ -2,7 +2,6 @@ package icon
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
@@ -74,7 +73,6 @@ func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	ch.CounterpartyPortID = channel.Counterparty.GetPortId()
 	ch.ConnID = channel.ConnectionHops[0]
 	ch.Version = channel.GetVersion()
-	fmt.Printf("lets check the channelInfo data %+x \n", ch)
 }
 
 type connectionInfo provider.ConnectionInfo

@@ -337,7 +337,6 @@ ChannelHandshakeLoop:
 				eventType: chantypes.EventTypeChannelOpenAck,
 				info:      *foundOpenTry,
 			}
-			fmt.Println("trying to send channel ack message ")
 			if pathEndChannelHandshakeMessages.Src.shouldSendChannelMessage(msgOpenAck, pathEndChannelHandshakeMessages.Dst) {
 				res.SrcMessages = append(res.SrcMessages, msgOpenAck)
 			}
@@ -445,8 +444,6 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 		return
 	}
 
-	fmt.Println(" inside message cycle data append ")
-
 	pp.sentInitialMsg = true
 	switch m := pp.messageLifecycle.(type) {
 	case *PacketMessageLifecycle:
@@ -478,13 +475,10 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 		}
 	case *ConnectionMessageLifecycle:
 
-		fmt.Println(" connection cycle message checkk the value ")
-
 		if m.Initial == nil {
 			return
 		}
 
-		fmt.Printf("m.Initial.ChainID %s m.Initial.Info.ClientID %s \n", m.Initial.ChainID, m.Initial.Info.ClientID)
 		if !pp.IsRelevantClient(m.Initial.ChainID, m.Initial.Info.ClientID) {
 			return
 		}
@@ -501,32 +495,26 @@ func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathE
 			})
 		}
 	case *ChannelMessageLifecycle:
-		fmt.Printf("m.Initial.ChainID: %s m.Initial.Info.ConnID %s \n", m.Initial.ChainID, m.Initial.Info.ConnID)
 		if m.Initial == nil {
 			return
 		}
 
 		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
-			fmt.Println("THis is not a relevent connection from path_processor_internal")
 			return
 		}
 
-		fmt.Println("the channel message is relevent")
 		if m.Initial.ChainID == pp.pathEnd1.info.ChainID {
-			fmt.Println("adding message in pathEnd1Messages")
 			pathEnd1Messages.channelMessages = append(pathEnd1Messages.channelMessages, channelIBCMessage{
 				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		} else if m.Initial.ChainID == pp.pathEnd2.info.ChainID {
-			fmt.Println("adding message in pathEnd1Messages")
 
 			pathEnd2Messages.channelMessages = append(pathEnd2Messages.channelMessages, channelIBCMessage{
 				eventType: m.Initial.EventType,
 				info:      m.Initial.Info,
 			})
 		}
-		fmt.Println("should return some true value ", pathEnd1Messages.channelMessages)
 
 	}
 }
@@ -540,7 +528,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 	fmt.Println("Inside processLatestMessage")
 
 	channelPairs := pp.channelPairs()
-	fmt.Printf("ChannelPairs are %x \n", channelPairs)
 
 	pathEnd1ConnectionHandshakeMessages := pathEndConnectionHandshakeMessages{
 		Src:                         pp.pathEnd1,
@@ -632,7 +619,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 			DstMsgChannelCloseConfirm: pathEnd2ChannelCloseConfirm,
 		}
 
-		fmt.Println("pathEnd1PacketFlowMessages", pathEnd1PacketFlowMessages)
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                       pp.pathEnd2,
 			Dst:                       pp.pathEnd1,
@@ -684,8 +670,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context) error {
 
 	pp.appendInitialMessageIfNecessary(&pathEnd1Messages, &pathEnd2Messages)
 
-	fmt.Printf("The pathEnd1Messages is  %v \n ", pathEnd1Messages)
-	fmt.Printf("The pathEnd2Messages is  %v \n ", pathEnd2Messages)
 	// now assemble and send messages in parallel
 	// if sending messages fails to one pathEnd, we don't need to halt sending to the other pathEnd.
 	var eg errgroup.Group

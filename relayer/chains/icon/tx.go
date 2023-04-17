@@ -166,15 +166,12 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 		Prefix:       &icon.MerklePrefix{KeyPrefix: []byte("ibc")},
 	}
 
-	fmt.Printf("MsgConnectionOpenTry contruction %+v \n", msgOpenInit)
-
 	ccEncode, err := proto.Marshal(cc)
 	if err != nil {
 		return nil, err
 	}
 	// clientStateEncode, err := proto.Marshal(proof.ClientState)
 	// if err != nil {
-	// 	fmt.Println("Error: ", err)
 	// 	return nil, err
 	// }
 
@@ -507,9 +504,6 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 			Params: m.Params,
 		},
 	}
-
-	fmt.Printf("transaction send:::::::::::: %+v \n", txParam)
-	fmt.Printf("transaction send params :::::::::::: %+v \n", txParam.Data.Params)
 
 	if err := icp.client.SignTransaction(icp.wallet, txParam); err != nil {
 		return nil, false, err

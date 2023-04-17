@@ -198,26 +198,20 @@ func (pp *PathProcessor) IsRelayedChannel(chainID string, channelKey ChannelKey)
 
 func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool {
 	if pp.pathEnd1.info.ChainID == chainID {
-		fmt.Println("checkk 2222", pp.pathEnd1.info.ClientID)
 		return pp.pathEnd1.info.ClientID == clientID
 	} else if pp.pathEnd2.info.ChainID == chainID {
-		fmt.Println("checkk 4444", pp.pathEnd2.info.ClientID)
 
 		return pp.pathEnd2.info.ClientID == clientID
 	}
 
-	fmt.Println("shouldn't reach here ")
 	return false
 }
 
 func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID string) bool {
 
 	if pp.pathEnd1.info.ChainID == chainID {
-		fmt.Println("chainid is relevent", chainID)
 		return pp.pathEnd1.isRelevantConnection(connectionID)
 	} else if pp.pathEnd2.info.ChainID == chainID {
-		fmt.Println("chainid is relevent", chainID)
-
 		return pp.pathEnd2.isRelevantConnection(connectionID)
 	}
 	return false
@@ -305,7 +299,6 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			}
 		}
 
-		// fmt.Println("sync is not occuring")
 		if !pp.pathEnd1.inSync || !pp.pathEnd2.inSync {
 			continue
 		}

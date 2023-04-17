@@ -369,7 +369,6 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 				persistence.latestQueriedHeightMu.Unlock()
 
 				ibcMessages, err := icp.handleBlockEventRequest(incomingBN)
-				fmt.Printf("got message: %+v \n", ibcMessages)
 				if err != nil {
 					icp.log.Error(
 						fmt.Sprintf("Failed handleBlockEventRequest at height:%v", incomingBN.Height),
