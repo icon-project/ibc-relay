@@ -103,8 +103,13 @@ func createClientsCmd(a *appState) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
 			if clientSrc != "" || clientDst != "" {
 				if err := a.updatePathConfig(cmd.Context(), path, clientSrc, clientDst, "", ""); err != nil {
+					return err
+				}
+
+				if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
 					return err
 				}
 			}
@@ -384,6 +389,9 @@ $ %s tx conn demo-path --timeout 5s`,
 				if err := a.updatePathConfig(cmd.Context(), pathName, clientSrc, clientDst, "", ""); err != nil {
 					return err
 				}
+				if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+					return err
+				}
 			}
 
 			connectionSrc, connectionDst, err := c[src].CreateOpenConnections(cmd.Context(), c[dst], retries, to, memo, initialBlockHistory, pathName)
@@ -394,6 +402,11 @@ $ %s tx conn demo-path --timeout 5s`,
 				if err := a.updatePathConfig(cmd.Context(), pathName, "", "", connectionSrc, connectionDst); err != nil {
 					return err
 				}
+
+				if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+					return err
+				}
+
 			}
 
 			return nil
@@ -476,7 +489,16 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.config.memo(cmd), pathName)
+			err = c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd), pathName)
+			if err != nil {
+				return err
+			}
+
+			if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
+				return err
+			}
+
+			return nil
 		},
 	}
 
