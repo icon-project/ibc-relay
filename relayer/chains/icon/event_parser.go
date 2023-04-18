@@ -49,7 +49,6 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	pi.TimeoutTimestamp = packet.TimeoutTimestamp
 
 	if bytes.Equal(eventName, MustConvertEventNameToBytes(EventTypeWriteAcknowledgement)) {
-		fmt.Printf("%x\nEvent parser for Acknowlegement:: Data : %x \n\n", packetData, packet.Data)
 		pi.Ack = event.Data[0]
 	}
 
