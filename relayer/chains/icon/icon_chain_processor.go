@@ -345,13 +345,13 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 			icp.latestBlock = provider.LatestBlock{
 				Height: uint64(h.Height()),
 			}
-			icp.log.Info("Channel BTP header received ",
+			icp.log.Info("BTP block Received for: ",
 				zap.Int64("height", int64(h.Height())))
 
 		case incomingBN := <-incomingEventsBN:
 			heap.Push(incomingEventsQueue, incomingBN)
 			h, _ := incomingBN.Height.Value()
-			icp.log.Info("Icon event notification received and saved  ",
+			icp.log.Info("Event Notification Received for:",
 				zap.Int64("height", h))
 
 		case <-ticker.C:
@@ -360,7 +360,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 				ibcMessagesCache := processor.NewIBCMessagesCache()
 				incomingBN := heap.Pop(incomingEventsQueue).(*types.BlockNotification)
 				h, _ := (incomingBN.Height).Int()
-				icp.log.Info("Incomming sequence ",
+				icp.log.Info("Incomming sequence: ",
 					zap.String("ChainName", icp.chainProvider.ChainId()),
 					zap.Int64("Height", int64(h)),
 				)
@@ -447,7 +447,6 @@ func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.
 			icp.chainProvider.UpdateLastBTPBlockHeight(uint64(bh.MainHeight))
 			btpBLockWithProof := NewIconIBCHeader(bh)
 			receiverChan <- *btpBLockWithProof
-			icp.log.Info("Found btp messages for height ", zap.Int64("height ", bh.MainHeight))
 			return nil
 		}, func(conn *websocket.Conn) {
 			log.Println(fmt.Sprintf("MonitorBtpBlock"))
@@ -468,8 +467,6 @@ func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.
 		err := icp.chainProvider.client.MonitorBlock(ctx, req, func(conn *websocket.Conn, v *types.BlockNotification) error {
 			if len(v.Indexes) > 0 && len(v.Events) > 0 {
 				incomingEventBN <- v
-				h, _ := v.Height.Value()
-				icp.log.Info("found Event for height ", zap.Int64("height", h))
 			}
 			return nil
 		}, func(conn *websocket.Conn) {
