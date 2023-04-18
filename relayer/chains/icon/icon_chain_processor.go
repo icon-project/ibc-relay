@@ -339,42 +339,58 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 
 		case err := <-monitorErr:
 			return err
+
 		case h := <-btpBlockReceived:
 			ibcHeaderCache[h.Height()] = &h
 			icp.latestBlock = provider.LatestBlock{
 				Height: uint64(h.Height()),
 			}
+			icp.log.Info("Channel BTP header received ",
+				zap.Int64("height", int64(h.Height())))
 
 		case incomingBN := <-incomingEventsBN:
 			heap.Push(incomingEventsQueue, incomingBN)
+			h, _ := incomingBN.Height.Value()
+			icp.log.Info("Icon event notification received and saved  ",
+				zap.Int64("height", h))
 
 		case <-ticker.C:
 			// Process the block notifications from the priority queue.
 			for incomingEventsQueue.Len() > 0 {
-
 				ibcMessagesCache := processor.NewIBCMessagesCache()
 				incomingBN := heap.Pop(incomingEventsQueue).(*types.BlockNotification)
 				h, _ := (incomingBN.Height).Int()
-				header, ok := ibcHeaderCache[uint64(h)]
-				if !ok {
-					heap.Push(incomingEventsQueue, incomingBN)
-					break
-				}
 				icp.log.Info("Incomming sequence ",
 					zap.String("ChainName", icp.chainProvider.ChainId()),
 					zap.Int64("Height", int64(h)),
 				)
-				persistence.latestQueriedHeightMu.Lock()
-				persistence.lastQueriedHeight = int64(header.Height())
-				persistence.latestQueriedHeightMu.Unlock()
 
-				ibcMessages, err := icp.handleBlockEventRequest(incomingBN)
+				eventLogs, err := icp.handleBlockEventRequest(incomingBN)
 				if err != nil {
 					icp.log.Error(
 						fmt.Sprintf("Failed handleBlockEventRequest at height:%v", incomingBN.Height),
 						zap.Error(err),
 					)
 				}
+
+				var header provider.IBCHeader
+				header, ok := ibcHeaderCache[uint64(h)]
+				if !ok {
+					if RequiresBtpHeader(eventLogs) {
+						icp.log.Info(
+							"Btp header not present in header cache but requires BtpHeader",
+							zap.Int64("Height", int64(h)))
+						heap.Push(incomingEventsQueue, incomingBN)
+						break
+					}
+					header = NewIconIBCHeader(&types.BTPBlockHeader{MainHeight: int64(h)})
+				}
+
+				persistence.latestQueriedHeightMu.Lock()
+				persistence.lastQueriedHeight = int64(header.Height())
+				persistence.latestQueriedHeightMu.Unlock()
+
+				ibcMessages := icp.ibcMessagesFromEventLog(eventLogs, uint64(h))
 				for _, m := range ibcMessages {
 					icp.handleMessage(ctx, *m, ibcMessagesCache)
 				}
@@ -431,6 +447,7 @@ func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.
 			icp.chainProvider.UpdateLastBTPBlockHeight(uint64(bh.MainHeight))
 			btpBLockWithProof := NewIconIBCHeader(bh)
 			receiverChan <- *btpBLockWithProof
+			icp.log.Info("Found btp messages for height ", zap.Int64("height ", bh.MainHeight))
 			return nil
 		}, func(conn *websocket.Conn) {
 			log.Println(fmt.Sprintf("MonitorBtpBlock"))
@@ -451,6 +468,8 @@ func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.
 		err := icp.chainProvider.client.MonitorBlock(ctx, req, func(conn *websocket.Conn, v *types.BlockNotification) error {
 			if len(v.Indexes) > 0 && len(v.Events) > 0 {
 				incomingEventBN <- v
+				h, _ := v.Height.Value()
+				icp.log.Info("found Event for height ", zap.Int64("height", h))
 			}
 			return nil
 		}, func(conn *websocket.Conn) {
@@ -467,7 +486,7 @@ func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.
 
 }
 
-func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotification) ([]*ibcMessage, error) {
+func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotification) ([]types.EventLog, error) {
 
 	height, _ := request.Height.Int()
 	blockHeader, err := icp.chainProvider.client.GetBlockHeaderByHeight(int64(height))
@@ -481,7 +500,7 @@ func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotif
 		return nil, err
 	}
 
-	var ibcMessages []*ibcMessage
+	var eventlogs []types.EventLog
 	for id := 0; id < len(request.Indexes); id++ {
 		for i, index := range request.Indexes[id] {
 			p := &types.ProofEventsParam{
@@ -519,15 +538,24 @@ func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotif
 					return nil, err
 				}
 
-				fmt.Printf("Eventlog: %s\n\n", el.Indexed[0])
-				ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
-				ibcMessages = append(ibcMessages, ibcMessage)
+				icp.log.Info("Detected Eventlog for height", zap.String("Eventlog", string(el.Indexed[0])))
+				eventlogs = append(eventlogs, el)
 			}
 
 		}
 	}
 
-	return ibcMessages, nil
+	return eventlogs, nil
+}
+
+func (icp *IconChainProcessor) ibcMessagesFromEventLog(els []types.EventLog, height uint64) (ibcMessages []*ibcMessage) {
+
+	for _, el := range els {
+
+		ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
+		ibcMessages = append(ibcMessages, ibcMessage)
+	}
+	return ibcMessages
 }
 
 // clientState will return the most recent client state if client messages

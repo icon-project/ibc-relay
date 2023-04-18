@@ -422,12 +422,12 @@ func (icp *IconProvider) SendMessagesToMempool(
 
 	for _, msg := range msgs {
 		if msg != nil {
-			_, bool, err := icp.SendMessage(ctx, msg, memo)
+			res, bool, err := icp.SendMessage(ctx, msg, memo)
 			if err != nil {
 				return err
 			}
 			if !bool {
-				return fmt.Errorf("Transaction Failed")
+				return fmt.Errorf("Transaction Failed, Transaction Hash: %x", res.TxHash)
 			}
 		}
 	}

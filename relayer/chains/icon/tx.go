@@ -532,7 +532,7 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	}
 
 	if txResult.Status != types.NewHexInt(1) {
-		return nil, false, fmt.Errorf("Transaction Failed")
+		return nil, false, fmt.Errorf("Transaction Failed and the transaction Result is 0x%x", txhash)
 	}
 
 	return txResult, true, err
