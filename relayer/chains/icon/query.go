@@ -730,12 +730,37 @@ func (icp *IconProvider) QueryDenomTraces(ctx context.Context, offset, limit uin
 	return nil, fmt.Errorf("Not implemented for ICON")
 }
 
-func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHash []byte) ([]icon.MerkleNode, error) {
+func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHash []byte) ([]byte, error) {
+	merkleProofs := icon.MerkleProofs{}
+
 	messages, err := icp.GetBtpMessage(height)
 	if err != nil {
 		return nil, err
 	}
-	merkleHashTree := cryptoutils.NewMerkleHashTree(messages)
+	if len(messages) == 0 {
+		icp.log.Info("BTP Message not present", zap.Int64("Height", height), zap.Int64("BtpNetwork", icp.PCfg.BTPNetworkID))
+		return nil, err
+	}
+
+	if len(messages) > 1 {
+		merkleHashTree := cryptoutils.NewMerkleHashTree(messages)
+		if err != nil {
+			return nil, err
+		}
+		hashIndex := merkleHashTree.Hashes.FindIndex(keyHash)
+		if hashIndex == -1 {
+			return nil, errors.New("Btp message for this hash not found")
+		}
+		proof := merkleHashTree.MerkleProof(hashIndex)
+
+		merkleProofs = icon.MerkleProofs{
+			Proofs: proof,
+		}
+	}
+
+	proofBytes, err := icp.codec.Marshaler.Marshal(&merkleProofs)
+	return proofBytes, nil
+}
 	if err != nil {
 		return nil, err
 	}
