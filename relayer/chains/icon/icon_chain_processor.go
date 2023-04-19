@@ -360,7 +360,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 					heap.Push(incomingEventsQueue, incomingBN)
 					break
 				}
-				icp.log.Info("Incomming sequence ",
+				icp.log.Info("Incoming sequence ",
 					zap.String("ChainName", icp.chainProvider.ChainId()),
 					zap.Int64("Height", int64(h)),
 				)
@@ -433,7 +433,6 @@ func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.
 			receiverChan <- *btpBLockWithProof
 			return nil
 		}, func(conn *websocket.Conn) {
-			log.Println(fmt.Sprintf("MonitorBtpBlock"))
 		}, func(conn *websocket.Conn, err error) {
 			icp.log.Debug(fmt.Sprintf("onError %s err:%+v", conn.LocalAddr().String(), err))
 			_ = conn.Close()
@@ -454,7 +453,6 @@ func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.
 			}
 			return nil
 		}, func(conn *websocket.Conn) {
-			log.Println(fmt.Sprintf("MonitorIconLoop"))
 		}, func(conn *websocket.Conn, err error) {
 			log.Println(fmt.Sprintf("onError %s err:%+v", conn.LocalAddr().String(), err))
 			_ = conn.Close()
@@ -519,7 +517,6 @@ func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotif
 					return nil, err
 				}
 
-				fmt.Printf("Eventlog: %s\n\n", el.Indexed[0])
 				ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
 				ibcMessages = append(ibcMessages, ibcMessage)
 			}
