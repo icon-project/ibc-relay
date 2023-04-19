@@ -1,16 +1,12 @@
 package icon
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
-	"sync"
 	"testing"
-	"time"
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/gorilla/websocket"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -49,25 +45,6 @@ func TestEventMap(t *testing.T) {
 	eventName = EventTypeCreateClient
 	assert.Equal(t, IconCosmosEventMap[eventName], "create_client")
 
-}
-
-func TestCreateClientEvent(t *testing.T) {
-
-	event := types.EventLogStr{
-		Addr: types.Address("cxb1b0f589c980ee1738cf964ef6b26d4bbcb54ce7"),
-		Indexed: []string{
-			"ConnectionOpenAck(str,bytes)",
-			"connection-1",
-		},
-		Data: []string{"0x0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f5244455245441803221f0a0f30372d74656e6465726d696e742d30120c636f6e6e656374696f6e2d31"},
-	}
-
-	evt := ToEventLogBytes(event)
-	ibcMsg := parseIBCMessageFromEvent(&zap.Logger{}, evt, 0)
-
-	fmt.Printf("Ibc message is %s \n ", ibcMsg)
-	// clientMsg := ibcMsg.info.(*clientInfo)
-	// assert.Equal(t, "07-tendermint-1", clientMsg.clientID)
 }
 
 func TestConnectionOpenInitByte(t *testing.T) {
@@ -127,73 +104,73 @@ func TestConnectionOpenInit(t *testing.T) {
 	assert.Equal(t, cp.ConnectionId, connAttrs.ConnID)
 }
 
-func TestMonitorEvents(t *testing.T) {
-	provider := IconProviderConfig{
-		Key:               "icon",
-		ChainName:         "icon",
-		ChainID:           "0x1",
-		RPCAddr:           "https://ctz.solidwallet.io/api/v3",
-		Timeout:           "0",
-		IbcHandlerAddress: "cx997849d3920d338ed81800833fbb270c785e743d",
-	}
-	l := zap.Logger{}
-	ip, _ := provider.NewProvider(&l, "icon", true, "icon")
-	i := ip.(*IconProvider)
+// func TestMonitorEvents(t *testing.T) {
+// 	provider := IconProviderConfig{
+// 		Key:               "icon",
+// 		ChainName:         "icon",
+// 		ChainID:           "0x1",
+// 		RPCAddr:           "https://ctz.solidwallet.io/api/v3/",
+// 		Timeout:           "0",
+// 		IbcHandlerAddress: "cx997849d3920d338ed81800833fbb270c785e743d",
+// 	}
+// 	l := zap.Logger{}
+// 	ip, _ := provider.NewProvider(&l, "icon", true, "icon")
+// 	i := ip.(*IconProvider)
 
-	const height int64 = 59489570
+// 	const height int64 = 59489570
 
-	t.Log("test")
-	blockReq := &types.BlockRequest{
-		EventFilters: []*types.EventFilter{{
-			// Addr: types.Address(CONTRACT_ADDRESS),
-			Signature: EventTypeSendPacket,
-			// Indexed:   []*string{&dstAddr},
-		}},
-		Height: types.NewHexInt(height),
-	}
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
+// 	t.Log("test")
+// 	blockReq := &types.BlockRequest{
+// 		EventFilters: []*types.EventFilter{{
+// 			// Addr: types.Address(CONTRACT_ADDRESS),
+// 			Signature: EventTypeSendPacket,
+// 			// Indexed:   []*string{&dstAddr},
+// 		}},
+// 		Height: types.NewHexInt(height),
+// 	}
+// 	ctx := context.Background()
+// 	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+// 	defer cancel()
 
-	h, s := int(height), 0
-	var wg sync.WaitGroup
+// 	h, s := int(height), 0
+// 	var wg sync.WaitGroup
 
-	wg.Add(1)
+// 	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-		t.Log("height")
+// 	go func() {
+// 		defer wg.Done()
+// 		t.Log("height")
 
-		err := i.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
-			t.Log("height")
+// 		err := i.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
+// 			t.Log("height")
 
-			_h, _ := v.Height.Int()
+// 			_h, _ := v.Height.Int()
 
-			if _h != h {
-				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
-				l.Warn(err.Error())
-				return err
-			}
-			h++
-			s++
+// 			if _h != h {
+// 				err := fmt.Errorf("invalid block height: %d, expected: %d", _h, h+1)
+// 				l.Warn(err.Error())
+// 				return err
+// 			}
+// 			h++
+// 			s++
 
-			return nil
-		},
-			func(conn *websocket.Conn) {
-				l.Info("Connected")
-			},
-			func(conn *websocket.Conn, err error) {
-				l.Info("Disconnected")
-				_ = conn.Close()
-			})
-		if err.Error() == "context deadline exceeded" {
-			return
-		}
-	}()
+// 			return nil
+// 		},
+// 			func(conn *websocket.Conn) {
+// 				l.Info("Connected")
+// 			},
+// 			func(conn *websocket.Conn, err error) {
+// 				l.Info("Disconnected")
+// 				_ = conn.Close()
+// 			})
+// 		if err.Error() == "context deadline exceeded" {
+// 			return
+// 		}
+// 	}()
 
-	wg.Wait()
+// 	wg.Wait()
 
-}
+// }
 
 func TestChannelHandshakeDataParsing(t *testing.T) {
 
