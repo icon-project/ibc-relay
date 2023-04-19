@@ -10,7 +10,6 @@ require (
 	github.com/btcsuite/btcd v0.22.1
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cometbft/cometbft v0.37.0
-	github.com/confio/ics23/go v0.9.0
 	github.com/cosmos/cosmos-proto v1.0.0-beta.2
 	github.com/cosmos/cosmos-sdk v0.47.1
 	github.com/cosmos/go-bip39 v1.0.0
@@ -24,7 +23,7 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/icon-project/IBC-Integration v0.0.0-20230416064536-48d70570734d
+	github.com/icon-project/IBC-Integration v0.0.0-20230418093835-22eb3967c8b2
 	github.com/icon-project/goloop v1.3.4
 	github.com/icon-project/icon-bridge v0.0.11
 	github.com/jsternberg/zap-logfmt v1.3.0
@@ -74,6 +73,7 @@ require (
 	github.com/chzyer/readline v1.5.1 // indirect
 	github.com/coinbase/rosetta-sdk-go/types v1.0.0 // indirect
 	github.com/cometbft/cometbft-db v0.7.0 // indirect
+	github.com/confio/ics23/go v0.9.0 // indirect
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/cosmos/gogogateway v1.2.0 // indirect
 	github.com/cosmos/iavl v0.20.0 // indirect
