@@ -283,6 +283,10 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 
 		icp.inSync = true
 		ibcHeader := NewIconIBCHeader(header)
+		icp.latestBlock = provider.LatestBlock{
+			Height: ibcHeader.Height(),
+		}
+
 		ibcHeaderCache[uint64(header.MainHeight)] = ibcHeader
 		ibcMessagesCache := processor.NewIBCMessagesCache()
 		err = icp.handlePathProcessorUpdate(ctx, ibcHeader, ibcMessagesCache, ibcHeaderCache.Clone())
