@@ -72,15 +72,32 @@ func MustConvertEventNameToBytes(eventName string) []byte {
 
 func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 	indexed := make([][]byte, 0)
-
-	for _, idx := range evt.Indexed {
-		indexed = append(indexed, []byte(idx))
-	}
-
 	data := make([][]byte, 0)
+	eventName := evt.Indexed[0]
 
-	for _, d := range evt.Data {
-		filtered, _ := hex.DecodeString(strings.TrimPrefix(d, "0x"))
+	switch eventName {
+	case EventTypeSendPacket, EventTypeRecvPacket, EventTypePacketTimeout, EventTypeTimeoutRequest:
+		filtered, _ := hex.DecodeString(strings.TrimPrefix(evt.Indexed[1], "0x"))
+		indexed = append(indexed, filtered)
+	case EventTypeWriteAcknowledgement:
+		filtered, _ := hex.DecodeString(strings.TrimPrefix(evt.Indexed[1], "0x"))
+		indexed = append(indexed, filtered)
+
+		filteredAck, _ := hex.DecodeString(strings.TrimPrefix(evt.Data[0], "0x"))
+		data = append(data, filteredAck)
+	default:
+		// Generally, the final position in data field is proto encoded, and others are not
+		// This case applies for all channel and connection handshake messages and client creation
+		for _, idx := range evt.Indexed {
+			indexed = append(indexed, []byte(idx))
+		}
+
+		for _, d := range evt.Data[0 : len(evt.Data)-1] {
+			data = append(data, []byte(d))
+		}
+
+		filtered, _ := hex.DecodeString(strings.TrimPrefix(evt.Data[len(evt.Data)-1], "0x"))
+
 		data = append(data, filtered)
 	}
 
