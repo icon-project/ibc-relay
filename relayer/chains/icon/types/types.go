@@ -555,15 +555,15 @@ type BTPBlockUpdate struct {
 }
 
 type BTPBlockHeader struct {
-	MainHeight             int64
+	MainHeight             uint64
 	Round                  int32
 	NextProofContextHash   []byte
-	NetworkSectionToRoot   []icon.MerkleNode
-	NetworkID              int64
-	UpdateNumber           int64
+	NetworkSectionToRoot   []*icon.MerkleNode
+	NetworkID              uint64
+	UpdateNumber           uint64
 	PrevNetworkSectionHash []byte
-	MessageCount           int64
-	MessagesRoot           []byte
+	MessageCount           uint64
+	MessageRoot            []byte
 	NextProofContext       []byte
 }
 
@@ -589,4 +589,8 @@ type BTPNetworkTypeInfo struct {
 	NextProofContext HexBytes `json:"nextProofContext"`
 	OpenNetworkIDs   []HexInt `json:"openNetworkIDs"`
 	NetworkTypeID    HexInt   `json:"networkTypeID"`
+}
+
+type ValidatorList struct {
+	Validators [][]byte `json:"validators"`
 }

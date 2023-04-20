@@ -58,6 +58,7 @@ type IconProviderConfig struct {
 	Password          string `json:"password" yaml:"password"`
 	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-id"`
 	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
 	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 }
@@ -145,15 +146,6 @@ func (i *IconProvider) UpdateLastBTPBlockHeight(height uint64) {
 	i.lastBTPBlockHeight = height
 }
 
-type SignedHeader struct {
-	header     types.BTPBlockHeader
-	signatures []types.HexBytes
-}
-
-type ValidatorSet struct {
-	validators []types.HexBytes
-}
-
 type IconIBCHeader struct {
 	Header *types.BTPBlockHeader
 }
@@ -176,7 +168,7 @@ func (h IconIBCHeader) NextValidatorsHash() []byte {
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return &icon.ConsensusState{
-		MessageRoot: h.Header.MessagesRoot,
+		MessageRoot: h.Header.MessageRoot,
 	}
 }
 
@@ -501,9 +493,12 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	return results, nil
 }
 
-func (icp *IconProvider) GetBtpHeader(p *types.BTPBlockParam) (*types.BTPBlockHeader, error) {
+func (icp *IconProvider) GetBtpHeader(height int64) (*types.BTPBlockHeader, error) {
 	var header types.BTPBlockHeader
-	encoded, err := icp.client.GetBTPHeader(p)
+	encoded, err := icp.client.GetBTPHeader(&types.BTPBlockParam{
+		Height:    types.NewHexInt(height),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -513,4 +508,23 @@ func (icp *IconProvider) GetBtpHeader(p *types.BTPBlockParam) (*types.BTPBlockHe
 		return nil, err
 	}
 	return &header, nil
+}
+
+func (icp *IconProvider) GetBTPProof(height int64) ([][]byte, error) {
+	var signatures [][]byte
+
+	encoded, err := icp.client.GetBTPProof(&types.BTPBlockParam{
+		Height:    types.NewHexInt(int64(height)),
+		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(encoded, &signatures)
+	if err != nil {
+		return nil, err
+	}
+	return signatures, nil
+
 }

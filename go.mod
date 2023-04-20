@@ -206,5 +206,5 @@ require (
 replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230416064536-48d70570734d
+	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230420144510-c910f7f6fdaa
 )

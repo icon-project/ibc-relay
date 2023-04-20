@@ -255,10 +255,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	header := &types.BTPBlockHeader{}
 	if err := retry.Do(func() error {
 		var err error
-		header, err = icp.chainProvider.GetBtpHeader(&types.BTPBlockParam{
-			Height:    types.NewHexInt(icp.chainProvider.PCfg.BTPHeight),
-			NetworkId: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
-		})
+		header, err = icp.chainProvider.GetBtpHeader(icp.chainProvider.PCfg.BTPHeight)
 		if err != nil {
 			if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header for") {
 				icp.log.Info("Provided Height doesn't contain BTP header:",
@@ -347,7 +344,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 			for incomingEventsQueue.Len() > 0 {
 				ibcMessagesCache := processor.NewIBCMessagesCache()
 				incomingBN := heap.Pop(incomingEventsQueue).(*types.BlockNotification)
-				h, _ := (incomingBN.Height).Int()
+				h, _ := (incomingBN.Height).Value()
 				icp.log.Info("Incomming sequence: ",
 					zap.String("ChainName", icp.chainProvider.ChainId()),
 					zap.Int64("Height", int64(h)),
@@ -371,7 +368,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 						heap.Push(incomingEventsQueue, incomingBN)
 						break
 					}
-					header = NewIconIBCHeader(&types.BTPBlockHeader{MainHeight: int64(h)})
+					header = NewIconIBCHeader(&types.BTPBlockHeader{MainHeight: uint64(h)})
 				}
 
 				persistence.latestQueriedHeightMu.Lock()
