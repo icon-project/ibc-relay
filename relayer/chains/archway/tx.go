@@ -135,4 +135,6 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 
 	asyncCtx context.Context,
 	asyncCallback func(*provider.RelayerTxResponse, error),
-) error
+) error {
+	return nil
+}
