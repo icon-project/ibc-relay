@@ -1,4 +1,4 @@
-package codec
+package archway
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
