@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
@@ -78,11 +77,9 @@ func (pp ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, de
 	codec := MakeCodec(ModuleBasics, []string{})
 
 	return &ArchwayProvider{
-		log:    log.With(zap.String("sys", "chain_client")),
-		client: NewClient(pp.getRPCAddr(), log),
-		PCfg:   pp,
-		wallet: wallet,
-		codec:  codec,
+		log:  log.With(zap.String("sys", "chain_client")),
+		PCfg: &pp,
+		Cdc:  codec,
 	}, nil
 }
 
@@ -92,15 +89,12 @@ type ArchwayProvider struct {
 	PCfg           *ArchwayProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
-	RPCClient      rpcclient.Client
-	Cdc            Codec
+	// RPCClient      rpcclient.Client  //TODO: check the client
+	Cdc Codec
 
 	txMu sync.Mutex
 
 	metrics *processor.PrometheusMetrics
-
-	// for comet < v0.37, decode tm events as base64
-	cometLegacyEncoding bool
 }
 
 func (ap *ArchwayProvider) ChainId() string {

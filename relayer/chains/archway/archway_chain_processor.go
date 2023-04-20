@@ -40,7 +40,7 @@ type ArchwayChainProcessor struct {
 	metrics *processor.PrometheusMetrics
 }
 
-func NewArchwayChainProcessor(log *zap.Logger, provider *ArchwayProvider, metrics *processor.PrometheusMetrics) *CosmosChainProcessor {
+func NewArchwayChainProcessor(log *zap.Logger, provider *ArchwayProvider, metrics *processor.PrometheusMetrics) *ArchwayChainProcessor {
 	return &ArchwayChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -55,7 +55,7 @@ func NewArchwayChainProcessor(log *zap.Logger, provider *ArchwayProvider, metric
 
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ccp *CosmosChainProcessor) {
+func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ccp *ArchwayChainProcessor) {
 	// TODO:
 }
 

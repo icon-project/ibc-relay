@@ -4,10 +4,8 @@ import (
 	// 	"errors"
 	// 	"os"
 
-	// 	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
-	// 	"github.com/cosmos/cosmos-sdk/crypto/hd"
-	// 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	// "github.com/cosmos/go-bip39"
 	// "github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	// "github.com/cosmos/relayer/v2/relayer/codecs/injective"
@@ -37,44 +35,44 @@ import (
 // }
 
 // // CreateKeystore initializes a new instance of a keyring at the specified path in the local filesystem.
-// func (cc *ArchwayProvider) CreateKeystore(path string) error {
-// 	keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, KeyringAlgoOptions())
-// 	if err != nil {
-// 		return err
-// 	}
-// 	cc.Keybase = keybase
-// 	return nil
-// }
+func (cc *ArchwayProvider) CreateKeystore(path string) error {
+	// keybase, err := keyring.New(cc.PCfg.ChainID, cc.PCfg.KeyringBackend, cc.PCfg.KeyDirectory, cc.Input, cc.Cdc.Marshaler, KeyringAlgoOptions())
+	// if err != nil {
+	// 	return err
+	// }
+	// cc.Keybase = keybase
+	return nil
+}
 
 // // KeystoreCreated returns true if there is an existing keystore instance at the specified path, it returns false otherwise.
-// func (cc *ArchwayProvider) KeystoreCreated(path string) bool {
-// 	if _, err := os.Stat(cc.PCfg.KeyDirectory); errors.Is(err, os.ErrNotExist) {
-// 		return false
-// 	} else if cc.Keybase == nil {
-// 		return false
-// 	}
-// 	return true
-// }
+func (cc *ArchwayProvider) KeystoreCreated(path string) bool {
+	// if _, err := os.Stat(cc.PCfg.KeyDirectory); errors.Is(err, os.ErrNotExist) {
+	// 	return false
+	// } else if cc.Keybase == nil {
+	// 	return false
+	// }
+	return true
+}
 
 // // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
 // // It fails if there is an existing key with the same address.
-// func (cc *ArchwayProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
-// 	ko, err := cc.KeyAddOrRestore(name, coinType)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return ko, nil
-// }
+func (cc *ArchwayProvider) AddKey(name string, coinType uint32) (output *provider.KeyOutput, err error) {
+	// ko, err := cc.KeyAddOrRestore(name, coinType)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	return nil, nil
+}
 
 // // RestoreKey converts a mnemonic to a private key and BIP-39 HD Path and persists it to the keystore.
 // // It fails if there is an existing key with the same address.
-// func (cc *ArchwayProvider) RestoreKey(name, mnemonic string, coinType uint32) (address string, err error) {
-// 	ko, err := cc.KeyAddOrRestore(name, coinType, mnemonic)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return ko.Address, nil
-// }
+func (cc *ArchwayProvider) RestoreKey(name, mnemonic string, coinType uint32) (address string, err error) {
+	// ko, err := cc.KeyAddOrRestore(name, coinType, mnemonic)
+	// if err != nil {
+	// 	return "", err
+	// }
+	return "", nil
+}
 
 // // KeyAddOrRestore either generates a new mnemonic or uses the specified mnemonic and converts it to a private key
 // // and BIP-39 HD Path which is then persisted to the keystore. It fails if there is an existing key with the same address.
@@ -110,67 +108,68 @@ import (
 // }
 
 // // ShowAddress retrieves a key by name from the keystore and returns the bech32 encoded string representation of that key.
-// func (cc *ArchwayProvider) ShowAddress(name string) (address string, err error) {
-// 	info, err := cc.Keybase.Key(name)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	acc, err := info.GetAddress()
-// 	if err != nil {
-// 		return "", nil
-// 	}
-// 	out, err := cc.EncodeBech32AccAddr(acc)
-// 	if err != nil {
-// 		return "", err
-// 	}
-// 	return out, nil
-// }
+func (cc *ArchwayProvider) ShowAddress(name string) (address string, err error) {
+	// info, err := cc.Keybase.Key(name)
+	// if err != nil {
+	// 	return "", err
+	// }
+	// acc, err := info.GetAddress()
+	// if err != nil {
+	// 	return "", nil
+	// }
+	// out, err := cc.EncodeBech32AccAddr(acc)
+	// if err != nil {
+	// 	return "", err
+	// }
+	return "", nil
+}
 
 // // ListAddresses returns a map of bech32 encoded strings representing all keys currently in the keystore.
-// func (cc *ArchwayProvider) ListAddresses() (map[string]string, error) {
-// 	out := map[string]string{}
-// 	info, err := cc.Keybase.List()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	for _, k := range info {
-// 		acc, err := k.GetAddress()
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		addr, err := cc.EncodeBech32AccAddr(acc)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		out[k.Name] = addr
-// 	}
-// 	return out, nil
-// }
+func (cc *ArchwayProvider) ListAddresses() (map[string]string, error) {
+	out := map[string]string{}
+	// info, err := cc.Keybase.List()
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// for _, k := range info {
+	// 	acc, err := k.GetAddress()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	addr, err := cc.EncodeBech32AccAddr(acc)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	out[k.Name] = addr
+	// }
+	return out, nil
+}
 
 // // DeleteKey removes a key from the keystore for the specified name.
-// func (cc *ArchwayProvider) DeleteKey(name string) error {
-// 	if err := cc.Keybase.Delete(name); err != nil {
-// 		return err
-// 	}
-// 	return nil
-// }
+func (cc *ArchwayProvider) DeleteKey(name string) error {
+	// 	if err := cc.Keybase.Delete(name); err != nil {
+	// 		return err
+	// 	}
+	return nil
+}
 
 // // KeyExists returns true if a key with the specified name exists in the keystore, it returns false otherwise.
-// func (cc *ArchwayProvider) KeyExists(name string) bool {
-// 	k, err := cc.Keybase.Key(name)
-// 	if err != nil {
-// 		return false
-// 	}
+func (cc *ArchwayProvider) KeyExists(name string) bool {
+	// 	k, err := cc.Keybase.Key(name)
+	// 	if err != nil {
+	// 		return false
+	// 	}
 
-// 	return k.Name == name
-
-// }
+	// 	return k.Name == name
+	return false
+}
 
 // // ExportPrivKeyArmor returns a private key in ASCII armored format.
 // // It returns an error if the key does not exist or a wrong encryption passphrase is supplied.
-// func (cc *ArchwayProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
-// 	return cc.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
-// }
+func (cc *ArchwayProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
+	// return cc.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
+	return "", nil
+}
 
 // // GetKeyAddress returns the account address representation for the currently configured key.
 // func (cc *ArchwayProvider) GetKeyAddress() (sdk.AccAddress, error) {
