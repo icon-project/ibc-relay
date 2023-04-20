@@ -104,7 +104,7 @@ func (mp *messageProcessor) processMessages(
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
 
 	// handle if dst is IconLightClient
-	if IfClientIsIcon(dst.clientState) {
+	if clientIsIcon(dst.clientState) {
 		dst.lastClientUpdateHeightMu.Lock()
 		enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
 		dst.lastClientUpdateHeightMu.Unlock()
@@ -223,6 +223,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	clientID := dst.info.ClientID
 	clientConsensusHeight := dst.clientState.ConsensusHeight
 	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+
 	var trustedNextValidatorsHash []byte
 	if dst.clientTrustedState.IBCHeader != nil {
 		trustedNextValidatorsHash = dst.clientTrustedState.IBCHeader.NextValidatorsHash()
@@ -237,10 +238,12 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 			return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
-		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
+
+		// header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
+		header, err := mp.findNextIBCHeader(ctx, src, dst)
 		if err != nil {
-			return fmt.Errorf("error getting IBC header at height: %d for chain_id: %s, %w",
-				clientConsensusHeight.RevisionHeight+1, src.info.ChainID, err)
+			return fmt.Errorf("error getting Next IBC header after height: %d for chain_id: %s, %w",
+				clientConsensusHeight.RevisionHeight, src.info.ChainID, err)
 		}
 		mp.log.Debug("Had to query for client trusted IBC header",
 			zap.String("chain_id", src.info.ChainID),
@@ -281,6 +284,18 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	mp.msgUpdateClient = msgUpdateClient
 
 	return nil
+}
+
+func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
+	clientConsensusHeight := dst.clientState.ConsensusHeight
+	if clientIsIcon(dst.clientState) {
+		header, found := nextIconIBCHeader(src.ibcHeaderCache, clientConsensusHeight.RevisionHeight)
+		if !found {
+			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)
+		}
+		return header, nil
+	}
+	return src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 }
 
 // trackAndSendMessages will increment attempt counters for each message and send each message.

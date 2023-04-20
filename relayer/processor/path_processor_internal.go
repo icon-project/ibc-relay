@@ -411,16 +411,13 @@ ClientICQLoop:
 // updateClientTrustedState combines the counterparty chains trusted IBC header
 // with the latest client state, which will be used for constructing MsgUpdateClient messages.
 func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *pathEndRuntime) {
-	fmt.Println("Start In updateClientTrustedState src:", src.info.ChainID, "destination :", dst.info.ChainID)
 	if src.clientTrustedState.ClientState.ConsensusHeight.GTE(src.clientState.ConsensusHeight) {
 		// current height already trusted
 		return
 	}
 
-	// need to assemble new trusted state
-	ibcHeader, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
+	ibcHeader, ok := pp.getIBCHeaderForClient(src, dst)
 	if !ok {
-		fmt.Println("ibcheader not found in dst header cache ")
 		if ibcHeaderCurrent, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight]; ok &&
 			dst.clientTrustedState.IBCHeader != nil &&
 			bytes.Equal(dst.clientTrustedState.IBCHeader.NextValidatorsHash(), ibcHeaderCurrent.NextValidatorsHash()) {
@@ -428,25 +425,29 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 				ClientState: src.clientState,
 				IBCHeader:   ibcHeaderCurrent,
 			}
-
-			fmt.Println("the IBC header is set to:", src.clientTrustedState)
-
 			return
 		}
+
 		pp.log.Debug("No cached IBC header for client trusted height",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("client_id", src.info.ClientID),
-			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight+1),
+			zap.Uint64("height", src.clientState.ConsensusHeight.RevisionHeight),
 		)
 		return
-
 	}
 
 	src.clientTrustedState = provider.ClientTrustedState{
 		ClientState: src.clientState,
 		IBCHeader:   ibcHeader,
 	}
-	fmt.Println("found for revision height+1  and set to ", src.clientTrustedState)
+}
+
+func (pp *PathProcessor) getIBCHeaderForClient(src *pathEndRuntime, dst *pathEndRuntime) (provider.IBCHeader, bool) {
+	if clientIsIcon(src.clientState) {
+		return nextIconIBCHeader(dst.ibcHeaderCache, src.clientState.ConsensusHeight.RevisionHeight)
+	}
+	header, ok := dst.ibcHeaderCache[src.clientState.ConsensusHeight.RevisionHeight+1]
+	return header, ok
 }
 
 func (pp *PathProcessor) appendInitialMessageIfNecessary(pathEnd1Messages, pathEnd2Messages *pathEndMessages) {
