@@ -1,4 +1,4 @@
-package archway
+package module
 
 import (
 	"github.com/cosmos/cosmos-sdk/client"
