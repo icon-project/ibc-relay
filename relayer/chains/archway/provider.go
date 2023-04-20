@@ -1,6 +1,7 @@
 package archway
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sync"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/btcsuite/btcd/rpcclient"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -25,6 +27,7 @@ type ArchwayProviderConfig struct {
 	ChainName         string `json:"-" yaml:"-"`
 	ChainID           string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr           string `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix     string `json:"account-prefix" yaml:"account-prefix"`
 	Timeout           string `json:"timeout" yaml:"timeout"`
 	Keystore          string `json:"keystore" yaml:"keystore"`
 	Password          string `json:"password" yaml:"password"`
@@ -51,7 +54,7 @@ func (pp *ArchwayProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return provider.BroadcastModeSingle
 }
 
-func (pp *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
+func (pp ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 
 	pp.ChainName = chainName
 	if _, err := os.Stat(pp.Keystore); err != nil {
@@ -84,40 +87,9 @@ func (pp *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, d
 }
 
 type ArchwayProvider struct {
-	log     *zap.Logger
-	PCfg    *ArchwayProviderConfig
-	txMu    sync.Mutex
-	metrics *processor.PrometheusMetrics
-	codec   Codec
-}
-
-// type ArchwayIBCHeader struct {
-// }
-
-// func NewArchwayIBCHeader() *ArchwayIBCHeader {
-// 	return &ArchwayIBCHeader{}
-// }
-
-// func (h ArchwayIBCHeader) Height() uint64 {
-// 	return 0
-// }
-
-// func (h ArchwayIBCHeader) NextValidatorsHash() []byte {
-
-// 	// nextproofcontext hash is the nextvalidatorHash in BtpHeader
-// 	return nil
-// }
-
-// func (h ArchwayIBCHeader) ConsensusState() ibcexported.ConsensusState {
-// 	return &icon.ConsensusState{
-// 		MessageRoot: h.Header.MessagesRoot,
-// 	}
-// }
-
-type CosmosProvider struct {
 	log *zap.Logger
 
-	PCfg           ArchwayProviderConfig
+	PCfg           *ArchwayProviderConfig
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
 	RPCClient      rpcclient.Client
@@ -131,31 +103,127 @@ type CosmosProvider struct {
 	cometLegacyEncoding bool
 }
 
-func (cc *ArchwayProvider) ProviderConfig() provider.ProviderConfig {
-	return cc.PCfg
+func (ap *ArchwayProvider) ChainId() string {
+	return ap.PCfg.ChainID
 }
 
-func (cc *ArchwayProvider) ChainId() string {
-	return cc.PCfg.ChainID
+func (ap *ArchwayProvider) ChainName() string {
+	return ap.PCfg.ChainName
 }
 
-func (cc *ArchwayProvider) ChainName() string {
-	return cc.PCfg.ChainName
-}
-
-func (cc *ArchwayProvider) Type() string {
+func (ap *ArchwayProvider) Type() string {
 	return "archway"
 }
 
-func (cc *ArchwayProvider) Key() string {
-	return cc.PCfg.Key
+func (ap *ArchwayProvider) Key() string {
+	return ap.PCfg.Key
 }
 
-func (cc *ArchwayProvider) Timeout() string {
-	return cc.PCfg.Timeout
+func (ap *ArchwayProvider) ProviderConfig() provider.ProviderConfig {
+	return ap.PCfg
+}
+
+func (ap *ArchwayProvider) Timeout() string {
+	return ap.PCfg.Timeout
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
-func (cc *CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (ap *ArchwayProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	return defaultChainPrefix
+}
+
+func (ap *ArchwayProvider) Init(ctx context.Context) error {
+	// TODO:
+	return nil
+
+}
+
+func (ap *ArchwayProvider) Address() (string, error) {
+	info, err := ap.Keybase.Key(ap.PCfg.Key)
+	if err != nil {
+		return "", err
+	}
+
+	acc, err := info.GetAddress()
+	if err != nil {
+		return "", err
+	}
+
+	out, err := ap.EncodeBech32AccAddr(acc)
+	if err != nil {
+		return "", err
+	}
+
+	return out, err
+}
+
+func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	// res, err := cc.QueryStakingParams(ctx)
+
+	// TODO: check and rewrite
+	var unbondingTime time.Duration
+	// if err != nil {
+	// 	// Attempt ICS query
+	// 	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
+	// 	if consumerErr != nil {
+	// 		return 0,
+	// 			fmt.Errorf("failed to query unbonding period as both standard and consumer chain: %s: %w", err.Error(), consumerErr)
+	// 	}
+	// 	unbondingTime = consumerUnbondingPeriod
+	// } else {
+	// 	unbondingTime = res.UnbondingTime
+	// }
+
+	// // We want the trusting period to be 85% of the unbonding time.
+	// // Go mentions that the time.Duration type can track approximately 290 years.
+	// // We don't want to lose precision if the duration is a very long duration
+	// // by converting int64 to float64.
+	// // Use integer math the whole time, first reducing by a factor of 100
+	// // and then re-growing by 85x.
+	tp := unbondingTime / 100 * 85
+
+	// // And we only want the trusting period to be whole hours.
+	// // But avoid rounding if the time is less than 1 hour
+	// //  (otherwise the trusting period will go to 0)
+	if tp > time.Hour {
+		tp = tp.Truncate(time.Hour)
+	}
+	return tp, nil
+}
+
+func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
+	out, err := cc.Cdc.Marshaler.MarshalJSON(toPrint)
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+// WaitForNBlocks blocks until the next block on a given chain
+func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
+	// var initial int64
+	// h, err := cc.RPCClient.Status(ctx)
+	// if err != nil {
+	// 	return err
+	// }
+	// if h.SyncInfo.CatchingUp {
+	// 	return fmt.Errorf("chain catching up")
+	// }
+	// initial = h.SyncInfo.LatestBlockHeight
+	// for {
+	// 	h, err = cc.RPCClient.Status(ctx)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if h.SyncInfo.LatestBlockHeight > initial+n {
+	// 		return nil
+	// 	}
+	// 	select {
+	// 	case <-time.After(10 * time.Millisecond):
+	// 		// Nothing to do.
+	// 	case <-ctx.Done():
+	// 		return ctx.Err()
+	// 	}
+	// }
+	return nil
 }
