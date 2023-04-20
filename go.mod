@@ -14,7 +14,6 @@ require (
 	github.com/cosmos/cosmos-sdk v0.47.1
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.6
-	github.com/cosmos/ibc-go v1.5.0
 	github.com/cosmos/ibc-go/v7 v7.0.0
 	github.com/ethereum/go-ethereum v1.11.4
 	github.com/gofrs/flock v0.8.1
@@ -206,5 +205,5 @@ require (
 replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
-	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230416064536-48d70570734d
+	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v0.0.0-20230420051409-3e3b2d7ea040
 )
