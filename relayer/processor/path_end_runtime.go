@@ -396,7 +396,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 
 	// pathEndForHeight := counterparty
 	// if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
-	// 	pathEndForHeight = pathEnd
+	// pathEndForHeight = pathEnd
 	// }
 
 	// if message.info.Height >= pathEndForHeight.latestBlock.Height {

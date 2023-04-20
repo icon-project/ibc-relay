@@ -86,24 +86,14 @@ type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
 	existingClientInfo, ok := l[clientInfo.clientID]
-	var trustingPeriod time.Duration
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
 			// height is less than latest, so no-op
 			return
 		}
-		trustingPeriod = existingClientInfo.TrustingPeriod
 	}
-	// if trustingPeriod.Milliseconds() == 0 {
-	// 	cs, err := icp.chainProvider.QueryClientState(ctx, int64(icp.latestBlock.Height), clientInfo.clientID)
-	// 	if err == nil {
-	// 		trustingPeriod = cs.TrustingPeriod
-	// 	}
-	// }
-	clientState := clientInfo.ClientState()
-	clientState.TrustingPeriod = trustingPeriod
 
-	// update latest if no existing state or provided consensus height is newer
+	clientState := clientInfo.ClientState()
 	l[clientInfo.clientID] = clientState
 }
 
@@ -282,14 +272,16 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		}
 
 		icp.inSync = true
+		icp.latestBlock = provider.LatestBlock{
+			Height: uint64(header.MainHeight),
+		}
 		ibcHeader := NewIconIBCHeader(header)
 		ibcHeaderCache[uint64(header.MainHeight)] = ibcHeader
-		ibcMessagesCache := processor.NewIBCMessagesCache()
+		ibcMessagesCache := processor.NewIBCMessagesCache() //empty messages just just to sync
 		err = icp.handlePathProcessorUpdate(ctx, ibcHeader, ibcMessagesCache, ibcHeaderCache.Clone())
 		if err != nil {
 			return err
 		}
-
 		return nil
 	}, retry.Context(ctx), retry.OnRetry(func(n uint, err error) {
 		icp.log.Info(
@@ -313,8 +305,6 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.BTPHeight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
-
-	// initalize the processors
 
 	// Create the priority queue and initialize it.
 	incomingEventsQueue := &BlockNotificationPriorityQueue{}
@@ -342,9 +332,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 
 		case h := <-btpBlockReceived:
 			ibcHeaderCache[h.Height()] = &h
-			icp.latestBlock = provider.LatestBlock{
-				Height: uint64(h.Height()),
-			}
+
 			icp.log.Info("BTP block Received for: ",
 				zap.Int64("height", int64(h.Height())))
 
@@ -390,10 +378,11 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 				persistence.lastQueriedHeight = int64(header.Height())
 				persistence.latestQueriedHeightMu.Unlock()
 
-				ibcMessages := icp.ibcMessagesFromEventLog(eventLogs, uint64(h))
+				ibcMessages := parseIBCMessagesFromEventlog(icp.log, eventLogs, uint64(h))
 				for _, m := range ibcMessages {
 					icp.handleMessage(ctx, *m, ibcMessagesCache)
 				}
+
 				icp.inSync = true
 				icp.handlePathProcessorUpdate(ctx, header, ibcMessagesCache, ibcHeaderCache.Clone())
 			}
@@ -543,16 +532,6 @@ func (icp *IconChainProcessor) handleBlockEventRequest(request *types.BlockNotif
 	}
 
 	return eventlogs, nil
-}
-
-func (icp *IconChainProcessor) ibcMessagesFromEventLog(els []types.EventLog, height uint64) (ibcMessages []*ibcMessage) {
-
-	for _, el := range els {
-
-		ibcMessage := parseIBCMessageFromEvent(icp.log, el, uint64(height))
-		ibcMessages = append(ibcMessages, ibcMessage)
-	}
-	return ibcMessages
 }
 
 // clientState will return the most recent client state if client messages

@@ -82,15 +82,14 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-	needsClientUpdate := false
-	// needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
-	// if err != nil {
-	// 	return err
-	// }
+	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
+	if err != nil {
+		return err
+	}
 
-	// if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-	// 	return err
-	// }
+	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+		return err
+	}
 
 	mp.assembleMessages(ctx, messages, src, dst)
 
@@ -103,6 +102,16 @@ func (mp *messageProcessor) processMessages(
 // Otherwise, it will be attempted if either 2/3 of the trusting period
 // or the configured client update threshold duration has passed.
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
+
+	// handle if dst is IconLightClient
+	if IfClientIsIcon(dst.clientState) {
+		dst.lastClientUpdateHeightMu.Lock()
+		enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
+		dst.lastClientUpdateHeightMu.Unlock()
+		return enoughBlocksPassed, nil
+	}
+
+	// for lightClient other than ICON this will be helpful
 	var consensusHeightTime time.Time
 	if dst.clientState.ConsensusTime.IsZero() {
 		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
@@ -136,7 +145,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 			zap.String("chain_id", dst.info.ChainID),
 			zap.String("client_id", dst.info.ClientID),
 			zap.Int64("trusting_period", dst.clientState.TrustingPeriod.Milliseconds()),
-			zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
+			// zap.Int64("time_since_client_update", time.Since(consensusHeightTime).Milliseconds()),
 			zap.Int64("client_threshold_time", mp.clientUpdateThresholdTime.Milliseconds()),
 		)
 	}
@@ -209,6 +218,8 @@ func (mp *messageProcessor) assembleMessage(
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
+
+	// this needs to be edited
 	clientID := dst.info.ClientID
 	clientConsensusHeight := dst.clientState.ConsensusHeight
 	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight

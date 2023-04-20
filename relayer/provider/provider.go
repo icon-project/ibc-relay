@@ -68,9 +68,9 @@ type IBCHeader interface {
 type ClientState struct {
 	ClientID        string
 	ConsensusHeight clienttypes.Height
-	TrustingPeriod  time.Duration
-	ConsensusTime   time.Time
-	Header          []byte
+	TrustingPeriod  time.Duration // trustring period wont be there in ICON client state
+	ConsensusTime   time.Time     // consensus time wont be there in ICON light client State
+	Header          []byte        //
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,
