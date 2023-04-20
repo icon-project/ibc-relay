@@ -500,7 +500,6 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
-	fmt.Println("Esma ni issue chhainaaaaa")
 
 	return clientState_, clientResponse.Proof, consensusResponse.Proof, connResponse.Proof, clienttypes.NewHeight(0, uint64(height)), nil
 }
