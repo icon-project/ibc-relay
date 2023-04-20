@@ -23,7 +23,7 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/icon-project/IBC-Integration v0.0.0-20230418093835-22eb3967c8b2
+	github.com/icon-project/IBC-Integration v0.0.0-20230420051409-3e3b2d7ea040
 	github.com/icon-project/goloop v1.3.4
 	github.com/icon-project/icon-bridge v0.0.11
 	github.com/jsternberg/zap-logfmt v1.3.0
