@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/icon-project/ibc-relayer/relayer"
+	archway "github.com/cosmos/relayer/v2/relayer/chains/archway"
 	"github.com/icon-project/ibc-relayer/relayer/chains/cosmos"
 	"github.com/icon-project/ibc-relayer/relayer/chains/icon"
 	"github.com/icon-project/ibc-relayer/relayer/chains/penumbra"
@@ -379,6 +380,7 @@ func (pcw *ProviderConfigWrapper) UnmarshalJSON(data []byte) error {
 		"icon":   reflect.TypeOf(icon.IconProviderConfig{}),
 		"cosmos":   reflect.TypeOf(cosmos.CosmosProviderConfig{}),
 		"penumbra": reflect.TypeOf(penumbra.PenumbraProviderConfig{}),
+		"archway": reflect.TypeOf(archway.ArchwayProviderConfig{}),
 	}
 	val, err := UnmarshalJSONProviderConfig(data, customTypes)
 	if err != nil {
@@ -439,6 +441,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 		iw.Value = new(icon.IconProviderConfig)
 	case "penumbra":
 		iw.Value = new(penumbra.PenumbraProviderConfig)
+	case "archway":
+		iw.Value = new(archway.ArchwayProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}
