@@ -594,3 +594,7 @@ type BTPNetworkTypeInfo struct {
 type ValidatorList struct {
 	Validators [][]byte `json:"validators"`
 }
+
+type ValidatorSignatures struct {
+	Signatures [][]byte `json:"signatures"`
+}

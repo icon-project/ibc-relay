@@ -58,7 +58,7 @@ type IconProviderConfig struct {
 	Password          string `json:"password" yaml:"password"`
 	ICONNetworkID     int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID      int64  `json:"btp-network-id" yaml:"btp-network-id"`
-	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID  int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
 	BTPHeight         int64  `json:"start-btp-height" yaml:"start-btp-height"`
 	IbcHandlerAddress string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 }
@@ -477,6 +477,8 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 		Height:    types.NewHexInt(height),
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
+
+	fmt.Printf("check the params %v ", pr)
 	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
 		return nil, err
@@ -511,8 +513,7 @@ func (icp *IconProvider) GetBtpHeader(height int64) (*types.BTPBlockHeader, erro
 }
 
 func (icp *IconProvider) GetBTPProof(height int64) ([][]byte, error) {
-	var signatures [][]byte
-
+	var valSigs types.ValidatorSignatures
 	encoded, err := icp.client.GetBTPProof(&types.BTPBlockParam{
 		Height:    types.NewHexInt(int64(height)),
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
@@ -521,10 +522,10 @@ func (icp *IconProvider) GetBTPProof(height int64) ([][]byte, error) {
 		return nil, err
 	}
 
-	_, err = Base64ToData(encoded, &signatures)
+	_, err = Base64ToData(encoded, &valSigs)
 	if err != nil {
 		return nil, err
 	}
-	return signatures, nil
+	return valSigs.Signatures, nil
 
 }

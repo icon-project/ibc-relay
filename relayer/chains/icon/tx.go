@@ -456,7 +456,7 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 
-	latestIconHeader, ok := latestHeader.(IconIBCHeader)
+	latestIconHeader, ok := latestHeader.(*IconIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
 	}
@@ -466,12 +466,12 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 	}
 
 	var validatorList types.ValidatorList
-	info, _ := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
+	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = Base64ToData(string(info.NextProofContext), validatorList)
+	_, err = Base64ToData(string(info.NextProofContext), &validatorList)
 	if err != nil {
 		return nil, err
 	}

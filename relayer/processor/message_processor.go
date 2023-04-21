@@ -104,10 +104,11 @@ func (mp *messageProcessor) processMessages(
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
 
 	// handle if dst is IconLightClient
-	if clientIsIcon(dst.clientState) {
+	if ClientIsIcon(dst.clientState) {
 		dst.lastClientUpdateHeightMu.Lock()
 		enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
 		dst.lastClientUpdateHeightMu.Unlock()
+
 		return enoughBlocksPassed, nil
 	}
 
@@ -232,9 +233,12 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	// If the client state height is not equal to the client trusted state height and the client state height is
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
+
 	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
 		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
+
 		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
+
 			return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
@@ -262,6 +266,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 
 	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
 		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
+		fmt.Println("this is actually not letting pass the errorr")
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
 			trustedConsensusHeight.RevisionHeight)
@@ -288,7 +293,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 
 func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
 	clientConsensusHeight := dst.clientState.ConsensusHeight
-	if clientIsIcon(dst.clientState) {
+	if ClientIsIcon(dst.clientState) {
 		header, found := nextIconIBCHeader(src.ibcHeaderCache, clientConsensusHeight.RevisionHeight)
 		if !found {
 			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)

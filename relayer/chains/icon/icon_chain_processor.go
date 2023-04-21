@@ -66,6 +66,8 @@ type IconChainProcessor struct {
 
 	// metrics to monitor lifetime of processor
 	metrics *processor.PrometheusMetrics
+
+	firstTime bool
 }
 
 func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
@@ -245,6 +247,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	btpBlockReceived := make(chan IconIBCHeader, BTP_MESSAGE_CHAN_CAPACITY)
 	incomingEventsBN := make(chan *types.BlockNotification, INCOMING_BN_CAPACITY)
 	monitorErr := make(chan error, ERROR_CAPACITY)
+	icp.firstTime = true
 
 	if icp.chainProvider.PCfg.IbcHandlerAddress == "" || icp.chainProvider.PCfg.BTPNetworkID == 0 {
 		return errors.New("IbcHandlerAddress or NetworkId not found")
@@ -269,9 +272,11 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		}
 
 		icp.inSync = true
+		icp.latestBlockMu.Lock()
 		icp.latestBlock = provider.LatestBlock{
 			Height: uint64(header.MainHeight),
 		}
+		icp.latestBlockMu.Unlock()
 		ibcHeader := NewIconIBCHeader(header)
 		ibcHeaderCache[uint64(header.MainHeight)] = ibcHeader
 		ibcMessagesCache := processor.NewIBCMessagesCache() //empty messages just just to sync
@@ -279,6 +284,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		if err != nil {
 			return err
 		}
+		icp.firstTime = false
 		return nil
 	}, retry.Context(ctx), retry.OnRetry(func(n uint, err error) {
 		icp.log.Info(
@@ -381,6 +387,11 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 				}
 
 				icp.inSync = true
+				icp.latestBlockMu.Lock()
+				icp.latestBlock = provider.LatestBlock{
+					Height: uint64(h),
+				}
+				icp.latestBlockMu.Unlock()
 				icp.handlePathProcessorUpdate(ctx, header, ibcMessagesCache, ibcHeaderCache.Clone())
 			}
 
@@ -414,6 +425,7 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 			ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
 			ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
 			IBCHeaderCache:       ibcHeaderCache,
+			IsGenesis:            icp.firstTime,
 		})
 	}
 	return nil
@@ -541,6 +553,7 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	if err != nil {
 		return provider.ClientState{}, err
 	}
+	fmt.Println("printing cs ", cs)
 
 	clientState := provider.ClientState{
 		ClientID:        clientID,

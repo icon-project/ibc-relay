@@ -5,10 +5,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/pkg/errors"
@@ -23,6 +23,7 @@ import (
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	"github.com/icon-project/goloop/common/codec"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -170,6 +171,28 @@ func (icp *IconProvider) QueryClientState(ctx context.Context, height int64, cli
 
 }
 
+// Implement when a new chain is added to ICON IBC Contract
+func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*codectypes.Any, error) {
+	if strings.Contains(clientId, "icon") {
+		var clientState icon.ClientState
+		err := icp.codec.Marshaler.Unmarshal(clientStateB, &clientState)
+		if err != nil {
+			return nil, err
+		}
+		return clienttypes.PackClientState(&clientState)
+	}
+	if strings.Contains(clientId, "tendermint") {
+		var clientState itm.ClientState
+		err := icp.codec.Marshaler.Unmarshal(clientStateB, &clientState)
+		if err != nil {
+			return nil, err
+		}
+
+		return clienttypes.PackClientState(&clientState)
+	}
+	return nil, fmt.Errorf("unknown client type")
+}
+
 func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 
 	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
@@ -188,26 +211,20 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		return nil, err
 	}
 
-	var clientState itm.ClientState
-	if err = proto.Unmarshal(clientStateByte, &clientState); err != nil {
-		return nil, err
-	}
-
-	var ibcExportedClientState ibcexported.ClientState = &clientState
-
-	any, err := clienttypes.PackClientState(ibcExportedClientState)
+	// TODO: Use ICON Client State after cosmos chain integrated--
+	any, err := icp.ClientToAny(srcClientId, clientStateByte)
 	if err != nil {
 		return nil, err
 	}
-	// key := cryptoutils.GetClientStateCommitmentKey(srcClientId)
-	// keyHash := cryptoutils.Sha3keccak256(key, clientStateByte)
-	// proofs, err := icp.QueryIconProof(ctx, height, keyHash)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
-	// // TODO: marshal proof to bytes
-	// log.Println("client Proofs: ", proofs)
+	clientKey := cryptoutils.GetClientStateCommitmentKey(srcClientId)
+	keyHash := cryptoutils.Sha3keccak256(clientKey, clientStateByte)
+	proof, err := icp.QueryIconProof(ctx, height, keyHash)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("proof still dont send", proof)
 
 	return clienttypes.NewQueryClientStateResponse(any, nil, clienttypes.NewHeight(0, uint64(height))), nil
 }
@@ -731,10 +748,12 @@ func (icp *IconProvider) QueryDenomTraces(ctx context.Context, offset, limit uin
 }
 
 func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHash []byte) ([]icon.MerkleNode, error) {
+	return []icon.MerkleNode{}, nil
 	messages, err := icp.GetBtpMessage(height)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Printf("all the hashes %x \n", messages)
 	merkleHashTree := cryptoutils.NewMerkleHashTree(messages)
 	if err != nil {
 		return nil, err

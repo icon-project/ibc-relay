@@ -261,6 +261,7 @@ type ChainProcessorCacheData struct {
 	LatestBlock          provider.LatestBlock
 	LatestHeader         provider.IBCHeader
 	IBCHeaderCache       IBCHeaderCache
+	IsGenesis            bool
 }
 
 // Clone creates a deep copy of a PacketMessagesCache.
