@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -929,8 +928,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	// Update trusted client state for both pathends
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
-
-	fmt.Println("Inside processLatestMessage")
 
 	channelPairs := pp.channelPairs()
 

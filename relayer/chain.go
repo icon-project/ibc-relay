@@ -68,7 +68,6 @@ func ValidateConnectionPaths(src, dst *Chain) error {
 		return err
 	}
 
-	fmt.Println("validation passed")
 	return nil
 }
 
