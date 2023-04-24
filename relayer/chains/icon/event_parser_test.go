@@ -109,7 +109,7 @@ func TestConnectionOpenInit(t *testing.T) {
 // 		Key:               "icon",
 // 		ChainName:         "icon",
 // 		ChainID:           "0x1",
-// 		RPCAddr:           "https://ctz.solidwallet.io/api/v3/",
+// 		RPCAddr:           "https://ctz.solidwallet.io/api/v3",
 // 		Timeout:           "0",
 // 		IbcHandlerAddress: "cx997849d3920d338ed81800833fbb270c785e743d",
 // 	}
