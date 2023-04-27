@@ -59,8 +59,8 @@ build-osmosis-docker:
 ###############################################################################
 
 test:
-	@go test -mod=readonly -race ./...
-
+# 	@go test -mod=readonly -race ./...
+	@go test -mod=readonly -race -coverprofile=coverage.out -covermode=atomic ./...
 interchaintest:
 	cd interchaintest && go test -race -v -run TestRelayerInProcess .
 
@@ -95,6 +95,8 @@ interchaintest-scenario: ## Scenario tests are suitable for simple networks of 1
 	cd interchaintest && go test -timeout 30m -race -v -run TestScenario ./...
 
 coverage:
+	@echo "Generating coverage report..."
+	@go test -race -coverprofile=coverage.txt -covermode=atomic
 	@echo "viewing test coverage..."
 	@go tool cover --html=coverage.out
 
