@@ -278,6 +278,10 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		}
 		icp.latestBlockMu.Unlock()
 		ibcHeader := NewIconIBCHeader(header)
+		icp.latestBlock = provider.LatestBlock{
+			Height: ibcHeader.Height(),
+		}
+
 		ibcHeaderCache[uint64(header.MainHeight)] = ibcHeader
 		ibcMessagesCache := processor.NewIBCMessagesCache() //empty messages just just to sync
 		err = icp.handlePathProcessorUpdate(ctx, ibcHeader, ibcMessagesCache, ibcHeaderCache.Clone())
@@ -447,7 +451,6 @@ func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.
 			receiverChan <- *btpBLockWithProof
 			return nil
 		}, func(conn *websocket.Conn) {
-			log.Println(fmt.Sprintf("MonitorBtpBlock"))
 		}, func(conn *websocket.Conn, err error) {
 			icp.log.Debug(fmt.Sprintf("onError %s err:%+v", conn.LocalAddr().String(), err))
 			_ = conn.Close()
@@ -468,7 +471,6 @@ func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.
 			}
 			return nil
 		}, func(conn *websocket.Conn) {
-			log.Println(fmt.Sprintf("MonitorIconLoop"))
 		}, func(conn *websocket.Conn, err error) {
 			log.Println(fmt.Sprintf("onError %s err:%+v", conn.LocalAddr().String(), err))
 			_ = conn.Close()
