@@ -29,7 +29,7 @@ const (
 	queryTimeout                = 5 * time.Second
 	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
-	latestHeightQueryRetries    = 5
+	queryRetries                = 5
 
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
@@ -244,7 +244,6 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 
 func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *queryCyclePersistence) error {
 
-	btpBlockReceived := make(chan IconIBCHeader, BTP_MESSAGE_CHAN_CAPACITY)
 	incomingEventsBN := make(chan *types.BlockNotification, INCOMING_BN_CAPACITY)
 	monitorErr := make(chan error, ERROR_CAPACITY)
 	icp.firstTime = true
@@ -254,60 +253,26 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	}
 
 	ibcHeaderCache := make(processor.IBCHeaderCache)
-
-	header := &types.BTPBlockHeader{}
-	if err := retry.Do(func() error {
-		var err error
-		header, err = icp.chainProvider.GetBtpHeader(icp.chainProvider.PCfg.BTPHeight)
-		if err != nil {
-			if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header for") {
-				icp.log.Info("Provided Height doesn't contain BTP header:",
-					zap.String("ChainName", icp.chainProvider.ChainId()),
-					zap.Int64("Height", icp.chainProvider.PCfg.BTPHeight),
-					zap.Int64("Network Id", icp.chainProvider.PCfg.BTPNetworkID),
-				)
-				return nil
-			}
-			return err
-		}
-
-		icp.inSync = true
-		icp.latestBlockMu.Lock()
-		icp.latestBlock = provider.LatestBlock{
-			Height: uint64(header.MainHeight),
-		}
-		icp.latestBlockMu.Unlock()
-		ibcHeader := NewIconIBCHeader(header)
-		icp.latestBlock = provider.LatestBlock{
-			Height: ibcHeader.Height(),
-		}
-
-		ibcHeaderCache[uint64(header.MainHeight)] = ibcHeader
-		ibcMessagesCache := processor.NewIBCMessagesCache() //empty messages just just to sync
-		err = icp.handlePathProcessorUpdate(ctx, ibcHeader, ibcMessagesCache, ibcHeaderCache.Clone())
-		if err != nil {
-			return err
-		}
-		icp.firstTime = false
-		return nil
-	}, retry.Context(ctx), retry.OnRetry(func(n uint, err error) {
-		icp.log.Info(
-			"Failed to get header",
-			zap.String("ChainName", icp.chainProvider.ChainId()),
-			zap.Int64("Height", icp.chainProvider.PCfg.BTPHeight),
-			zap.Int64("Network Id", icp.chainProvider.PCfg.BTPNetworkID),
-			zap.Error(err),
-		)
-	})); err != nil {
+	ibcHeader, err := icp.GetIconIBCheader(ctx, icp.chainProvider.PCfg.BTPHeight, false)
+	if err != nil {
 		return err
 	}
-
-	// request parameters
-	reqBTPBlocks := &types.BTPRequest{
-		Height:    types.NewHexInt(icp.chainProvider.PCfg.BTPHeight),
-		NetworkID: types.NewHexInt(icp.chainProvider.PCfg.BTPNetworkID),
-		ProofFlag: types.NewHexInt(0),
+	icp.inSync = true
+	icp.latestBlockMu.Lock()
+	icp.latestBlock = provider.LatestBlock{
+		Height: uint64(ibcHeader.Height()),
 	}
+	icp.latestBlockMu.Unlock()
+	icp.latestBlock = provider.LatestBlock{
+		Height: ibcHeader.Height(),
+	}
+	ibcHeaderCache[uint64(ibcHeader.Height())] = ibcHeader
+	err = icp.handlePathProcessorUpdate(ctx, ibcHeader, processor.NewIBCMessagesCache(), ibcHeaderCache.Clone())
+	if err != nil {
+		return err
+	}
+	icp.firstTime = false
+
 	reqIconBlocks := &types.BlockRequest{
 		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.BTPHeight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
@@ -317,13 +282,9 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	incomingEventsQueue := &BlockNotificationPriorityQueue{}
 	heap.Init(incomingEventsQueue)
 
-	// Start monitoring BTP blocks
-	go icp.monitorBTP2Block(ctx, reqBTPBlocks, btpBlockReceived, monitorErr)
-
 	// Start monitoring Icon blocks for eventlogs
 	go icp.monitorIconBlock(ctx, reqIconBlocks, incomingEventsBN, monitorErr)
 
-	// ticker
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
 
@@ -331,36 +292,28 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		select {
 		case <-ctx.Done():
 			// Context has been cancelled, stop the loop
-			icp.log.Debug("Icon chain closed")
+			icp.log.Debug("Icon chain stopped")
 			return nil
 
 		case err := <-monitorErr:
 			return err
 
-		case h := <-btpBlockReceived:
-			ibcHeaderCache[h.Height()] = &h
-
-			icp.log.Info("BTP block Received for: ",
-				zap.Int64("height", int64(h.Height())))
-
 		case incomingBN := <-incomingEventsBN:
 			heap.Push(incomingEventsQueue, incomingBN)
-			h, _ := incomingBN.Height.Value()
-			icp.log.Info("Event Notification Received for:",
-				zap.Int64("height", h))
 
 		case <-ticker.C:
-			// Process the block notifications from the priority queue.
-			for incomingEventsQueue.Len() > 0 {
+			if incomingEventsQueue.Len() > 0 {
 				ibcMessagesCache := processor.NewIBCMessagesCache()
 				incomingBN := heap.Pop(incomingEventsQueue).(*types.BlockNotification)
+
 				h, _ := (incomingBN.Height).Value()
+				btp_height := h
 				icp.log.Info("Incomming sequence: ",
 					zap.String("ChainName", icp.chainProvider.ChainId()),
 					zap.Int64("Height", int64(h)),
 				)
 
-				eventLogs, err := icp.handleBlockEventRequest(incomingBN)
+				allEventLogs, err := icp.handleBlockEventRequest(incomingBN)
 				if err != nil {
 					icp.log.Error(
 						fmt.Sprintf("Failed handleBlockEventRequest at height:%v", incomingBN.Height),
@@ -368,17 +321,17 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 					)
 				}
 
-				var header provider.IBCHeader
-				header, ok := ibcHeaderCache[uint64(h)]
-				if !ok {
-					if RequiresBtpHeader(eventLogs) {
-						icp.log.Info(
-							"Btp header not present in header cache but requires BtpHeader",
-							zap.Int64("Height", int64(h)))
-						heap.Push(incomingEventsQueue, incomingBN)
-						break
-					}
-					header = NewIconIBCHeader(&types.BTPBlockHeader{MainHeight: uint64(h)})
+				eventLogs := filterAllBtpMessageEvents(allEventLogs)
+				//	btp block will be generated duing validatorSetChange
+				//  and or btpMessage generation
+				shouldContainHeader := requiresBtpHeader(eventLogs) || containsOnlyBtpMessageSignature(allEventLogs)
+				header, err := icp.GetIconIBCheader(ctx, btp_height, shouldContainHeader)
+				if err != nil {
+					icp.log.Warn(
+						"BTP Header is not available :",
+						zap.Int64("Height", int64(btp_height)))
+					heap.Push(incomingEventsQueue, incomingBN)
+					continue
 				}
 
 				persistence.latestQueriedHeightMu.Lock()
@@ -393,7 +346,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 				icp.inSync = true
 				icp.latestBlockMu.Lock()
 				icp.latestBlock = provider.LatestBlock{
-					Height: uint64(h),
+					Height: uint64(h + 1),
 				}
 				icp.latestBlockMu.Unlock()
 				icp.handlePathProcessorUpdate(ctx, header, ibcMessagesCache, ibcHeaderCache.Clone())
@@ -436,38 +389,42 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 
 }
 
-func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.BTPRequest, receiverChan chan IconIBCHeader, errChan chan error) {
+// func (icp *IconChainProcessor) monitorBTP2Block(ctx context.Context, req *types.BTPRequest, receiverChan chan IconIBCHeader, errChan chan error) {
 
-	go func() {
-		err := icp.chainProvider.client.MonitorBTP(ctx, req, func(conn *websocket.Conn, v *types.BTPNotification) error {
+// 	go func() {
+// 		err := icp.chainProvider.client.MonitorBTP(ctx, req, func(conn *websocket.Conn, v *types.BTPNotification) error {
 
-			bh := &types.BTPBlockHeader{}
-			_, err := Base64ToData(v.Header, bh)
-			if err != nil {
-				return err
-			}
-			icp.chainProvider.UpdateLastBTPBlockHeight(uint64(bh.MainHeight))
-			btpBLockWithProof := NewIconIBCHeader(bh)
-			receiverChan <- *btpBLockWithProof
-			return nil
-		}, func(conn *websocket.Conn) {
-		}, func(conn *websocket.Conn, err error) {
-			icp.log.Debug(fmt.Sprintf("onError %s err:%+v", conn.LocalAddr().String(), err))
-			_ = conn.Close()
-			errChan <- err
-		})
-		if err != nil {
-			errChan <- err
-		}
-	}()
-}
+// 			bh := &types.BTPBlockHeader{}
+// 			_, err := Base64ToData(v.Header, bh)
+// 			if err != nil {
+// 				return err
+// 			}
+// 			icp.chainProvider.UpdateLastBTPBlockHeight(uint64(bh.MainHeight))
+// 			btpBLockWithProof := NewIconIBCHeader(bh)
+// 			receiverChan <- *btpBLockWithProof
+// 			return nil
+// 		}, func(conn *websocket.Conn) {
+// 		}, func(conn *websocket.Conn, err error) {
+// 			icp.log.Debug(fmt.Sprintf("onError %s err:%+v", conn.LocalAddr().String(), err))
+// 			_ = conn.Close()
+// 			errChan <- err
+// 		})
+// 		if err != nil {
+// 			errChan <- err
+// 		}
+// 	}()
+// }
 
 func (icp *IconChainProcessor) monitorIconBlock(ctx context.Context, req *types.BlockRequest, incomingEventBN chan *types.BlockNotification, errChan chan error) {
 
 	go func() {
 		err := icp.chainProvider.client.MonitorBlock(ctx, req, func(conn *websocket.Conn, v *types.BlockNotification) error {
+			h, _ := v.Height.Value()
+			// icp.log.Info("Monitor block reached at height", zap.Int64("height", h))
 			if len(v.Indexes) > 0 && len(v.Events) > 0 {
 				incomingEventBN <- v
+				icp.log.Info("Monitored Event Notification Received for:",
+					zap.Int64("height", h))
 			}
 			return nil
 		}, func(conn *websocket.Conn) {
@@ -568,7 +525,7 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 func (icp *IconChainProcessor) getLatestHeightWithRetry(ctx context.Context) (int64, error) {
 	var blk *types.Block
 	var err error
-	for i := 0; i < latestHeightQueryRetries; i++ {
+	for i := 0; i < queryRetries; i++ {
 		blk, err = icp.chainProvider.client.GetLastBlock()
 		if err != nil {
 
@@ -584,4 +541,33 @@ func (icp *IconChainProcessor) getLatestHeightWithRetry(ctx context.Context) (in
 		break
 	}
 	return blk.Height, err
+}
+
+func (icp *IconChainProcessor) GetIconIBCheader(ctx context.Context, height int64, shouldContainHeader bool) (h *IconIBCHeader, err error) {
+
+	if err := retry.Do(func() error {
+		_, err := icp.chainProvider.client.GetBlockHeaderByHeight(height)
+		if err != nil {
+			return err
+		}
+		return nil
+	}, retry.Context(ctx), retry.Attempts(5), retry.OnRetry(func(n uint, err error) {
+		icp.log.Info(
+			"Failed to get Icon header",
+			zap.String("ChainName", icp.chainProvider.ChainId()),
+			zap.Int64("Height", icp.chainProvider.PCfg.BTPHeight),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, err
+	}
+
+	header, err := icp.chainProvider.GetBtpHeader(height)
+	if err != nil {
+		if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header for") && !shouldContainHeader {
+			return &IconIBCHeader{Header: &types.BTPBlockHeader{MainHeight: uint64(height)}}, nil
+		}
+		return nil, err
+	}
+	return &IconIBCHeader{Header: header}, nil
 }
