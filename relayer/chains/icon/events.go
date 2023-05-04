@@ -12,6 +12,7 @@ import (
 
 // Events
 var (
+	EventBTPMessage = "BTPMessage(int,int)"
 	// Client Events
 	EventTypeCreateClient = "CreateClient(str,bytes)"
 	EventTypeUpdateClient = "UpdateClient(str)"
@@ -111,6 +112,8 @@ var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
 }
 
 var MonitorEvents []string = []string{
+
+	EventBTPMessage,
 	EventTypeSendPacket,
 	EventTypeRecvPacket,
 	EventTypeWriteAcknowledgement,
@@ -144,11 +147,30 @@ func GetMonitorEventFilters(address string) []*types.EventFilter {
 	return filters
 }
 
-func RequiresBtpHeader(els []types.EventLog) bool {
+func requiresBtpHeader(els []types.EventLog) bool {
 	for _, el := range els {
 		if _, ok := BtpHeaderRequiredEvents[string(GetEventLogSignature(el.Indexed))]; ok {
 			return true
 		}
 	}
 	return false
+}
+
+func containsOnlyBtpMessageSignature(eventLogs []types.EventLog) bool {
+	for _, e := range eventLogs {
+		if string(GetEventLogSignature(e.Indexed)) != EventBTPMessage {
+			return false
+		}
+	}
+	return true
+}
+
+func filterAllBtpMessageEvents(eventlogs []types.EventLog) []types.EventLog {
+	var elgs []types.EventLog
+	for _, e := range eventlogs {
+		if string(GetEventLogSignature(e.Indexed)) != EventBTPMessage {
+			elgs = append(elgs, e)
+		}
+	}
+	return elgs
 }
