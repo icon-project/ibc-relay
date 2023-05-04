@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 
+	ckeys "github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -52,7 +53,7 @@ func (cc *ArchwayProvider) KeystoreCreated(path string) bool {
 	} else if cc.Keybase == nil {
 		return false
 	}
-	return false
+	return true
 }
 
 // AddKey generates a new mnemonic which is then converted to a private key and BIP-39 HD Path and persists it to the keystore.
@@ -146,7 +147,7 @@ func (cc *ArchwayProvider) ListAddresses() (map[string]string, error) {
 	return out, nil
 }
 
-// // DeleteKey removes a key from the keystore for the specified name.
+// DeleteKey removes a key from the keystore for the specified name.
 func (cc *ArchwayProvider) DeleteKey(name string) error {
 	if err := cc.Keybase.Delete(name); err != nil {
 		return err
@@ -154,7 +155,7 @@ func (cc *ArchwayProvider) DeleteKey(name string) error {
 	return nil
 }
 
-// // KeyExists returns true if a key with the specified name exists in the keystore, it returns false otherwise.
+// KeyExists returns true if a key with the specified name exists in the keystore, it returns false otherwise.
 func (cc *ArchwayProvider) KeyExists(name string) bool {
 	k, err := cc.Keybase.Key(name)
 	if err != nil {
@@ -164,23 +165,22 @@ func (cc *ArchwayProvider) KeyExists(name string) bool {
 	return k.Name == name
 }
 
-// // ExportPrivKeyArmor returns a private key in ASCII armored format.
-// // It returns an error if the key does not exist or a wrong encryption passphrase is supplied.
+// ExportPrivKeyArmor returns a private key in ASCII armored format.
+// It returns an error if the key does not exist or a wrong encryption passphrase is supplied.
 func (cc *ArchwayProvider) ExportPrivKeyArmor(keyName string) (armor string, err error) {
-	// return cc.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
-	return "", nil
+	return cc.Keybase.ExportPrivKeyArmor(keyName, ckeys.DefaultKeyPass)
 }
 
-// // GetKeyAddress returns the account address representation for the currently configured key.
-// func (cc *ArchwayProvider) GetKeyAddress() (sdk.AccAddress, error) {
-// 	info, err := cc.Keybase.Key(cc.PCfg.Key)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return info.GetAddress()
-// }
+// GetKeyAddress returns the account address representation for the currently configured key.
+func (cc *ArchwayProvider) GetKeyAddress() (sdk.AccAddress, error) {
+	info, err := cc.Keybase.Key(cc.PCfg.Key)
+	if err != nil {
+		return nil, err
+	}
+	return info.GetAddress()
+}
 
-// // CreateMnemonic generates a new mnemonic.
+// CreateMnemonic generates a new mnemonic.
 func CreateMnemonic() (string, error) {
 	entropySeed, err := bip39.NewEntropy(256)
 	if err != nil {
