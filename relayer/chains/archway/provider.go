@@ -11,8 +11,6 @@ import (
 
 	provtypes "github.com/cometbft/cometbft/light/provider"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	"github.com/CosmWasm/wasmd/app"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	prov "github.com/cometbft/cometbft/light/provider/http"
@@ -29,7 +27,7 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	libclient "github.com/tendermint/tendermint/rpc/jsonrpc/client"
+	libclient "github.com/cometbft/cometbft/rpc/jsonrpc/client"
 
 	"go.uber.org/zap"
 )
@@ -183,9 +181,10 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	account := "archway1fgdnyxpcvm3e24zrxsufl0esztr28n5xawe57f"
-
-	addr, _ := sdk.AccAddressFromBech32(account)
+	addr, err := ap.GetKeyAddress()
+	if err != nil {
+		return err
+	}
 
 	encodingConfig := app.MakeEncodingConfig()
 	clientCtx := client.Context{}.

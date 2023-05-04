@@ -199,14 +199,9 @@ func (ap *ArchwayProvider) QueryClientState(ctx context.Context, height int64, c
 	fmt.Println(clientStateRes)
 	return nil, nil
 }
+
 func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
-	clientStateParam := types.GetClientState{
-		ClientState: struct {
-			ClientId string "json:\"client_id\""
-		}{
-			ClientId: srcClientId,
-		},
-	}
+	clientStateParam := types.NewClientState(srcClientId)
 
 	param, err := json.Marshal(clientStateParam)
 	if err != nil {
@@ -224,16 +219,9 @@ func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height 
 	fmt.Println(clientState)
 	return nil, nil
 }
+
 func (ap *ArchwayProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-	consensusStateParam := types.GetConsensusState{
-		ConsensusState: struct {
-			ClientId string "json:\"client_id\""
-			Height   uint64 "json:\"height\""
-		}{
-			ClientId: clientid,
-			Height:   uint64(chainHeight),
-		},
-	}
+	consensusStateParam := types.NewConsensusState(clientid, uint64(chainHeight))
 
 	param, err := json.Marshal(consensusStateParam)
 	if err != nil {
@@ -247,6 +235,7 @@ func (ap *ArchwayProvider) QueryClientConsensusState(ctx context.Context, chainH
 	if err != nil {
 		return nil, err
 	}
+
 	// TODO
 	fmt.Println(consensusState)
 

@@ -20,9 +20,31 @@ type GetClientState struct {
 	} `json:"client_state"`
 }
 
+func NewClientState(clientId string) *GetClientState {
+	return &GetClientState{
+		struct {
+			ClientId string `json:"client_id"`
+		}{
+			ClientId: clientId,
+		},
+	}
+}
+
 type GetConsensusState struct {
 	ConsensusState struct {
 		ClientId string `json:"client_id"`
 		Height   uint64 `json:"height"`
 	} `json:"consensus_state"`
+}
+
+func NewConsensusState(clientId string, height uint64) *GetConsensusState {
+	return &GetConsensusState{
+		ConsensusState: struct {
+			ClientId string `json:"client_id"`
+			Height   uint64 `json:"height"`
+		}{
+			ClientId: clientId,
+			Height:   height,
+		},
+	}
 }
