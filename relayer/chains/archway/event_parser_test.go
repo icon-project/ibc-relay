@@ -28,7 +28,7 @@ func TestEventParser(t *testing.T) {
 			// tx was not successful
 			continue
 		}
-		m = append(m, ibcMessagesFromEvents(&zap.Logger{}, tx.Events, "archway", 1711515, contract_address)...)
+		m = append(m, ibcMessagesFromEvents(&zap.Logger{}, tx.Events, "archway", 1711515, contract_address, true)...)
 	}
 
 	assert.Equal(t, len(m), 1)

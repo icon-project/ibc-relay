@@ -129,6 +129,9 @@ type ArchwayProvider struct {
 	txMu sync.Mutex
 
 	metrics *processor.PrometheusMetrics
+
+	// for comet < v0.37, decode tm events as base64
+	cometLegacyEncoding bool
 }
 
 func (ap *ArchwayProvider) ProviderConfig() provider.ProviderConfig {
