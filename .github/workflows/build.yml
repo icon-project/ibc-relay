@@ -30,7 +30,6 @@ jobs:
       # unit tests
       - name: run unit tests
         run: make test
-        continue-on-error: true
         
 
       # build binary
