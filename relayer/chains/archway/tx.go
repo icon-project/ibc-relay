@@ -11,7 +11,10 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
@@ -32,6 +35,91 @@ var (
 	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
 	defaultDelayPeriod = uint64(0)
 )
+
+func (ap *ArchwayProvider) TxFactory() tx.Factory {
+	return tx.Factory{}.
+		WithAccountRetriever(ap).
+		WithChainID(ap.PCfg.ChainID).
+		WithTxConfig(ap.Cdc.TxConfig).
+		WithGasAdjustment(ap.PCfg.GasAdjustment).
+		WithGasPrices(ap.PCfg.GasPrices).
+		WithKeybase(ap.Keybase).
+		WithSignMode(ap.PCfg.SignMode())
+}
+
+// PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
+func (ap *ArchwayProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
+	var (
+		err      error
+		from     sdk.AccAddress
+		num, seq uint64
+	)
+
+	// Get key address and retry if fail
+	if err = retry.Do(func() error {
+		from, err = ap.GetKeyAddress()
+		if err != nil {
+			return err
+		}
+		return err
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
+		return tx.Factory{}, err
+	}
+
+	cliCtx := client.Context{}.WithClient(ap.RPCClient).
+		WithInterfaceRegistry(ap.Cdc.InterfaceRegistry).
+		WithChainID(ap.PCfg.ChainID).
+		WithCodec(ap.Cdc.Marshaler)
+
+	// Set the account number and sequence on the transaction factory and retry if fail
+	if err = retry.Do(func() error {
+		if err = txf.AccountRetriever().EnsureExists(cliCtx, from); err != nil {
+			return err
+		}
+		return err
+	}, rtyAtt, rtyDel, rtyErr); err != nil {
+		return txf, err
+	}
+
+	// TODO: why this code? this may potentially require another query when we don't want one
+	initNum, initSeq := txf.AccountNumber(), txf.Sequence()
+	if initNum == 0 || initSeq == 0 {
+		if err = retry.Do(func() error {
+			num, seq, err = txf.AccountRetriever().GetAccountNumberSequence(cliCtx, from)
+			if err != nil {
+				return err
+			}
+			return err
+		}, rtyAtt, rtyDel, rtyErr); err != nil {
+			return txf, err
+		}
+
+		if initNum == 0 {
+			txf = txf.WithAccountNumber(num)
+		}
+
+		if initSeq == 0 {
+			txf = txf.WithSequence(seq)
+		}
+	}
+
+	if ap.PCfg.MinGasAmount != 0 {
+		txf = txf.WithGas(ap.PCfg.MinGasAmount)
+	}
+
+	return txf, nil
+}
+
+func (pc *ArchwayProviderConfig) SignMode() signing.SignMode {
+	signMode := signing.SignMode_SIGN_MODE_UNSPECIFIED
+	switch pc.SignModeStr {
+	case "direct":
+		signMode = signing.SignMode_SIGN_MODE_DIRECT
+	case "amino-json":
+		signMode = signing.SignMode_SIGN_MODE_LEGACY_AMINO_JSON
+	}
+	return signMode
+}
 
 func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 	return nil, nil
