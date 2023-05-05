@@ -181,6 +181,7 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 		return err
 	}
 
+	ap.Keybase = keybase
 	addr, err := ap.GetKeyAddress()
 	if err != nil {
 		return err
@@ -198,7 +199,6 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)
 	ap.RPCClient = rpcClient
 	ap.LightProvider = lightprovider
-	ap.Keybase = keybase
 	return nil
 }
 
