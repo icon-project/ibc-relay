@@ -152,8 +152,8 @@ type IconIBCHeader struct {
 	Header *types.BTPBlockHeader
 }
 
-func NewIconIBCHeader(header *types.BTPBlockHeader) *IconIBCHeader {
-	return &IconIBCHeader{
+func NewIconIBCHeader(header *types.BTPBlockHeader) IconIBCHeader {
+	return IconIBCHeader{
 		Header: header,
 	}
 }
