@@ -3,7 +3,6 @@ package icon
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -23,7 +22,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
-	gl_codec "github.com/icon-project/goloop/common/codec"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
@@ -100,32 +98,18 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 
 // legacy
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
-	param := &types.BTPBlockParam{
-		Height:    types.NewHexInt(h),
-		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
-	}
-	btpHeader, err := icp.client.GetBTPHeader(param)
+
+	validators, err := icp.GetProofContextByHeight(h)
 	if err != nil {
 		return nil, err
 	}
-
-	// convert to rlp
-	rlpBTPHeader, err := base64.StdEncoding.DecodeString(btpHeader)
+	header, err := icp.GetBtpHeader(h)
 	if err != nil {
-		return nil, err
+		if btpBlockNotPresent(err) {
+			return NewIconIBCHeader(nil, validators, int64(h)), nil
+		}
 	}
-
-	// rlp to hex
-	var header types.BTPBlockHeader
-	_, err = gl_codec.RLP.UnmarshalFromBytes(rlpBTPHeader, &header)
-	if err != nil {
-		zap.Error(err)
-		return nil, err
-	}
-
-	return &IconIBCHeader{
-		Header: &header,
-	}, nil
+	return NewIconIBCHeader(header, validators, int64(header.MainHeight)), err
 }
 
 func (icp *IconProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {

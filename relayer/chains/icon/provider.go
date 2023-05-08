@@ -149,17 +149,31 @@ func (i *IconProvider) UpdateLastBTPBlockHeight(height uint64) {
 }
 
 type IconIBCHeader struct {
-	Header *types.BTPBlockHeader
+	Header     *types.BTPBlockHeader
+	IsBTPBlock bool
+	Validators [][]byte
+	MainHeight uint64
 }
 
-func NewIconIBCHeader(header *types.BTPBlockHeader) IconIBCHeader {
-	return IconIBCHeader{
-		Header: header,
+func NewIconIBCHeader(header *types.BTPBlockHeader, validators [][]byte, height int64) IconIBCHeader {
+	iconIBCHeader := IconIBCHeader{
+		Header:     header,
+		Validators: validators,
 	}
+
+	if header == nil {
+		iconIBCHeader.IsBTPBlock = false
+		iconIBCHeader.MainHeight = uint64(height)
+	} else {
+		iconIBCHeader.IsBTPBlock = true
+		iconIBCHeader.MainHeight = header.MainHeight
+	}
+
+	return iconIBCHeader
 }
 
 func (h IconIBCHeader) Height() uint64 {
-	return uint64(h.Header.MainHeight)
+	return h.MainHeight
 }
 
 func (h IconIBCHeader) NextValidatorsHash() []byte {
@@ -546,4 +560,18 @@ func (icp *IconProvider) GetBTPProof(height int64) ([][]byte, error) {
 	}
 	return valSigs.Signatures, nil
 
+}
+
+func (icp *IconProvider) GetProofContextByHeight(height int64) ([][]byte, error) {
+	var validatorList types.ValidatorList
+	info, err := icp.client.GetNetworkTypeInfo(int64(height), icp.PCfg.BTPNetworkTypeID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = Base64ToData(string(info.NextProofContext), &validatorList)
+	if err != nil {
+		return nil, err
+	}
+	return validatorList.Validators, nil
 }

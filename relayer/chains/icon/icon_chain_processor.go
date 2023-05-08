@@ -4,14 +4,12 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/avast/retry-go/v4"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -135,20 +133,20 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 		minQueryLoopDuration: time.Second,
 	}
 
-	height, err := icp.getLatestHeightWithRetry(ctx)
-	if err != nil {
-		icp.log.Error("Failed to query latest height",
-			zap.Error(err),
-		)
-		return err
-	}
-	persistence.latestHeight = height
+	// height, err := icp.getLatestHeightWithRetry(ctx)
+	// if err != nil {
+	// 	icp.log.Error("Failed to query latest height",
+	// 		zap.Error(err),
+	// 	)
+	// 	return err
+	// }
+	// persistence.latestHeight = height
 
-	lastQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
-	if lastQueriedBlock < 0 {
-		lastQueriedBlock = 1
-	}
-	persistence.lastQueriedHeight = lastQueriedBlock
+	// lastQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
+	// if lastQueriedBlock < 0 {
+	// 	lastQueriedBlock = 1
+	// }
+	// persistence.lastQueriedHeight = lastQueriedBlock
 
 	var eg errgroup.Group
 
@@ -164,7 +162,7 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	// start_query_cycle
 	icp.log.Debug(" **************** Entering main query loop **************** ")
-	err = icp.monitoring(ctx, &persistence)
+	err := icp.monitoring(ctx, &persistence)
 	return err
 }
 
@@ -236,7 +234,6 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 
 func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *queryCyclePersistence) error {
 
-	fmt.Println("inside monitoring ")
 	errCh := make(chan error)                                            // error channel
 	reconnectCh := make(chan struct{}, 1)                                // reconnect channel
 	btpBlockNotifCh := make(chan *types.BlockNotification, 10)           // block notification channel
@@ -511,15 +508,21 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 		request.response.EventLogs = eventlogs
 	}
 
+	validators, err := icp.chainProvider.GetProofContextByHeight(request.height)
+	if err != nil {
+		request.err = errors.Wrapf(err, "Failed to get proof context: %v", err)
+		return
+	}
+
 	btpHeader, err := icp.chainProvider.GetBtpHeader(request.height)
 	if err != nil {
 		if RequiresBtpHeader(request.response.EventLogs) {
 			request.err = errors.Wrapf(err, "BTP header required but not present: %v", err)
 			return
 		}
-		if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header") {
+		if btpBlockNotPresent(err) {
 			if containsEventLog {
-				request.response.Header = NewIconIBCHeader(&types.BTPBlockHeader{MainHeight: uint64(request.height)})
+				request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
 			}
 			fmt.Println("blocks are really processed", processed)
 			request.response.IsProcessed = processed
@@ -529,62 +532,10 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 		request.err = errors.Wrapf(err, "failed to get btp header: %v", err)
 		return
 	}
-	request.response.Header = NewIconIBCHeader(btpHeader)
+	request.response.Header = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
 	request.response.IsProcessed = processed
 
 }
-
-// func (icp *IconChainProcessor) handleBTPBlockResponse(ctx context.Context, blockResponse *btpBlockResponse, next *int64, reconnect func(),
-// 	blockResponseCh chan *btpBlockResponse,
-// 	ibcHeaderCache processor.IBCHeaderCache,
-// ) error {
-// 	fmt.Println("insde block respnose")
-// 	for ; blockResponse != nil; *next++ {
-
-// 		icp.latestBlockMu.Lock()
-// 		icp.latestBlock = provider.LatestBlock{
-// 			Height: uint64(*next),
-// 		}
-// 		icp.latestBlockMu.Unlock()
-
-// 		if len(blockResponse.EventLogs) == 0 &&
-// 			blockResponse.Header.Header == nil &&
-// 			!icp.firstTime {
-// 			icp.log.Info("Block has no needed information", zap.Int64("height", blockResponse.Height))
-// 			if blockResponse = nil; len(blockResponseCh) > 0 {
-// 				blockResponse = <-blockResponseCh
-// 				fmt.Println("souldn't go inside this function ", blockResponse.Height)
-// 			}
-// 			continue
-// 		}
-// 		ibcMessage := parseIBCMessagesFromEventlog(icp.log, blockResponse.EventLogs, uint64(blockResponse.Height))
-// 		ibcMessageCache := processor.NewIBCMessagesCache()
-// 		for _, m := range ibcMessage {
-// 			icp.handleMessage(ctx, *m, ibcMessageCache)
-// 		}
-
-// 		fmt.Println("before handlePath processorUpdate")
-// 		ibcHeaderCache[uint64(blockResponse.Height)] = blockResponse.Header
-// 		err := icp.handlePathProcessorUpdate(ctx, blockResponse.Header, ibcMessageCache, ibcHeaderCache)
-// 		if err != nil {
-// 			return errors.Wrapf(err, "Error during handleBTPblockResponse")
-
-// 		}
-// 		time.Sleep(time.Second * 2)
-// 		icp.firstTime = false
-// 		blockResponse = nil
-// 		if len(blockResponseCh) > 0 {
-// 			blockResponse = <-blockResponseCh
-// 			fmt.Println("souldn't go inside this function ", blockResponse.Height)
-// 		}
-
-// 	}
-// 	// remove unprocessed blockResponses
-// 	for len(blockResponseCh) > 0 {
-// 		<-blockResponseCh
-// 	}
-// 	return nil
-// }
 
 func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 	latestHeader provider.IBCHeader, messageCache processor.IBCMessagesCache,
@@ -656,33 +607,4 @@ func (icp *IconChainProcessor) getLatestHeightWithRetry(ctx context.Context) (in
 		break
 	}
 	return blk.Height, err
-}
-
-func (icp *IconChainProcessor) GetIconIBCheader(ctx context.Context, height int64, shouldContainHeader bool) (h *IconIBCHeader, err error) {
-
-	if err := retry.Do(func() error {
-		_, err := icp.chainProvider.client.GetBlockHeaderByHeight(height)
-		if err != nil {
-			return err
-		}
-		return nil
-	}, retry.Context(ctx), retry.Attempts(5), retry.OnRetry(func(n uint, err error) {
-		icp.log.Info(
-			"Failed to get Icon header",
-			zap.String("ChainName", icp.chainProvider.ChainId()),
-			zap.Int64("Height", icp.chainProvider.PCfg.BTPHeight),
-			zap.Error(err),
-		)
-	})); err != nil {
-		return nil, err
-	}
-
-	header, err := icp.chainProvider.GetBtpHeader(height)
-	if err != nil {
-		if strings.Contains(err.Error(), "NotFound: E1005:fail to get a BTP block header for") && !shouldContainHeader {
-			return &IconIBCHeader{Header: &types.BTPBlockHeader{MainHeight: uint64(height)}}, nil
-		}
-		return nil, err
-	}
-	return &IconIBCHeader{Header: header}, nil
 }
