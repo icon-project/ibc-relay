@@ -526,7 +526,7 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 	for _, mg := range msgs {
 		m, err := base64.StdEncoding.DecodeString(mg)
 		if err != nil {
-			fmt.Println(err)
+			return nil, err
 		}
 		results = append(results, m)
 	}

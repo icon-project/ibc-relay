@@ -204,7 +204,7 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 
 	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
 		"clientId": srcClientId,
-	})
+	}, callParamsWithHeight(types.NewHexInt(height)))
 
 	//similar should be implemented
 	var clientStateB types.HexBytes
@@ -224,9 +224,11 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		return nil, err
 	}
 
-	clientKey := cryptoutils.GetClientStateCommitmentKey(srcClientId)
-	keyHash := cryptoutils.Sha3keccak256(clientKey, clientStateByte)
-	proof, err := icp.QueryIconProof(ctx, height, keyHash)
+	fmt.Printf("clientState byte %x \n", clientStateByte)
+
+	commitmentHash := getCommitmentHash(cryptoutils.GetClientStateCommitmentKey(srcClientId), clientStateByte)
+
+	proof, err := icp.QueryIconProof(ctx, height, commitmentHash)
 	if err != nil {
 		return nil, err
 	}
@@ -255,8 +257,9 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 	}
 
 	key := cryptoutils.GetConsensusStateCommitmentKey(clientid, big.NewInt(0), big.NewInt(chainHeight))
-	keyHash := cryptoutils.Sha3keccak256(key, cnsStateByte)
-	proof, err := icp.QueryIconProof(ctx, chainHeight, keyHash)
+	commitmentHash := getCommitmentHash(key, cnsStateByte)
+
+	proof, err := icp.QueryIconProof(ctx, chainHeight, commitmentHash)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +327,7 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 
 	callParam := icp.prepareCallParams(MethodGetConnection, map[string]interface{}{
 		"connectionId": connectionid,
-	})
+	}, callParamsWithHeight(types.NewHexInt(height)))
 
 	var conn_string_ types.HexBytes
 	err := icp.client.Call(callParam, &conn_string_)
@@ -336,6 +339,7 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 	if err != nil {
 		return emptyConnRes, err
 	}
+	fmt.Printf("connectino byte %x \n  ", connectionBytes)
 
 	var conn conntypes.ConnectionEnd
 	_, err = icp.HexBytesToProtoUnmarshal(connectionBytes, &conn)
@@ -343,11 +347,12 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 		return emptyConnRes, err
 	}
 
+	fmt.Println("conneciton end ", conn)
+
 	key := cryptoutils.GetConnectionCommitmentKey(connectionid)
+	commitmentHash := getCommitmentHash(key, connectionBytes)
 
-	keyHash := cryptoutils.Sha3keccak256(key, connectionBytes)
-
-	proof, err := icp.QueryIconProof(ctx, height, keyHash)
+	proof, err := icp.QueryIconProof(ctx, height, commitmentHash)
 	if err != nil {
 		return emptyConnRes, err
 	}
@@ -514,10 +519,8 @@ func (icp *IconProvider) QueryChannel(ctx context.Context, height int64, channel
 	}
 
 	channelCommitment := cryptoutils.GetChannelCommitmentKey(portid, channelid)
-	keyHash := cryptoutils.Sha3keccak256(channelCommitment)
-
-	keyHash = cryptoutils.Sha3keccak256(keyHash, channelBytes)
-	proof, err := icp.QueryIconProof(ctx, height, keyHash)
+	commitmentHash := getCommitmentHash(channelCommitment, channelBytes)
+	proof, err := icp.QueryIconProof(ctx, height, commitmentHash)
 	if err != nil {
 		return emptyChannelRes, err
 	}
@@ -681,7 +684,6 @@ func (icp *IconProvider) QueryPacketCommitment(ctx context.Context, height int64
 
 	key := cryptoutils.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq)))
 	keyHash := cryptoutils.Sha3keccak256(key, packetCommitmentBytes)
-
 	proof, err := icp.QueryIconProof(ctx, height, keyHash)
 	if err != nil {
 		return nil, err
@@ -743,17 +745,17 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 		return nil, err
 	}
 	// TODO:: Is there packetReceipt proof on ICON??
-	key := cryptoutils.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq)))
-	keyHash := cryptoutils.Sha3keccak256(key)
+	// key := cryptoutils.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq)))
+	// keyHash := cryptoutils.Sha3keccak256(key)
 
-	proof, err := icp.QueryIconProof(ctx, height, keyHash)
-	if err != nil {
-		return nil, err
-	}
+	// proof, err := icp.QueryIconProof(ctx, height, keyHash)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    packetReceipt == 1,
-		Proof:       proof,
+		Proof:       nil,
 		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
 	}, nil
 }
@@ -834,4 +836,9 @@ func (icp *IconProvider) HexBytesToProtoUnmarshal(inputBytes []byte, v proto.Mes
 	}
 	return inputBytes, nil
 
+}
+
+func getCommitmentHash(key, msg []byte) []byte {
+	msgHash := cryptoutils.Sha3keccak256(msg)
+	return cryptoutils.Sha3keccak256(key, msgHash)
 }
