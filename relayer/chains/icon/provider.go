@@ -48,6 +48,8 @@ var (
 		Identifier: DefaultIBCVersionIdentifier,
 		Features:   []string{"ORDER_ORDERED", "ORDER_UNORDERED"},
 	}
+
+	clientStoragePrefix = []byte("icon")
 )
 
 type IconProviderConfig struct {
@@ -182,6 +184,10 @@ func (h IconIBCHeader) NextValidatorsHash() []byte {
 	return h.Header.NextProofContextHash
 }
 
+func (h IconIBCHeader) IsTrueBlock() bool {
+	return h.IsBTPBlock
+}
+
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	return &icon.ConsensusState{
 		MessageRoot: h.Header.MessageRoot,
@@ -278,6 +284,7 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 }
 
 func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
+
 	connState, err := icp.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -510,7 +517,6 @@ func (icp *IconProvider) GetBtpMessage(height int64) ([][]byte, error) {
 		NetworkId: types.NewHexInt(icp.PCfg.BTPNetworkID),
 	}
 
-	fmt.Printf("check the params %v ", pr)
 	msgs, err := icp.client.GetBTPMessage(&pr)
 	if err != nil {
 		return nil, err

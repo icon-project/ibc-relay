@@ -35,6 +35,7 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
 			ClientType:     clientState.ClientType(),
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
+			StoragePrefix:  types.NewHexBytes(clientStoragePrefix),
 		},
 	}
 
