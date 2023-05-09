@@ -345,10 +345,10 @@ loop:
 				for i := int64(0); bn != nil; i++ {
 					height, err := bn.Height.Value()
 
-					icp.log.Info("for loop when receiving blockNotification",
-						zap.Int64("height", height),
-						zap.Int64("index", i),
-						zap.Int64("next", next))
+					// icp.log.Info("for loop when receiving blockNotification",
+					// 	zap.Int64("height", height),
+					// 	zap.Int64("index", i),
+					// 	zap.Int64("next", next))
 
 					if err != nil {
 						return err
@@ -524,7 +524,6 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 			if containsEventLog {
 				request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
 			}
-			fmt.Println("blocks are really processed", processed)
 			request.response.IsProcessed = processed
 			return
 		}

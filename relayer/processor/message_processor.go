@@ -87,8 +87,10 @@ func (mp *messageProcessor) processMessages(
 		return err
 	}
 
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
-		return err
+	if needsClientUpdate {
+		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+			return err
+		}
 	}
 
 	mp.assembleMessages(ctx, messages, src, dst)
@@ -109,6 +111,17 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
 		dst.lastClientUpdateHeightMu.Unlock()
 
+		header, found := nextIconIBCHeader(src.ibcHeaderCache, dst.lastClientUpdateHeight)
+		if !found {
+			return false, nil
+		}
+
+		if !header.IsTrueBlock() {
+			dst.lastClientUpdateHeightMu.Lock()
+			dst.lastClientUpdateHeight = header.Height()
+			dst.lastClientUpdateHeightMu.Unlock()
+			return false, nil
+		}
 		return enoughBlocksPassed, nil
 	}
 
@@ -210,7 +223,7 @@ func (mp *messageProcessor) assembleMessage(
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {
-		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg))
+		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg), zap.Error(err))
 		return
 	}
 	dst.log.Debug(fmt.Sprintf("Assembled %s message", msg.msgType()), zap.Object("msg", msg))
