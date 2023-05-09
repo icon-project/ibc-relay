@@ -432,10 +432,11 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 
-	latestIconHeader, ok := latestHeader.(*IconIBCHeader)
+	latestIconHeader, ok := latestHeader.(IconIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
 	}
+
 	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Header.MainHeight))
 	if err != nil {
 		return nil, err
@@ -468,7 +469,6 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		Signatures: btp_proof,
 	}
 
-	// TODO: implementation remaining
 	return signedHeader, nil
 
 }

@@ -181,7 +181,10 @@ func (h IconIBCHeader) Height() uint64 {
 func (h IconIBCHeader) NextValidatorsHash() []byte {
 
 	// nextproofcontext hash is the nextvalidatorHash in BtpHeader
-	return h.Header.NextProofContextHash
+	if h.IsBTPBlock {
+		return h.Header.NextProofContextHash
+	}
+	return nil
 }
 
 func (h IconIBCHeader) IsTrueBlock() bool {
@@ -189,9 +192,12 @@ func (h IconIBCHeader) IsTrueBlock() bool {
 }
 
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return &icon.ConsensusState{
-		MessageRoot: h.Header.MessageRoot,
+	if h.IsBTPBlock {
+		return &icon.ConsensusState{
+			MessageRoot: h.Header.MessageRoot,
+		}
 	}
+	return nil
 }
 
 //ChainProvider Methods

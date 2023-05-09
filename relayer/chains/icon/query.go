@@ -37,7 +37,8 @@ import (
 var _ provider.QueryProvider = &IconProvider{}
 
 const (
-	epoch = 24 * 3600 * 1000
+	epoch            = 24 * 3600 * 1000
+	clientNameString = "07-tendermint-"
 )
 
 type CallParamOption func(*types.CallParam)
@@ -224,8 +225,6 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		return nil, err
 	}
 
-	fmt.Printf("clientState byte %x \n", clientStateByte)
-
 	commitmentHash := getCommitmentHash(cryptoutils.GetClientStateCommitmentKey(srcClientId), clientStateByte)
 
 	proof, err := icp.QueryIconProof(ctx, height, commitmentHash)
@@ -297,7 +296,7 @@ func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.Identifi
 
 	identifiedClientStates := make(clienttypes.IdentifiedClientStates, 0)
 	for i := 0; i <= int(seq)-1; i++ {
-		clientIdentifier := fmt.Sprintf("client-%d", i)
+		clientIdentifier := fmt.Sprintf("%s%d", clientNameString, i)
 		callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
 			"clientId": clientIdentifier,
 		})
@@ -312,7 +311,7 @@ func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.Identifi
 
 		// TODO: Use ICON Client State after cosmos chain integrated--
 		var clientState itm.ClientState
-		if err = icp.codec.Marshaler.UnmarshalInterface(clientStateBytes, &clientState); err != nil {
+		if err = icp.codec.Marshaler.Unmarshal(clientStateBytes, &clientState); err != nil {
 			return nil, err
 		}
 
@@ -339,15 +338,12 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 	if err != nil {
 		return emptyConnRes, err
 	}
-	fmt.Printf("connectino byte %x \n  ", connectionBytes)
 
 	var conn conntypes.ConnectionEnd
 	_, err = icp.HexBytesToProtoUnmarshal(connectionBytes, &conn)
 	if err != nil {
 		return emptyConnRes, err
 	}
-
-	fmt.Println("conneciton end ", conn)
 
 	key := cryptoutils.GetConnectionCommitmentKey(connectionid)
 	commitmentHash := getCommitmentHash(key, connectionBytes)

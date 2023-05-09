@@ -279,7 +279,6 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 
 	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
 		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
-		fmt.Println("this is actually not letting pass the errorr")
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
 			trustedConsensusHeight.RevisionHeight)
