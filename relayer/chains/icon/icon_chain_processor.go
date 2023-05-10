@@ -184,6 +184,11 @@ func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) er
 			CounterpartyConnID:   c.Counterparty.ConnectionId,
 			CounterpartyClientID: c.Counterparty.ClientId,
 		}] = c.State == conntypes.OPEN
+
+		icp.log.Info("found connection",
+			zap.String("ClientId ", c.ClientId),
+			zap.String("ConnectionID ", c.Id),
+		)
 	}
 	return nil
 }
@@ -212,10 +217,13 @@ func (icp *IconChainProcessor) initializeChannelState(ctx context.Context) error
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
 		}] = ch.State == chantypes.OPEN
-	}
 
-	icp.log.Info("Initialize channel cache",
-		zap.Any("ChannelStateCache", icp.channelStateCache))
+		icp.log.Info("Found channel",
+			zap.String("channelID", ch.ChannelId),
+			zap.String("Port id ", ch.PortId))
+		zap.String("Counterparty Channel Id ", ch.Counterparty.ChannelId)
+		zap.String("Counterparty Port Id", ch.Counterparty.PortId)
+	}
 
 	return nil
 }
@@ -499,7 +507,8 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 						request.err = errors.Wrapf(err, "event.UnmarshalFromBytes: %v", err)
 						return
 					}
-					icp.log.Info("Detected Eventlog for height", zap.String("Eventlog", string(el.Indexed[0])))
+					icp.log.Info("Detected Eventlog: ", zap.Int64("Height", request.height),
+						zap.String("Eventlog", string(el.Indexed[0])))
 					eventlogs = append(eventlogs, el)
 				}
 
@@ -574,7 +583,7 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	if state, ok := icp.latestClientState[clientID]; ok {
 		return state, nil
 	}
-	cs, err := icp.chainProvider.QueryClientState(ctx, int64(icp.latestBlock.Height), clientID)
+	cs, err := icp.chainProvider.FetchClientStateWithOutProof(ctx, int64(icp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err
 	}

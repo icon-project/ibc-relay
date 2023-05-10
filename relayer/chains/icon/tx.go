@@ -513,7 +513,8 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 
 	txhash, _ := txParam.TxHash.Value()
 
-	icp.log.Info("Transaction ", zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
+	icp.log.Info("Submitted Transaction ", zap.String("chain Id ", icp.ChainId()),
+		zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
 
 	txResParams := &types.TransactionHashParam{
 		Hash: txParam.TxHash,
@@ -530,6 +531,12 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	if txResult.Status != types.NewHexInt(1) {
 		return nil, false, fmt.Errorf("Transaction Failed and the transaction Result is 0x%x", txhash)
 	}
+
+	icp.log.Info("Successful Transaction",
+		zap.String("chain Id ", icp.ChainId()),
+		zap.String("method", m.Method),
+		zap.String("Height", string(txResult.BlockHeight)),
+		zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
 
 	return txResult, true, err
 }

@@ -158,6 +158,39 @@ func (icp *IconProvider) QueryClientState(ctx context.Context, height int64, cli
 
 }
 
+func (icp *IconProvider) FetchClientStateWithOutProof(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
+	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
+		"clientId": clientid,
+	}, callParamsWithHeight(types.NewHexInt(height)))
+
+	//similar should be implemented
+	var clientStateB types.HexBytes
+	err := icp.client.Call(callParams, &clientStateB)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateByte, err := clientStateB.Value()
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Use ICON Client State after cosmos chain integrated--
+	any, err := icp.ClientToAny(clientid, clientStateByte)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateRes := clienttypes.NewQueryClientStateResponse(any, nil, clienttypes.NewHeight(0, uint64(height)))
+	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientStateExported, nil
+
+}
+
 // Implement when a new chain is added to ICON IBC Contract
 func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*codectypes.Any, error) {
 	if strings.Contains(clientId, "icon") {
@@ -775,7 +808,9 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		return nil, err
 	}
 	if len(messages) == 0 {
-		icp.log.Info("BTP Message not present", zap.Int64("Height", height), zap.Int64("BtpNetwork", icp.PCfg.BTPNetworkID))
+		icp.log.Info("BTP Message not present",
+			zap.Int64("Height", height),
+			zap.Int64("BtpNetwork", icp.PCfg.BTPNetworkID))
 		return nil, err
 	}
 

@@ -116,7 +116,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 			return false, nil
 		}
 
-		if !header.IsTrueBlock() {
+		if !header.IsCompleteBlock() {
 			dst.lastClientUpdateHeightMu.Lock()
 			dst.lastClientUpdateHeight = header.Height()
 			dst.lastClientUpdateHeightMu.Unlock()
