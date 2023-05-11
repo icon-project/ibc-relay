@@ -337,11 +337,11 @@ loop:
 						break
 					}
 					icp.firstTime = false
+					time.Sleep(100 * time.Millisecond)
 				}
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}
-				time.Sleep(100 * time.Millisecond)
 			}
 			// remove unprocessed blockResponses
 			for len(btpBlockRespCh) > 0 {
