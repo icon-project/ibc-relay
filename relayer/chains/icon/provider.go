@@ -198,6 +198,12 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	}
 	return &icon.ConsensusState{}
 }
+func (h IconIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	if h.Header != nil && h.Header.MessageCount == 0 {
+		return true
+	}
+	return false
+}
 
 //ChainProvider Methods
 

@@ -14,7 +14,7 @@ import (
 var (
 	// Client Events
 	EventTypeCreateClient = "CreateClient(str,bytes)"
-	EventTypeUpdateClient = "UpdateClient(str)"
+	EventTypeUpdateClient = "UpdateClient(str,bytes,bytes)"
 
 	// Connection Events
 	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str,str,bytes)"

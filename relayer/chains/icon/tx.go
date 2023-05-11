@@ -434,7 +434,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 
 	latestIconHeader, ok := latestHeader.(IconIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
+		return nil, fmt.Errorf("Unsupported IBC Header type. Expected: IconIBCHeader,actual: %T", latestHeader)
 	}
 
 	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Header.MainHeight))

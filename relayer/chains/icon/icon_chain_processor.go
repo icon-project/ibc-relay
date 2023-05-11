@@ -89,6 +89,8 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
+
+	fmt.Println("checking the update parameter", clientInfo.ClientState())
 	existingClientInfo, ok := l[clientInfo.clientID]
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
@@ -210,6 +212,7 @@ func (icp *IconChainProcessor) initializeChannelState(ctx context.Context) error
 			)
 			continue
 		}
+
 		icp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
 		icp.channelStateCache[processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
@@ -306,7 +309,6 @@ loop:
 				}
 
 			}(ctxMonitorBlock, cancelMonitorBlock)
-
 		case br := <-btpBlockRespCh:
 			for ; br != nil; next++ {
 				icp.latestBlockMu.Lock()
@@ -315,7 +317,7 @@ loop:
 				}
 				icp.latestBlockMu.Unlock()
 
-				if br.Header.Header != nil || icp.firstTime || len(br.EventLogs) > 0 {
+				if br.Header.IsCompleteBlock() || icp.firstTime || len(br.EventLogs) > 0 {
 
 					icp.log.Info("Processing for block ", zap.Int64("height", br.Height))
 					ibcMessage := parseIBCMessagesFromEventlog(icp.log, br.EventLogs, uint64(br.Height))
@@ -339,6 +341,7 @@ loop:
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}
+				time.Sleep(100 * time.Millisecond)
 			}
 			// remove unprocessed blockResponses
 			for len(btpBlockRespCh) > 0 {
