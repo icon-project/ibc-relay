@@ -24,16 +24,8 @@ import (
 
 const (
 	queryTimeout                = 5 * time.Second
-	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
-	latestHeightQueryRetries    = 5
-
-	defaultMinQueryLoopDuration      = 1 * time.Second
-	defaultBalanceUpdateWaitDuration = 60 * time.Second
-	inSyncNumBlocksThreshold         = 2
-	BTP_MESSAGE_CHAN_CAPACITY        = 1000
-	INCOMING_BN_CAPACITY             = 1000
-	ERROR_CAPACITY                   = 2
+	queryRetries                = 5
 )
 
 const (
@@ -47,7 +39,8 @@ type IconChainProcessor struct {
 
 	pathProcessors processor.PathProcessors
 
-	inSync bool
+	inSync    bool
+	firstTime bool
 
 	latestBlock   provider.LatestBlock
 	latestBlockMu sync.Mutex
@@ -68,8 +61,6 @@ type IconChainProcessor struct {
 
 	// metrics to monitor lifetime of processor
 	metrics *processor.PrometheusMetrics
-
-	firstTime bool
 }
 
 func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
@@ -134,21 +125,6 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	persistence := queryCyclePersistence{
 		minQueryLoopDuration: time.Second,
 	}
-
-	// height, err := icp.getLatestHeightWithRetry(ctx)
-	// if err != nil {
-	// 	icp.log.Error("Failed to query latest height",
-	// 		zap.Error(err),
-	// 	)
-	// 	return err
-	// }
-	// persistence.latestHeight = height
-
-	// lastQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
-	// if lastQueriedBlock < 0 {
-	// 	lastQueriedBlock = 1
-	// }
-	// persistence.lastQueriedHeight = lastQueriedBlock
 
 	var eg errgroup.Group
 
@@ -263,7 +239,14 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		}
 	}
 
-	next := int64(icp.chainProvider.lastBTPBlockHeight)
+	var err error
+	processedheight := int64(icp.chainProvider.lastBTPBlockHeight)
+	if processedheight == 0 {
+		processedheight, err = icp.chainProvider.QueryLatestHeight(ctx)
+		if err != nil {
+			return err
+		}
+	}
 
 	// subscribe to monitor block
 	ctxMonitorBlock, cancelMonitorBlock := context.WithCancel(ctx)
@@ -291,7 +274,7 @@ loop:
 			ctxMonitorBlock, cancelMonitorBlock = context.WithCancel(ctx)
 
 			go func(ctx context.Context, cancel context.CancelFunc) {
-				blockReq.Height = types.NewHexInt(next)
+				blockReq.Height = types.NewHexInt(processedheight)
 				err := icp.chainProvider.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
 					if !errors.Is(ctx.Err(), context.Canceled) {
 						btpBlockNotifCh <- v
@@ -310,10 +293,10 @@ loop:
 
 			}(ctxMonitorBlock, cancelMonitorBlock)
 		case br := <-btpBlockRespCh:
-			for ; br != nil; next++ {
+			for ; br != nil; processedheight++ {
 				icp.latestBlockMu.Lock()
 				icp.latestBlock = provider.LatestBlock{
-					Height: uint64(next),
+					Height: uint64(processedheight),
 				}
 				icp.latestBlockMu.Unlock()
 
@@ -359,14 +342,14 @@ loop:
 					// icp.log.Info("for loop when receiving blockNotification",
 					// 	zap.Int64("height", height),
 					// 	zap.Int64("index", i),
-					// 	zap.Int64("next", next))
+					// 	zap.Int64("processedheight", processedheight))
 
 					if err != nil {
 						return err
-					} else if height != next+i {
+					} else if height != processedheight+i {
 						icp.log.Warn("Reconnect: missing block notification ",
 							zap.Int64("got", height),
-							zap.Int64("expected", next+i),
+							zap.Int64("expected", processedheight+i),
 						)
 						reconnect()
 						continue loop
@@ -377,7 +360,7 @@ loop:
 						hash:    bn.Hash,
 						indexes: bn.Indexes,
 						events:  bn.Events,
-						retry:   5,
+						retry:   queryRetries,
 					}
 					if bn = nil; len(btpBlockNotifCh) > 0 && len(requestCh) < cap(requestCh) {
 						bn = <-btpBlockNotifCh
@@ -426,7 +409,7 @@ loop:
 						return brs[i].Height < brs[j].Height
 					})
 					for i, d := range brs {
-						if d.Height == next+int64(i) {
+						if d.Height == processedheight+int64(i) {
 							btpBlockRespCh <- d
 						}
 					}
@@ -451,8 +434,8 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 		}
 	}
 
-	containsEventLog := len(request.indexes) > 0 && len(request.events) > 0
-	if containsEventLog {
+	containsEventlogs := len(request.indexes) > 0 && len(request.events) > 0
+	if containsEventlogs {
 		blockHeader, err := icp.chainProvider.client.GetBlockHeaderByHeight(request.height)
 		if err != nil {
 			request.err = errors.Wrapf(request.err, "getBlockHeader: %v", err)
@@ -510,7 +493,7 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 						request.err = errors.Wrapf(err, "event.UnmarshalFromBytes: %v", err)
 						return
 					}
-					icp.log.Info("Detected Eventlog: ", zap.Int64("Height", request.height),
+					icp.log.Info("Detected eventlog: ", zap.Int64("Height", request.height),
 						zap.String("Eventlog", string(el.Indexed[0])))
 					eventlogs = append(eventlogs, el)
 				}
@@ -529,11 +512,11 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 	btpHeader, err := icp.chainProvider.GetBtpHeader(request.height)
 	if err != nil {
 		if RequiresBtpHeader(request.response.EventLogs) {
-			request.err = errors.Wrapf(err, "BTP header required but not present: %v", err)
+			request.err = errors.Wrapf(err, "Btp header required but not present: %v", err)
 			return
 		}
 		if btpBlockNotPresent(err) {
-			if containsEventLog {
+			if containsEventlogs {
 				request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
 			}
 			request.response.IsProcessed = processed
@@ -551,6 +534,7 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 	latestHeader provider.IBCHeader, messageCache processor.IBCMessagesCache,
 	ibcHeaderCache processor.IBCHeaderCache) error {
+
 	chainID := icp.chainProvider.ChainId()
 
 	for _, pp := range icp.pathProcessors {
@@ -586,7 +570,7 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	if state, ok := icp.latestClientState[clientID]; ok {
 		return state, nil
 	}
-	cs, err := icp.chainProvider.FetchClientStateWithOutProof(ctx, int64(icp.latestBlock.Height), clientID)
+	cs, err := icp.chainProvider.QueryClientStateWithoutProof(ctx, int64(icp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err
 	}
@@ -597,25 +581,4 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	}
 	icp.latestClientState[clientID] = clientState
 	return clientState, nil
-}
-
-func (icp *IconChainProcessor) getLatestHeightWithRetry(ctx context.Context) (int64, error) {
-	var blk *types.Block
-	var err error
-	for i := 0; i < latestHeightQueryRetries; i++ {
-		blk, err = icp.chainProvider.client.GetLastBlock()
-		if err != nil {
-
-			icp.log.Warn("Failed to query latest height",
-				zap.Int("attempts", i),
-				zap.Error(err),
-			)
-			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-				return 0, nil
-			}
-			continue
-		}
-		break
-	}
-	return blk.Height, err
 }

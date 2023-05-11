@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
@@ -91,11 +92,17 @@ func (icp *IconProvider) QueryTxs(ctx context.Context, page, limit int, events [
 }
 
 func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-	// icp.lastBTPBlockHeightMu.Lock()
-	// defer icp.lastBTPBlockHeightMu.Unlock()
-
-	lastBtpHeight := icp.lastBTPBlockHeight
-	return int64(lastBtpHeight), nil
+	var block *types.Block
+	var err error
+	retry.Do(func() error {
+		block, err = icp.client.GetLastBlock()
+		return err
+	}, retry.Context(ctx),
+		retry.Attempts(queryRetries),
+		retry.OnRetry(func(n uint, err error) {
+			icp.log.Warn("failed to query latestHeight", zap.String("Chain Id", icp.ChainId()))
+		}))
+	return block.Height, err
 }
 
 // legacy
@@ -159,7 +166,7 @@ func (icp *IconProvider) QueryClientState(ctx context.Context, height int64, cli
 
 }
 
-func (icp *IconProvider) FetchClientStateWithOutProof(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
+func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
 	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
 		"clientId": clientid,
 	}, callParamsWithHeight(types.NewHexInt(height)))

@@ -71,6 +71,11 @@ func (pp *IconProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
+
+	if pp.IbcHandlerAddress == "" {
+		return fmt.Errorf("Ibc handler Address cannot be empty")
+	}
+
 	return nil
 }
 
@@ -142,12 +147,6 @@ type IconProvider struct {
 	codec                Codec
 	lastBTPBlockHeight   uint64
 	lastBTPBlockHeightMu sync.Mutex
-}
-
-func (i *IconProvider) UpdateLastBTPBlockHeight(height uint64) {
-	i.lastBTPBlockHeightMu.Lock()
-	defer i.lastBTPBlockHeightMu.Unlock()
-	i.lastBTPBlockHeight = height
 }
 
 type IconIBCHeader struct {
