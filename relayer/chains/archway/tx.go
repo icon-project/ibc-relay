@@ -127,11 +127,33 @@ func (pc *ArchwayProviderConfig) SignMode() signing.SignMode {
 }
 
 func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	return nil, nil
+
+	btpHeader := dstIBCHeader.(*iconchain.IconIBCHeader)
+
+	return &icon.ClientState{
+		TrustingPeriod:     uint64(dstTrustingPeriod),
+		FrozenHeight:       0,
+		MaxClockDrift:      20 * 60,
+		LatestHeight:       dstIBCHeader.Height(),
+		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
+		Validators:         btpHeader.ValidatorSet,
+	}, nil
 }
+
 func (ap *ArchwayProvider) NewClientStateMock(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-	return nil, nil
+
+	btpHeader := dstIBCHeader.(*iconchain.IconIBCHeader)
+
+	return &icon.ClientState{
+		TrustingPeriod:     uint64(dstTrustingPeriod),
+		FrozenHeight:       0,
+		MaxClockDrift:      20 * 60,
+		LatestHeight:       dstIBCHeader.Height(),
+		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
+		Validators:         btpHeader.ValidatorSet,
+	}, nil
 }
+
 func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
