@@ -128,7 +128,6 @@ var MonitorEvents []string = []string{
 	//no BTP block produced
 	EventTypeRecvPacket,
 	EventTypeAcknowledgePacket,
-	EventTypeUpdateClient,
 }
 
 func GetMonitorEventFilters(address string) []*types.EventFilter {

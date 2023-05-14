@@ -134,7 +134,7 @@ func (pp IconProviderConfig) getRPCAddr() string {
 }
 
 func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
-	return provider.BroadcastModeSingle
+	return provider.BroadcastModeBatch
 }
 
 type IconProvider struct {
