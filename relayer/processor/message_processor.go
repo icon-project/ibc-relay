@@ -82,6 +82,8 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
+
+	// 2/3 rule enough_time_pass && context change in case of BTPBlock
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
 		return err
@@ -105,11 +107,17 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 
 	// handle if dst is IconLightClient
 	if ClientIsIcon(dst.clientState) {
-		dst.lastClientUpdateHeightMu.Lock()
-		enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
-		dst.lastClientUpdateHeightMu.Unlock()
 
-		return enoughBlocksPassed, nil
+		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
+		if !found {
+			return false, nil
+		}
+
+		if header.ShouldUpdateWithZeroMessage() {
+			return true, nil
+		}
+
+		return false, nil
 	}
 
 	// for lightClient other than ICON this will be helpful
@@ -210,7 +218,7 @@ func (mp *messageProcessor) assembleMessage(
 	mp.trackMessage(msg.tracker(assembled), i)
 	wg.Done()
 	if err != nil {
-		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg))
+		dst.log.Error(fmt.Sprintf("Error assembling %s message", msg.msgType()), zap.Object("msg", msg), zap.Error(err))
 		return
 	}
 	dst.log.Debug(fmt.Sprintf("Assembled %s message", msg.msgType()), zap.Object("msg", msg))
@@ -219,6 +227,11 @@ func (mp *messageProcessor) assembleMessage(
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
+
+	if ClientIsIcon(dst.clientState) {
+		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst)
+		return err
+	}
 
 	// this needs to be edited
 	clientID := dst.info.ClientID
@@ -233,7 +246,6 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	// If the client state height is not equal to the client trusted state height and the client state height is
 	// the latest block, we cannot send a MsgUpdateClient until another block is observed on the counterparty.
 	// If the client state height is in the past, beyond ibcHeadersToCache, then we need to query for it.
-
 	if !trustedConsensusHeight.EQ(clientConsensusHeight) {
 		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
 
@@ -243,12 +255,12 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
 
-		// header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
-		header, err := mp.findNextIBCHeader(ctx, src, dst)
+		header, err := src.chainProvider.QueryIBCHeader(ctx, int64(clientConsensusHeight.RevisionHeight+1))
 		if err != nil {
 			return fmt.Errorf("error getting Next IBC header after height: %d for chain_id: %s, %w",
 				clientConsensusHeight.RevisionHeight, src.info.ChainID, err)
 		}
+
 		mp.log.Debug("Had to query for client trusted IBC header",
 			zap.String("chain_id", src.info.ChainID),
 			zap.String("counterparty_chain_id", dst.info.ChainID),
@@ -266,7 +278,6 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 
 	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
 		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {
-		fmt.Println("this is actually not letting pass the errorr")
 		return fmt.Errorf("latest header height is equal to the client trusted height: %d, "+
 			"need to wait for next block's header before we can assemble and send a new MsgUpdateClient",
 			trustedConsensusHeight.RevisionHeight)
@@ -291,10 +302,49 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	return nil
 }
 
+func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime) error {
+
+	clientID := dst.info.ClientID
+	latestConsensusHeight := dst.clientState.ConsensusHeight
+
+	if !src.latestHeader.IsCompleteBlock() {
+		mp.log.Debug("Src latest IbcHeader is not complete Block",
+			zap.Int64("Height", int64(src.latestHeader.Height())))
+		return nil
+	}
+
+	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
+		mp.log.Debug("Src latest header is less then latest client State",
+			zap.String("Chainid ", src.info.ChainID),
+			zap.Int64("LatestHeader height", int64(src.latestHeader.Height())),
+			zap.Int64("Client State height", int64(latestConsensusHeight.RevisionHeight)))
+
+		return nil
+	}
+
+	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
+		src.latestHeader,
+		latestConsensusHeight,
+		dst.clientTrustedState.IBCHeader,
+	)
+	if err != nil {
+		return fmt.Errorf("error assembling new client header: %w", err)
+	}
+
+	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
+	if err != nil {
+		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)
+	}
+
+	mp.msgUpdateClient = msgUpdateClient
+
+	return nil
+}
+
 func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
 	clientConsensusHeight := dst.clientState.ConsensusHeight
 	if ClientIsIcon(dst.clientState) {
-		header, found := nextIconIBCHeader(src.ibcHeaderCache, clientConsensusHeight.RevisionHeight)
+		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
 		if !found {
 			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)
 		}
@@ -439,6 +489,7 @@ func (mp *messageProcessor) sendSingleMessage(
 	src, dst *pathEndRuntime,
 	tracker messageToTrack,
 ) {
+
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)

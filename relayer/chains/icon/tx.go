@@ -35,6 +35,7 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
 			ClientType:     clientState.ClientType(),
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
+			StoragePrefix:  types.NewHexBytes(clientStoragePrefix),
 		},
 	}
 
@@ -431,10 +432,11 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
 
-	latestIconHeader, ok := latestHeader.(*IconIBCHeader)
+	latestIconHeader, ok := latestHeader.(IconIBCHeader)
 	if !ok {
-		return nil, fmt.Errorf("Unsupported IBC trusted header type. Expected: IconIBCHeader,actual: %T", trustedHeader)
+		return nil, fmt.Errorf("Unsupported IBC Header type. Expected: IconIBCHeader,actual: %T", latestHeader)
 	}
+
 	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Header.MainHeight))
 	if err != nil {
 		return nil, err
@@ -467,7 +469,6 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		Signatures: btp_proof,
 	}
 
-	// TODO: implementation remaining
 	return signedHeader, nil
 
 }
@@ -512,7 +513,8 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 
 	txhash, _ := txParam.TxHash.Value()
 
-	icp.log.Info("Transaction ", zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
+	icp.log.Info("Submitted Transaction ", zap.String("chain Id ", icp.ChainId()),
+		zap.String("method", m.Method), zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
 
 	txResParams := &types.TransactionHashParam{
 		Hash: txParam.TxHash,
@@ -529,6 +531,12 @@ func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.Relay
 	if txResult.Status != types.NewHexInt(1) {
 		return nil, false, fmt.Errorf("Transaction Failed and the transaction Result is 0x%x", txhash)
 	}
+
+	icp.log.Info("Successful Transaction",
+		zap.String("chain Id ", icp.ChainId()),
+		zap.String("method", m.Method),
+		zap.String("Height", string(txResult.BlockHeight)),
+		zap.String("txHash", fmt.Sprintf("0x%x", txhash)))
 
 	return txResult, true, err
 }

@@ -182,6 +182,7 @@ type MsgCreateClient struct {
 	ConsensusState HexBytes `json:"consensusState"`
 	ClientType     string   `json:"clientType"`
 	BtpNetworkId   HexInt   `json:"btpNetworkId"`
+	StoragePrefix  HexBytes `json:"storagePrefix"`
 }
 
 type MsgUpdateClient struct {

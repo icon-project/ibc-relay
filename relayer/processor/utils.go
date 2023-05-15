@@ -37,15 +37,22 @@ func findNextGreaterHeight(headercache IBCHeaderCache, prevHeight uint64) (uint6
 
 func nextIconIBCHeader(heightMap IBCHeaderCache, height uint64) (provider.IBCHeader, bool) {
 	var nextHeight uint64
-	for h := range heightMap {
-		if h > height {
-			if nextHeight == 0 || h < nextHeight {
-				nextHeight = h
-			}
-		}
-	}
-	if nextHeight == 0 {
+	nextHeight = math.MaxUint64
+
+	if height == 0 {
 		return nil, false
 	}
-	return heightMap[nextHeight], true
+	for h := range heightMap {
+		if h > height && h < nextHeight {
+			nextHeight = h
+		}
+	}
+	if nextHeight == math.MaxUint64 {
+		return nil, false
+	}
+
+	header, ok := heightMap[nextHeight]
+	return header, ok
 }
+
+// The next header is {<nil> false [] 0}  true

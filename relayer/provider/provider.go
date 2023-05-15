@@ -62,6 +62,8 @@ type IBCHeader interface {
 	Height() uint64
 	ConsensusState() ibcexported.ConsensusState
 	NextValidatorsHash() []byte
+	IsCompleteBlock() bool             //defined for IconIBCHeader
+	ShouldUpdateWithZeroMessage() bool //defined for IconIBCHeader
 }
 
 // ClientState holds the current state of a client from a single chain's perspective
@@ -541,6 +543,13 @@ func (h TendermintIBCHeader) ConsensusState() ibcexported.ConsensusState {
 		Root:               commitmenttypes.NewMerkleRoot(h.SignedHeader.AppHash),
 		NextValidatorsHash: h.SignedHeader.NextValidatorsHash,
 	}
+}
+
+func (h TendermintIBCHeader) IsCompleteBlock() bool {
+	return true
+}
+func (h TendermintIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	return false
 }
 
 func (h TendermintIBCHeader) NextValidatorsHash() []byte {

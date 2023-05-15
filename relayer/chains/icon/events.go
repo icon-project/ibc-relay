@@ -14,7 +14,7 @@ import (
 var (
 	// Client Events
 	EventTypeCreateClient = "CreateClient(str,bytes)"
-	EventTypeUpdateClient = "UpdateClient(str)"
+	EventTypeUpdateClient = "UpdateClient(str,bytes,bytes)"
 
 	// Connection Events
 	EventTypeConnectionOpenInit    = "ConnectionOpenInit(str,str,bytes)"
@@ -98,34 +98,37 @@ func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 
 var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
 	EventTypeSendPacket:           {},
-	EventTypeRecvPacket:           {},
 	EventTypeWriteAcknowledgement: {},
 
-	EventTypeConnectionOpenInit: {},
-	EventTypeConnectionOpenTry:  {},
-	EventTypeConnectionOpenAck:  {},
+	EventTypeConnectionOpenInit:    {},
+	EventTypeConnectionOpenTry:     {},
+	EventTypeConnectionOpenAck:     {},
+	EventTypeConnectionOpenConfirm: {},
 
-	EventTypeChannelOpenInit: {},
-	EventTypeChannelOpenTry:  {},
-	EventTypeChannelOpenAck:  {},
+	EventTypeChannelOpenInit:    {},
+	EventTypeChannelOpenTry:     {},
+	EventTypeChannelOpenAck:     {},
+	EventTypeChannelOpenConfirm: {},
 }
 
 var MonitorEvents []string = []string{
 	EventTypeSendPacket,
-	EventTypeRecvPacket,
 	EventTypeWriteAcknowledgement,
 
 	EventTypeConnectionOpenInit,
 	EventTypeConnectionOpenTry,
 	EventTypeConnectionOpenAck,
+	EventTypeConnectionOpenConfirm,
 
 	EventTypeChannelOpenInit,
 	EventTypeChannelOpenTry,
 	EventTypeChannelOpenAck,
-
-	EventTypeAcknowledgePacket,
-	EventTypeConnectionOpenConfirm,
 	EventTypeChannelOpenConfirm,
+
+	//no BTP block produced
+	EventTypeRecvPacket,
+	EventTypeAcknowledgePacket,
+	EventTypeUpdateClient,
 }
 
 func GetMonitorEventFilters(address string) []*types.EventFilter {
