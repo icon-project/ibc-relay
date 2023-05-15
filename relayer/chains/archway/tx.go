@@ -138,7 +138,7 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 		MaxClockDrift:      20 * 60,
 		LatestHeight:       dstIBCHeader.Height(),
 		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.ValidatorSet,
+		Validators:         btpHeader.Validators,
 	}, nil
 }
 
@@ -152,7 +152,7 @@ func (ap *ArchwayProvider) NewClientStateMock(dstChainID string, dstIBCHeader pr
 		MaxClockDrift:      20 * 60,
 		LatestHeight:       dstIBCHeader.Height(),
 		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.ValidatorSet,
+		Validators:         btpHeader.Validators,
 	}, nil
 }
 
