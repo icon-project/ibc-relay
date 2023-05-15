@@ -305,23 +305,26 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime) error {
 
 	clientID := dst.info.ClientID
-	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
 	latestConsensusHeight := dst.clientState.ConsensusHeight
 
 	if !src.latestHeader.IsCompleteBlock() {
-		mp.log.Warn("Src latest IbcHeader is not complete Block",
-			zap.Int64("Height", int64(dst.clientTrustedState.IBCHeader.Height())))
+		mp.log.Debug("Src latest IbcHeader is not complete Block",
+			zap.Int64("Height", int64(src.latestHeader.Height())))
 		return nil
 	}
 
 	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
-		mp.log.Info("Src latest header is less then trustedConsensus latest Height ")
+		mp.log.Debug("Src latest header is less then latest client State",
+			zap.String("Chainid ", src.info.ChainID),
+			zap.Int64("LatestHeader height", int64(src.latestHeader.Height())),
+			zap.Int64("Client State height", int64(latestConsensusHeight.RevisionHeight)))
+
 		return nil
 	}
 
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
-		trustedConsensusHeight,
+		latestConsensusHeight,
 		dst.clientTrustedState.IBCHeader,
 	)
 	if err != nil {
