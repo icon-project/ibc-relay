@@ -300,7 +300,6 @@ loop:
 				}
 				icp.latestBlockMu.Unlock()
 
-				icp.log.Info("Processing for block ", zap.Int64("height", br.Height))
 				ibcMessage := parseIBCMessagesFromEventlog(icp.log, br.EventLogs, uint64(br.Height))
 				ibcMessageCache := processor.NewIBCMessagesCache()
 				// message handler
@@ -310,6 +309,9 @@ loop:
 
 				ibcHeaderCache[uint64(br.Height)] = br.Header
 				if br.Header.IsCompleteBlock() || icp.firstTime || !ibcMessageCache.IsEmpty() {
+					icp.log.Info("Processing for block ",
+						zap.String("chain id ", icp.chainProvider.ChainId()),
+						zap.Int64("height", br.Height))
 					err := icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
 					if err != nil {
 						reconnect()
@@ -566,9 +568,9 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
-	if state, ok := icp.latestClientState[clientID]; ok {
-		return state, nil
-	}
+	// if state, ok := icp.latestClientState[clientID]; ok {
+	// 	return state, nil
+	// }
 	cs, err := icp.chainProvider.QueryClientStateWithoutProof(ctx, int64(icp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err

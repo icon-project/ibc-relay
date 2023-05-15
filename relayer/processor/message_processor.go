@@ -306,10 +306,16 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 
 	clientID := dst.info.ClientID
 	trustedConsensusHeight := dst.clientTrustedState.ClientState.ConsensusHeight
+	latestConsensusHeight := dst.clientState.ConsensusHeight
 
 	if !src.latestHeader.IsCompleteBlock() {
 		mp.log.Warn("Src latest IbcHeader is not complete Block",
 			zap.Int64("Height", int64(dst.clientTrustedState.IBCHeader.Height())))
+		return nil
+	}
+
+	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
+		mp.log.Info("Src latest header is less then trustedConsensus latest Height ")
 		return nil
 	}
 
