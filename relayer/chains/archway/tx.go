@@ -138,7 +138,7 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 		MaxClockDrift:      20 * 60,
 		LatestHeight:       dstIBCHeader.Height(),
 		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.ValidatorSet,
+		Validators:         btpHeader.Validators,
 	}, nil
 }
 
@@ -152,7 +152,7 @@ func (ap *ArchwayProvider) NewClientStateMock(dstChainID string, dstIBCHeader pr
 		MaxClockDrift:      20 * 60,
 		LatestHeight:       dstIBCHeader.Height(),
 		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.ValidatorSet,
+		Validators:         btpHeader.Validators,
 	}, nil
 }
 
@@ -263,7 +263,7 @@ func (ap *ArchwayProvider) NextSeqRecv(ctx context.Context, msgTransfer provider
 		Proof:       nextSeqRecvResponse.Proof,
 		ProofHeight: nextSeqRecvResponse.ProofHeight,
 	}, nil
-}
+
 
 func (ap *ArchwayProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented for Archway")
@@ -363,7 +363,7 @@ func (ap *ArchwayProvider) ConnectionProof(ctx context.Context, msgOpenAck provi
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
-	return provider.ConnectionProof{
+	return provider.ConneIconIBCctionProof{
 		ConnectionStateProof: connState.Proof,
 		ProofHeight:          connState.ProofHeight,
 	}, nil
