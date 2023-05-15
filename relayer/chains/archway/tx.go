@@ -263,7 +263,7 @@ func (ap *ArchwayProvider) NextSeqRecv(ctx context.Context, msgTransfer provider
 		Proof:       nextSeqRecvResponse.Proof,
 		ProofHeight: nextSeqRecvResponse.ProofHeight,
 	}, nil
-
+}
 
 func (ap *ArchwayProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented for Archway")
@@ -363,7 +363,7 @@ func (ap *ArchwayProvider) ConnectionProof(ctx context.Context, msgOpenAck provi
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
-	return provider.ConneIconIBCctionProof{
+	return provider.ConnectionProof{
 		ConnectionStateProof: connState.Proof,
 		ProofHeight:          connState.ProofHeight,
 	}, nil
