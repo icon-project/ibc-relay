@@ -1,6 +1,7 @@
 package archway
 
 import (
+	"github.com/CosmWasm/wasmd/x/wasm"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
@@ -16,6 +17,7 @@ var ModuleBasics = []module.AppModuleBasic{
 	auth.AppModuleBasic{},
 	ibc.AppModuleBasic{},
 	archway_module.AppModuleBasic{},
+	wasm.AppModuleBasic{},
 }
 
 type Codec struct {

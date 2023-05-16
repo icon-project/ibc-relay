@@ -1,5 +1,7 @@
 package archway
 
+const WASM_CONTRACT_PREFIX = "03"
+
 const (
 	STORAGEKEY__ClientRegistry              = "client_registry"
 	STORAGEKEY__ClientTypes                 = "client_types"

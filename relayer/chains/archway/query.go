@@ -219,7 +219,7 @@ func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height 
 		return nil, err
 	}
 
-	storageKey := fmt.Sprintf("%s%x", STORAGEKEY__Commitments, common.GetClientStateCommitmentKey(srcClientId))
+	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetClientStateCommitmentKey(srcClientId))
 	proof, err := ap.QueryArchwayProof(ctx, []byte(storageKey), height)
 	if err != nil {
 		return nil, err
@@ -426,8 +426,7 @@ func (ap *ArchwayProvider) QueryConnection(ctx context.Context, height int64, co
 		return nil, err
 	}
 
-	// TODO: Check
-	storageKey := fmt.Sprintf("%s%x", STORAGEKEY__Commitments, common.GetConnectionCommitmentKey(connectionid))
+	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetConnectionCommitmentKey(connectionid))
 	connProof, err := ap.QueryArchwayProof(ctx, []byte(storageKey), height)
 
 	return conntypes.NewQueryConnectionResponse(conn, connProof, clienttypes.NewHeight(0, uint64(height))), nil
@@ -438,7 +437,7 @@ func (ap *ArchwayProvider) QueryArchwayProof(ctx context.Context, storageKey []b
 	if err != nil {
 		return nil, err
 	}
-	key, err := hex.DecodeString(fmt.Sprintf("03%x0008%x", ibcAddr.Bytes(), storageKey))
+	key, err := hex.DecodeString(fmt.Sprintf("%s%x%x", WASM_CONTRACT_PREFIX, ibcAddr.Bytes(), storageKey))
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +524,8 @@ func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, chann
 	}
 
 	// TODO: Check
-	storageKey := fmt.Sprintf("%s%x", STORAGEKEY__Commitments, common.GetChannelCommitmentKey(portid, channelid))
+
+	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetChannelCommitmentKey(portid, channelid))
 	proof, err := ap.QueryArchwayProof(ctx, []byte(storageKey), height)
 
 	return chantypes.NewQueryChannelResponse(*channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
@@ -619,7 +619,7 @@ func (ap *ArchwayProvider) QueryPacketCommitment(ctx context.Context, height int
 	if err != nil {
 		return nil, err
 	}
-	storageKey := fmt.Sprintf("%s%x", STORAGEKEY__Commitments, common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
 	proof, err := ap.QueryArchwayProof(ctx, []byte(storageKey), height)
 
 	if err != nil {
@@ -643,7 +643,7 @@ func (ap *ArchwayProvider) QueryPacketAcknowledgement(ctx context.Context, heigh
 		return nil, err
 	}
 	// TODO
-	storageKey := fmt.Sprintf("%s%x", STORAGEKEY__Commitments, common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
 	proof, err := ap.QueryArchwayProof(ctx, []byte(storageKey), height)
 
 	return &chantypes.QueryPacketAcknowledgementResponse{
@@ -663,7 +663,7 @@ func (ap *ArchwayProvider) QueryPacketReceipt(ctx context.Context, height int64,
 		return nil, err
 	}
 
-	storageKey := fmt.Sprintf("%s%x", STORAGEKEY__Commitments, common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
 	proof, err := ap.QueryArchwayProof(ctx, []byte(storageKey), height)
 	if err != nil {
 		return nil, err
