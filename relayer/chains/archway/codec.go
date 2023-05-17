@@ -11,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
 	archway_module "github.com/cosmos/relayer/v2/relayer/chains/archway/module"
+	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
 )
 
 var ModuleBasics = []module.AppModuleBasic{
@@ -18,6 +19,7 @@ var ModuleBasics = []module.AppModuleBasic{
 	ibc.AppModuleBasic{},
 	archway_module.AppModuleBasic{},
 	wasm.AppModuleBasic{},
+	icon_module.AppModuleBasic{},
 }
 
 type Codec struct {
