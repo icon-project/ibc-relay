@@ -12,6 +12,7 @@ import (
 
 	"github.com/CosmWasm/wasmd/app"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/gogoproto/proto"
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
@@ -171,20 +172,18 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 	if err != nil {
 		return nil, err
 	}
-
-	anyClientState, err := clienttypes.PackClientState(clientState)
-	if err != nil {
-		return nil, err
+	clientStateB, _ := proto.Marshal(clientState)
+	consensusStateB, _ := proto.Marshal(consensusState)
+	msg := map[string]interface{}{
+		"create_client": map[string]interface{}{
+			"client_state":    types.NewHexBytes(clientStateB),
+			"consensus_state": types.NewHexBytes(consensusStateB),
+			"signer":          types.NewHexBytes([]byte(signer)),
+		},
 	}
-
-	anyConsensusState, err := clienttypes.PackConsensusState(consensusState)
-	if err != nil {
-		return nil, err
-	}
-
-	msg := types.MsgCreateClient(anyClientState, anyConsensusState, signer)
 
 	msgParam, err := json.Marshal(msg)
+
 	if err != nil {
 		return nil, err
 	}

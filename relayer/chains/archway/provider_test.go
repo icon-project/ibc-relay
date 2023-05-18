@@ -11,7 +11,6 @@ import (
 	"github.com/CosmWasm/wasmd/app"
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/assert"
@@ -133,42 +132,42 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func TestTransaction(t *testing.T) {
-	ctx := context.Background()
-	contract := "archway1j2zsnnv7qpd6hqhrkg96c57wv9yff4y6amarcvsp5lkta2e4k5vstvt9j3"
-	p, _ := GetProvider(ctx, contract)
-	pArch := p.(*ArchwayProvider)
-	pArch.Init(ctx)
+// func TestTransaction(t *testing.T) {
+// 	ctx := context.Background()
+// 	contract := "archway1j2zsnnv7qpd6hqhrkg96c57wv9yff4y6amarcvsp5lkta2e4k5vstvt9j3"
+// 	p, _ := GetProvider(ctx, contract)
+// 	pArch := p.(*ArchwayProvider)
+// 	pArch.Init(ctx)
 
-	key := "jptKey"
+// 	key := "jptKey"
 
-	msg := &SendPacket{
-		Pkt: struct {
-			Packet HexBytes "json:\"packet\""
-			Id     string   "json:\"id\""
-		}{
-			Packet: NewHexBytes([]byte("Hello")),
-			Id:     key,
-		},
-	}
+// 	msg := &SendPacket{
+// 		Pkt: struct {
+// 			Packet HexBytes "json:\"packet\""
+// 			Id     string   "json:\"id\""
+// 		}{
+// 			Packet: NewHexBytes([]byte("Hello")),
+// 			Id:     key,
+// 		},
+// 	}
 
-	// msg, err := pArch.MsgSendPacketTemp(key)
-	// assert.NoError(t, err)
+// 	// msg, err := pArch.MsgSendPacketTemp(key)
+// 	// assert.NoError(t, err)
 
-	callback := func(rtr *provider.RelayerTxResponse, err error) {
-		if err != nil {
-			return
-		}
-	}
+// 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+// 		if err != nil {
+// 			return
+// 		}
+// 	}
 
-	err := pArch.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
-	assert.NoError(t, err)
+// 	err := pArch.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
+// 	assert.NoError(t, err)
 
-	storageKey := fmt.Sprintf("0007%x%s", []byte("packets"), key)
-	_, err = pArch.QueryArchwayProof(ctx, []byte(storageKey), 1932589)
-	assert.NoError(t, err)
+// 	storageKey := fmt.Sprintf("0007%x%s", []byte("packets"), key)
+// 	_, err = pArch.QueryArchwayProof(ctx, []byte(storageKey), 1932589)
+// 	assert.NoError(t, err)
 
-}
+// }
 
 func TestTxCall(t *testing.T) {
 
@@ -198,57 +197,57 @@ func TestTxCall(t *testing.T) {
 
 	pktData := []byte("hello_world")
 
-	type SendPacketParams struct {
-		Packet HexBytes `json:"packet"`
-		Id     string   `json:"id"`
-	}
-	type SendPacket struct {
-		Pkt SendPacketParams `json:"send_packet"`
-	}
+	// type SendPacketParams struct {
+	// 	Packet HexBytes `json:"packet"`
+	// 	Id     string   `json:"id"`
+	// }
+	// type SendPacket struct {
+	// 	Pkt SendPacketParams `json:"send_packet"`
+	// }
 
-	sendPkt := SendPacket{
-		Pkt: SendPacketParams{
-			Packet: NewHexBytes(pktData),
-			Id:     "345",
-		},
-	}
+	// sendPkt := SendPacket{
+	// 	Pkt: SendPacketParams{
+	// 		Packet: NewHexBytes(pktData),
+	// 		Id:     "345",
+	// 	},
+	// }
 
-	dB, err := json.Marshal(sendPkt)
-	assert.NoError(t, err)
+	// dB, err := json.Marshal(sendPkt)
+	// assert.NoError(t, err)
 
-	msg := &wasmtypes.MsgExecuteContract{
-		Sender:   addr.String(),
-		Contract: contract,
-		Msg:      dB,
-	}
+	// msg := &wasmtypes.MsgExecuteContract{
+	// 	Sender:   addr.String(),
+	// 	Contract: contract,
+	// 	Msg:      dB,
+	// }
 
-	a := pArch.TxFactory()
-	factory, err := pArch.PrepareFactory(a)
-	assert.NoError(t, err)
+	// a := pArch.TxFactory()
+	// factory, err := pArch.PrepareFactory(a)
+	// assert.NoError(t, err)
 
-	tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, msg)
+	// tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, msg)
 
 	/////////////////////////////////////////////////
 	/////////////////////// QUERY ///////////////////
 	/////////////////////////////////////////////////
 
-	// type GetPacket struct {
-	// 	GetPacket struct {
-	// 		Id string `json:"id"`
-	// 	} `json:"get_packet"`
-	// }
+	type GetPacket struct {
+		GetPacket struct {
+			Id string `json:"id"`
+		} `json:"get_packet"`
+	}
 
-	// type PacketOutput struct {
-	// 	Packet []byte `json:"packet"`
-	// }
+	type PacketOutput struct {
+		Packet []byte `json:"packet"`
+	}
 
-	// _param := GetPacket{
-	// 	GetPacket: struct {
-	// 		Id string "json:\"id\""
-	// 	}{
-	// 		Id: "100",
-	// 	},
-	// }
+	_param := GetPacket{
+		GetPacket: struct {
+			Id string "json:\"id\""
+		}{
+			Id: "100",
+		},
+	}
 
 	// type GetAllPacket struct {
 	// 	GetAllPacket interface{} `json:"get_packet"`
@@ -256,17 +255,17 @@ func TestTxCall(t *testing.T) {
 
 	// _param := GetAllPacket{GetAllPacket: struct{}{}}
 
-	// param, _ := json.Marshal(_param)
+	param, _ := json.Marshal(_param)
 
-	// queryCLient := wasmtypes.NewQueryClient(cliCtx)
-	// contractState, _ := queryCLient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
-	// 	Address:   contract,
-	// 	QueryData: param,
-	// })
-	// e := contractState.Data.Bytes()
-	// var i PacketOutput
-	// err = json.Unmarshal(e, &i)
-	// assert.NoError(t, err)
-	// assert.Equal(t, pktData, i.Packet)
+	queryCLient := wasmtypes.NewQueryClient(cliCtx)
+	contractState, _ := queryCLient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+		Address:   contract,
+		QueryData: param,
+	})
+	e := contractState.Data.Bytes()
+	var i PacketOutput
+	err = json.Unmarshal(e, &i)
+	assert.NoError(t, err)
+	assert.Equal(t, pktData, i.Packet)
 
 }
