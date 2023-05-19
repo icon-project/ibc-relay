@@ -29,7 +29,7 @@ func NewHexBytes(b []byte) HexBytes {
 
 // / EXTERNAL METHODS
 type CreateClient struct {
-	CreateClient clienttypes.MsgCreateClient `json:"CreateClient"`
+	CreateClient clienttypes.MsgCreateClient `json:"create_client"`
 }
 
 func MsgCreateClient(c1, c2 *types.Any, signer string) *CreateClient {
@@ -43,7 +43,7 @@ func MsgCreateClient(c1, c2 *types.Any, signer string) *CreateClient {
 }
 
 type UpdateClient struct {
-	UpdateClient clienttypes.MsgUpdateClient `json:"UpdateClient"`
+	UpdateClient clienttypes.MsgUpdateClient `json:"update_client"`
 }
 
 func MsgUpdateClient(clientId string, clientMsg *types.Any, signer string) *UpdateClient {
@@ -57,20 +57,20 @@ func MsgUpdateClient(clientId string, clientMsg *types.Any, signer string) *Upda
 }
 
 type ConnectionOpenInit struct {
-	Msg conntypes.MsgConnectionOpenInit `json:"ConnectionOpenInit"`
+	Msg conntypes.MsgConnectionOpenInit `json:"connection_open_init"`
 }
 type ConnectionOpenTry struct {
-	Msg conntypes.MsgConnectionOpenTry `json:"ConnectionOpenTry"`
+	Msg conntypes.MsgConnectionOpenTry `json:"connection_open_try"`
 }
 type ConnectionOpenAck struct {
-	Msg conntypes.MsgConnectionOpenAck `json:"ConnectionOpenAck"`
+	Msg conntypes.MsgConnectionOpenAck `json:"connection_open_ack"`
 }
 type ConnectionOpenConfirm struct {
-	Msg conntypes.MsgConnectionOpenConfirm `json:"ConnectionOpenConfirm"`
+	Msg conntypes.MsgConnectionOpenConfirm `json:"connection_open_confirm"`
 }
 
 type ChannelOpenInit struct {
-	Msg chantypes.MsgChannelOpenInit `json:"ChannelOpenInit"`
+	Msg chantypes.MsgChannelOpenInit `json:"channel_open_init"`
 }
 
 type ChannelOpenTry struct {
@@ -107,7 +107,7 @@ type TimeoutPacket struct {
 type GetClientState struct {
 	ClientState struct {
 		ClientId string `json:"client_id"`
-	} `json:"GetClientState"`
+	} `json:"get_client_state"`
 }
 
 func (x *GetClientState) Bytes() ([]byte, error) {
@@ -128,7 +128,7 @@ type GetConsensusState struct {
 	ConsensusState struct {
 		ClientId string "json:\"client_id\""
 		Height   uint64 "json:\"height\""
-	} `json:"GetConsensusState"`
+	} `json:"get_consensus_state"`
 }
 
 func (x *GetConsensusState) Bytes() ([]byte, error) {
@@ -150,7 +150,7 @@ func NewConsensusState(clientId string, height uint64) *GetConsensusState {
 type GetConnection struct {
 	Connection struct {
 		ConnectionId string `json:"connection_id"`
-	} `json:"GetConnection"`
+	} `json:"get_connection"`
 }
 
 func (x *GetConnection) Bytes() ([]byte, error) {
@@ -171,7 +171,7 @@ type GetChannel struct {
 	Channel struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
-	} `json:"GetChannel"`
+	} `json:"get_channel"`
 }
 
 func (x *GetChannel) Bytes() ([]byte, error) {
@@ -195,7 +195,7 @@ type GetPacketCommitment struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
 		Sequence  uint64 `json:"sequence"`
-	} `json:"GetPacketCommitment"`
+	} `json:"get_packet_commitment"`
 }
 
 func (x *GetPacketCommitment) Bytes() ([]byte, error) {
@@ -221,7 +221,7 @@ type GetPacketAcknowledgementCommitment struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
 		Sequence  uint64 `json:"sequence"`
-	} `json:"GetPacketAcknowledgementCommitment"`
+	} `json:"get_packet_acknowledgement_commitment"`
 }
 
 func (x *GetPacketAcknowledgementCommitment) Bytes() ([]byte, error) {
@@ -246,7 +246,7 @@ type GetNextSequenceSend struct {
 	NextSequenceSend struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
-	} `json:"GetNextSequenceSend"`
+	} `json:"get_next_sequence_send"`
 }
 
 func (x *GetNextSequenceSend) Bytes() ([]byte, error) {
@@ -269,7 +269,7 @@ type GetNextSequenceReceive struct {
 	NextSequenceReceive struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
-	} `json:"GetNextSequenceReceive"`
+	} `json:"get_next_sequence_receive"`
 }
 
 func (x *GetNextSequenceReceive) Bytes() ([]byte, error) {
@@ -292,7 +292,7 @@ type GetNextSequenceAcknowledgement struct {
 	NextSequenceAck struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
-	} `json:"GetNextSequenceAcknowledgement"`
+	} `json:"get_next_sequence_acknowledgement"`
 }
 
 func (x *GetNextSequenceAcknowledgement) Bytes() ([]byte, error) {
@@ -316,7 +316,7 @@ type GetPacketReceipt struct {
 		PortId    string `json:"port_id"`
 		ChannelId string `json:"channel_id"`
 		Sequence  uint64 `json:"sequence"`
-	} `json:"GetPacketReceipt"`
+	} `json:"get_packet_receipt"`
 }
 
 func (x *GetPacketReceipt) Bytes() ([]byte, error) {
@@ -338,13 +338,13 @@ func NewPacketReceipt(portId, channelId string, sequence uint64) *GetPacketRecei
 }
 
 const (
-	MethodGetNextClientSequence     = "getNextClientSequence"
-	MethodGetNextChannelSequence    = "getNextChannelSequence"
-	MethodGetNextConnectionSequence = "getNextConnectionSequence"
+	MethodGetNextClientSequence     = "get_next_client_sequence"
+	MethodGetNextChannelSequence    = "get_next_channel_sequence"
+	MethodGetNextConnectionSequence = "get_next_connection_sequence"
 )
 
 type GetNextClientSequence struct {
-	Sequence struct{} `json:"GetNextClientSequence"`
+	Sequence struct{} `json:"get_next_client_sequence"`
 }
 
 func (x *GetNextClientSequence) Bytes() ([]byte, error) {
@@ -358,7 +358,7 @@ func NewNextClientSequence() *GetNextClientSequence {
 }
 
 type GetNextConnectionSequence struct {
-	Sequence struct{} `json:"GetNextConnectionSequence"`
+	Sequence struct{} `json:"get_next_connection_sequence"`
 }
 
 func (x *GetNextConnectionSequence) Bytes() ([]byte, error) {
@@ -372,7 +372,7 @@ func NewNextConnectionSequence() *GetNextConnectionSequence {
 }
 
 type GetNextChannelSequence struct {
-	Sequence struct{} `json:"GetNextChannelSequence"`
+	Sequence struct{} `json:"get_next_channel_sequence"`
 }
 
 func (x *GetNextChannelSequence) Bytes() ([]byte, error) {

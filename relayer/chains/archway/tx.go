@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CosmWasm/wasmd/app"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/cosmos/gogoproto/proto"
 	"go.uber.org/zap"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/light"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
@@ -28,6 +28,7 @@ import (
 	iconchain "github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -141,15 +142,15 @@ func (pc *ArchwayProviderConfig) SignMode() signing.SignMode {
 
 func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 
-	btpHeader := dstIBCHeader.(*iconchain.IconIBCHeader)
-
-	return &icon.ClientState{
-		TrustingPeriod:     uint64(dstTrustingPeriod),
-		FrozenHeight:       0,
-		MaxClockDrift:      20 * 60,
-		LatestHeight:       dstIBCHeader.Height(),
-		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.Validators,
+	return &itm.ClientState{
+		ChainId:                      dstChainID,
+		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
+		TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
+		UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
+		FrozenHeight:                 0,
+		LatestHeight:                 int64(dstIBCHeader.Height()),
+		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
+		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil
 }
 
@@ -755,18 +756,7 @@ func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 }
 
 func (ap *ArchwayProvider) ClientContext() client.Context {
-	addr, _ := ap.GetKeyAddress()
-
-	encodingConfig := app.MakeEncodingConfig()
-	return client.Context{}.
-		WithClient(ap.RPCClient).
-		WithFromName(ap.PCfg.Key).
-		WithFromAddress(addr).
-		WithTxConfig(encodingConfig.TxConfig).
-		WithSkipConfirmation(true).
-		WithBroadcastMode("sync").
-		WithCodec(ap.Cdc.Marshaler)
-
+	return ap.ClientCtx
 }
 
 func (ap *ArchwayProvider) SendMessagesToMempool(
