@@ -16,7 +16,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string) (string, string, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string, iconStartHeight int64) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -28,6 +28,17 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 		return nil
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr); err != nil {
 		return "", "", err
+	}
+
+	if iconStartHeight != 0 {
+		if c.ChainProvider.Type() == "icon" {
+			fmt.Println("setting the start height ", srch)
+			srch = iconStartHeight
+		}
+		if dst.ChainProvider.Type() == "icon" {
+			fmt.Println("setting the dst height ", dsth)
+			dsth = iconStartHeight
+		}
 	}
 
 	// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
@@ -159,7 +170,7 @@ func CreateClient(
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
 	// TODO: Replace with NewClientState
-	clientState, err := dst.ChainProvider.NewClientStateMock(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
