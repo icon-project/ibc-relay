@@ -79,6 +79,11 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			if err != nil {
+				return err
+			}
+
 			override, err := cmd.Flags().GetBool(flagOverride)
 			if err != nil {
 				return err
@@ -99,7 +104,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd))
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd), iconStartHeight)
 			if err != nil {
 				return err
 			}
@@ -118,9 +123,10 @@ func createClientsCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	cmd = clientParameterFlags(a.viper, cmd)
-	cmd = overrideFlag(a.viper, cmd)
-	cmd = memoFlag(a.viper, cmd)
+	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	cmd = iconStartHeightFlag(a.Viper, cmd)
 	return cmd
 }
 
@@ -191,6 +197,20 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
+			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			if err != nil {
+				return err
+			}
+
+			if iconStartHeight != 0 {
+				if src.ChainProvider.Type() == "icon" {
+					srch = iconStartHeight
+				}
+				if dst.ChainProvider.Type() == "icon" {
+					dsth = iconStartHeight
+				}
+			}
+
 			// Query the light signed headers for src & dst at the heights srch & dsth, retry if the query fails
 			var srcUpdateHeader, dstUpdateHeader provider.IBCHeader
 			if err = retry.Do(func() error {
@@ -235,9 +255,10 @@ func createClientCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	cmd = clientParameterFlags(a.viper, cmd)
-	cmd = overrideFlag(a.viper, cmd)
-	cmd = memoFlag(a.viper, cmd)
+	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	cmd = iconStartHeightFlag(a.Viper, cmd)
 	return cmd
 }
 
@@ -380,8 +401,13 @@ $ %s tx conn demo-path --timeout 5s`,
 				return err
 			}
 
+			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			if err != nil {
+				return err
+			}
+
 			// ensure that the clients exist
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
 			if err != nil {
 				return err
 			}
@@ -668,8 +694,13 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 				return err
 			}
 
+			iconStartHeight, err := cmd.Flags().GetInt64(flagIconStartHeight)
+			if err != nil {
+				return err
+			}
+
 			// create clients if they aren't already created
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
 			if err != nil {
 				return fmt.Errorf("error creating clients: %w", err)
 			}
@@ -694,13 +725,14 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},
 	}
-	cmd = timeoutFlag(a.viper, cmd)
-	cmd = retryFlag(a.viper, cmd)
-	cmd = clientParameterFlags(a.viper, cmd)
-	cmd = channelParameterFlags(a.viper, cmd)
-	cmd = overrideFlag(a.viper, cmd)
-	cmd = memoFlag(a.viper, cmd)
-	cmd = initBlockFlag(a.viper, cmd)
+	cmd = timeoutFlag(a.Viper, cmd)
+	cmd = retryFlag(a.Viper, cmd)
+	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = channelParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	cmd = initBlockFlag(a.Viper, cmd)
+	cmd = iconStartHeightFlag(a.Viper, cmd)
 	return cmd
 }
 
