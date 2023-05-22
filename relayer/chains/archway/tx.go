@@ -3,6 +3,7 @@ package archway
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +19,6 @@ import (
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/gogoproto/proto"
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
@@ -31,7 +31,6 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
 	iconchain "github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
@@ -192,16 +191,13 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 		return nil, err
 	}
 
-	msg := types.MsgCreateClient(types.NewCustomAny(anyClientState),
-		types.NewCustomAny(anyConsensusState),
-		types.NewHexBytes([]byte(signer)),
-	)
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &clienttypes.MsgCreateClient{
+		ClientState:    anyClientState,
+		ConsensusState: anyConsensusState,
+		Signer:         signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodCreateClient, params)
 }
 
 func (ap *ArchwayProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
@@ -297,20 +293,13 @@ func (ap *ArchwayProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof 
 		return nil, err
 	}
 
-	msg := &types.ReceivePacket{
-		Msg: chantypes.MsgRecvPacket{
-			Packet:          msgTransfer.Packet(),
-			ProofCommitment: proof.Proof,
-			ProofHeight:     proof.ProofHeight,
-			Signer:          signer,
-		}}
-
-	msgParam, err := json.Marshal(msg)
-
-	if err != nil {
-		return nil, err
+	params := &chantypes.MsgRecvPacket{
+		Packet:          msgTransfer.Packet(),
+		ProofCommitment: proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
 	}
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodRecvPacket, params)
 }
 
 func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -319,22 +308,15 @@ func (ap *ArchwayProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo,
 		return nil, err
 	}
 
-	msg := &types.AcknowledgementPacket{
-		Msg: chantypes.MsgAcknowledgement{
-			Packet:          msgRecvPacket.Packet(),
-			Acknowledgement: msgRecvPacket.Ack,
-			ProofAcked:      proof.Proof,
-			ProofHeight:     proof.ProofHeight,
-			Signer:          signer,
-		},
+	params := &chantypes.MsgAcknowledgement{
+		Packet:          msgRecvPacket.Packet(),
+		Acknowledgement: msgRecvPacket.Ack,
+		ProofAcked:      proof.Proof,
+		ProofHeight:     proof.ProofHeight,
+		Signer:          signer,
 	}
+	return ap.NewWasmContractMessage(MethodAcknowledgePacket, params)
 
-	msgParam, err := json.Marshal(msg)
-
-	if err != nil {
-		return nil, err
-	}
-	return ap.NewWasmContractMessage(msgParam), nil
 }
 
 func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -343,22 +325,15 @@ func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pro
 		return nil, err
 	}
 
-	msg := &types.TimeoutPacket{
-		Msg: chantypes.MsgTimeout{
-			Packet:           msgTransfer.Packet(),
-			ProofUnreceived:  proof.Proof,
-			ProofHeight:      proof.ProofHeight,
-			NextSequenceRecv: msgTransfer.Sequence,
-			Signer:           signer,
-		},
+	params := &chantypes.MsgTimeout{
+		Packet:           msgTransfer.Packet(),
+		ProofUnreceived:  proof.Proof,
+		ProofHeight:      proof.ProofHeight,
+		NextSequenceRecv: msgTransfer.Sequence,
+		Signer:           signer,
 	}
 
-	msgParam, err := json.Marshal(msg)
-
-	if err != nil {
-		return nil, err
-	}
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodTimeoutPacket, params)
 }
 
 func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -396,25 +371,20 @@ func (ap *ArchwayProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, p
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.ConnectionOpenInit{
-		Msg: conntypes.MsgConnectionOpenInit{
-			ClientId: info.ClientID,
-			Counterparty: conntypes.Counterparty{
-				ClientId:     info.CounterpartyClientID,
-				ConnectionId: "",
-				Prefix:       info.CounterpartyCommitmentPrefix,
-			},
-			Version:     nil,
-			DelayPeriod: defaultDelayPeriod,
-			Signer:      signer,
+	params := &conntypes.MsgConnectionOpenInit{
+		ClientId: info.ClientID,
+		Counterparty: conntypes.Counterparty{
+			ClientId:     info.CounterpartyClientID,
+			ConnectionId: "",
+			Prefix:       info.CounterpartyCommitmentPrefix,
 		},
+		Version:     nil,
+		DelayPeriod: defaultDelayPeriod,
+		Signer:      signer,
 	}
-	msgParam, err := json.Marshal(msg)
 
-	if err != nil {
-		return nil, err
-	}
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodConnectionOpenInit, params)
+
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -433,27 +403,23 @@ func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionI
 		Prefix:       defaultChainPrefix,
 	}
 
-	msg := &types.ConnectionOpenTry{
-		Msg: conntypes.MsgConnectionOpenTry{
-			ClientId:             msgOpenInit.CounterpartyClientID,
-			PreviousConnectionId: msgOpenInit.CounterpartyConnID,
-			ClientState:          csAny,
-			Counterparty:         counterparty,
-			DelayPeriod:          defaultDelayPeriod,
-			CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
-			ProofHeight:          proof.ProofHeight,
-			ProofInit:            proof.ConnectionStateProof,
-			ProofClient:          proof.ClientStateProof,
-			ProofConsensus:       proof.ConsensusStateProof,
-			ConsensusHeight:      proof.ClientState.GetLatestHeight().(clienttypes.Height),
-			Signer:               signer,
-		}}
-
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &conntypes.MsgConnectionOpenTry{
+		ClientId:             msgOpenInit.CounterpartyClientID,
+		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
+		ClientState:          csAny,
+		Counterparty:         counterparty,
+		DelayPeriod:          defaultDelayPeriod,
+		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		ProofHeight:          proof.ProofHeight,
+		ProofInit:            proof.ConnectionStateProof,
+		ProofClient:          proof.ClientStateProof,
+		ProofConsensus:       proof.ConsensusStateProof,
+		ConsensusHeight:      proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		Signer:               signer,
 	}
-	return ap.NewWasmContractMessage(msgParam), nil
+
+	return ap.NewWasmContractMessage(MethodConnectionOpenTry, params)
+
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -467,28 +433,23 @@ func (ap *ArchwayProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionIn
 		return nil, err
 	}
 
-	msg := &types.ConnectionOpenAck{
-		Msg: conntypes.MsgConnectionOpenAck{
-			ConnectionId:             msgOpenTry.CounterpartyConnID,
-			CounterpartyConnectionId: msgOpenTry.ConnID,
-			Version:                  conntypes.DefaultIBCVersion,
-			ClientState:              csAny,
-			ProofHeight: clienttypes.Height{
-				RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
-				RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
-			},
-			ProofTry:        proof.ConnectionStateProof,
-			ProofClient:     proof.ClientStateProof,
-			ProofConsensus:  proof.ConsensusStateProof,
-			ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
-			Signer:          signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &conntypes.MsgConnectionOpenAck{
+		ConnectionId:             msgOpenTry.CounterpartyConnID,
+		CounterpartyConnectionId: msgOpenTry.ConnID,
+		Version:                  conntypes.DefaultIBCVersion,
+		ClientState:              csAny,
+		ProofHeight: clienttypes.Height{
+			RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
+			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
+		},
+		ProofTry:        proof.ConnectionStateProof,
+		ProofClient:     proof.ClientStateProof,
+		ProofConsensus:  proof.ConsensusStateProof,
+		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		Signer:          signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodConnectionOpenAck, params)
 }
 
 func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -496,19 +457,13 @@ func (ap *ArchwayProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connecti
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.ConnectionOpenConfirm{
-		Msg: conntypes.MsgConnectionOpenConfirm{
-			ConnectionId: msgOpenAck.CounterpartyConnID,
-			ProofAck:     proof.ConnectionStateProof,
-			ProofHeight:  proof.ProofHeight,
-			Signer:       signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &conntypes.MsgConnectionOpenConfirm{
+		ConnectionId: msgOpenAck.CounterpartyConnID,
+		ProofAck:     proof.ConnectionStateProof,
+		ProofHeight:  proof.ProofHeight,
+		Signer:       signer,
 	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodConnectionOpenConfirm, params)
 }
 
 func (ap *ArchwayProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
@@ -532,27 +487,21 @@ func (ap *ArchwayProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof p
 	if err != nil {
 		return nil, err
 	}
-	msg := &types.ChannelOpenInit{
-		Msg: chantypes.MsgChannelOpenInit{
-			PortId: info.PortID,
-			Channel: chantypes.Channel{
-				State:    chantypes.INIT,
-				Ordering: info.Order,
-				Counterparty: chantypes.Counterparty{
-					PortId:    info.CounterpartyPortID,
-					ChannelId: "",
-				},
-				ConnectionHops: []string{info.ConnID},
-				Version:        info.Version,
+	params := &chantypes.MsgChannelOpenInit{
+		PortId: info.PortID,
+		Channel: chantypes.Channel{
+			State:    chantypes.INIT,
+			Ordering: info.Order,
+			Counterparty: chantypes.Counterparty{
+				PortId:    info.CounterpartyPortID,
+				ChannelId: "",
 			},
-			Signer: signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+			ConnectionHops: []string{info.ConnID},
+			Version:        info.Version,
+		},
+		Signer: signer,
 	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenInit, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -561,34 +510,28 @@ func (ap *ArchwayProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, p
 		return nil, err
 	}
 
-	msg := &types.ChannelOpenTry{
-		Msg: chantypes.MsgChannelOpenTry{
-			PortId:            msgOpenInit.CounterpartyPortID,
-			PreviousChannelId: msgOpenInit.CounterpartyChannelID,
-			Channel: chantypes.Channel{
-				State:    chantypes.TRYOPEN,
-				Ordering: proof.Ordering,
-				Counterparty: chantypes.Counterparty{
-					PortId:    msgOpenInit.PortID,
-					ChannelId: msgOpenInit.ChannelID,
-				},
-				ConnectionHops: []string{msgOpenInit.CounterpartyConnID},
-				// In the future, may need to separate this from the CounterpartyVersion.
-				// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
-				// Using same version as counterparty for now.
-				Version: proof.Version,
+	params := &chantypes.MsgChannelOpenTry{
+		PortId:            msgOpenInit.CounterpartyPortID,
+		PreviousChannelId: msgOpenInit.CounterpartyChannelID,
+		Channel: chantypes.Channel{
+			State:    chantypes.TRYOPEN,
+			Ordering: proof.Ordering,
+			Counterparty: chantypes.Counterparty{
+				PortId:    msgOpenInit.PortID,
+				ChannelId: msgOpenInit.ChannelID,
 			},
-			CounterpartyVersion: proof.Version,
-			ProofInit:           proof.Proof,
-			ProofHeight:         proof.ProofHeight,
-			Signer:              signer,
-		}}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+			ConnectionHops: []string{msgOpenInit.CounterpartyConnID},
+			// In the future, may need to separate this from the CounterpartyVersion.
+			// https://github.com/cosmos/ibc/tree/master/spec/core/ics-004-channel-and-packet-semantics#definitions
+			// Using same version as counterparty for now.
+			Version: proof.Version,
+		},
+		CounterpartyVersion: proof.Version,
+		ProofInit:           proof.Proof,
+		ProofHeight:         proof.ProofHeight,
+		Signer:              signer,
 	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenTry, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -597,23 +540,16 @@ func (ap *ArchwayProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pr
 		return nil, err
 	}
 
-	msg := &types.ChannelOpenAck{
-		Msg: chantypes.MsgChannelOpenAck{
-			PortId:                msgOpenTry.CounterpartyPortID,
-			ChannelId:             msgOpenTry.CounterpartyChannelID,
-			CounterpartyChannelId: msgOpenTry.ChannelID,
-			CounterpartyVersion:   proof.Version,
-			ProofTry:              proof.Proof,
-			ProofHeight:           proof.ProofHeight,
-			Signer:                signer,
-		},
+	params := &chantypes.MsgChannelOpenAck{
+		PortId:                msgOpenTry.CounterpartyPortID,
+		ChannelId:             msgOpenTry.CounterpartyChannelID,
+		CounterpartyChannelId: msgOpenTry.ChannelID,
+		CounterpartyVersion:   proof.Version,
+		ProofTry:              proof.Proof,
+		ProofHeight:           proof.ProofHeight,
+		Signer:                signer,
 	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenAck, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -622,21 +558,14 @@ func (ap *ArchwayProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo
 		return nil, err
 	}
 
-	msg := &types.ChannelOpenConfirm{
-		Msg: chantypes.MsgChannelOpenConfirm{
-			PortId:      msgOpenAck.CounterpartyPortID,
-			ChannelId:   msgOpenAck.CounterpartyChannelID,
-			ProofAck:    proof.Proof,
-			ProofHeight: proof.ProofHeight,
-			Signer:      signer,
-		},
+	params := &chantypes.MsgChannelOpenConfirm{
+		PortId:      msgOpenAck.CounterpartyPortID,
+		ChannelId:   msgOpenAck.CounterpartyChannelID,
+		ProofAck:    proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
 	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelOpenConfirm, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -645,19 +574,13 @@ func (ap *ArchwayProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof 
 		return nil, err
 	}
 
-	msg := &types.ChannelCloseInit{
-		Msg: chantypes.MsgChannelCloseInit{
-			PortId:    info.PortID,
-			ChannelId: info.ChannelID,
-			Signer:    signer,
-		},
-	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &chantypes.MsgChannelCloseInit{
+		PortId:    info.PortID,
+		ChannelId: info.ChannelID,
+		Signer:    signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelCloseInit, params)
 }
 
 func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -666,21 +589,15 @@ func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelI
 		return nil, err
 	}
 
-	msg := &types.ChannelCloseConfirm{
-		Msg: chantypes.MsgChannelCloseConfirm{
-			PortId:      msgCloseInit.CounterpartyPortID,
-			ChannelId:   msgCloseInit.CounterpartyChannelID,
-			ProofInit:   proof.Proof,
-			ProofHeight: proof.ProofHeight,
-			Signer:      signer,
-		},
-	}
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+	params := &chantypes.MsgChannelCloseConfirm{
+		PortId:      msgCloseInit.CounterpartyPortID,
+		ChannelId:   msgCloseInit.CounterpartyChannelID,
+		ProofInit:   proof.Proof,
+		ProofHeight: proof.ProofHeight,
+		Signer:      signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodChannelCloseConfirm, params)
 }
 
 func (ap *ArchwayProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
@@ -696,13 +613,15 @@ func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexporte
 	if err != nil {
 		return nil, err
 	}
-	msg := types.MsgUpdateClient(clientID, types.NewCustomAny(clientMsg), types.NewHexBytes([]byte(signer)))
-	msgParam, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
+
+	params := &clienttypes.MsgUpdateClient{
+		ClientId:      clientID,
+		ClientMessage: clientMsg,
+		Signer:        signer,
 	}
 
-	return ap.NewWasmContractMessage(msgParam), nil
+	return ap.NewWasmContractMessage(MethodUpdateClient, params)
+
 }
 
 func (ap *ArchwayProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
@@ -807,6 +726,7 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 }
 
 func (cc *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+	cc.log.Info("Transaction Failed", zap.Any("Error", err), zap.Int64("height", res.Height))
 }
 
 func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
@@ -908,6 +828,7 @@ func (ap *ArchwayProvider) BroadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := clientCtx.BroadcastTx(txBytes)
+	// log submitted txn
 
 	isErr := err != nil
 	isFailed := res != nil && res.Code != 0
@@ -933,7 +854,13 @@ func (ap *ArchwayProvider) BroadcastTx(
 		return err
 	}
 
-	go ap.waitForTx(asyncCtx, []byte(res.TxHash), msgs, asyncTimeout, asyncCallback)
+	hexTx, err := hex.DecodeString(res.TxHash)
+
+	if err != nil {
+		return err
+	}
+
+	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	return nil
 }
 
@@ -996,6 +923,8 @@ func (ap *ArchwayProvider) waitForTx(
 	}
 
 	if callback != nil {
+		fmt.Println("saved data in callback fn")
+		fmt.Println(rlyResp)
 		callback(rlyResp, nil)
 	}
 	// ap.LogSuccessTx(res, msgs)
@@ -1010,7 +939,7 @@ func (ap *ArchwayProvider) waitForBlockInclusion(
 	for {
 		select {
 		case <-exitAfter:
-			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
+			return nil, fmt.Errorf("timed out after: %d; %s", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		case <-time.After(time.Millisecond * 100):
 			res, err := ap.RPCClient.Tx(ctx, txHash, false)
 			if err == nil {
