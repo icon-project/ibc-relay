@@ -34,28 +34,48 @@ func (err mockAccountSequenceMismatchError) Error() string {
 }
 
 const (
-	archway_mock_address = "archway1yez54m08hxek45y49s7f4pdla92475tn7uw0jv4vfwdd0tz8tagslfrm5a"
+	archway_mock_address = "archway1maqs3qvslrjaq8xz9402shucnr4wzdujty8lr7ux5z5rnj989lwsmssrzk"
 )
 
-func GetProvider(ctx context.Context) (provider.ChainProvider, error) {
+func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.ChainProvider, error) {
 
 	absPath, _ := filepath.Abs("../../../env/archway/keys")
-	config := ArchwayProviderConfig{
-		KeyDirectory: absPath,
-		Key:          "testWallet",
-		ChainName:    "archway",
-		ChainID:      "constantine-2",
-		RPCAddr:      "https://rpc.constantine-2.archway.tech:443",
-		// RPCAddr:           "http://localhost:26657",
-		AccountPrefix:     "archway",
-		KeyringBackend:    "test",
-		GasAdjustment:     1.5,
-		GasPrices:         "0.02uconst",
-		Debug:             true,
-		Timeout:           "20s",
-		SignModeStr:       "direct",
-		MinGasAmount:      1000_000,
-		IbcHandlerAddress: archway_mock_address,
+	var config ArchwayProviderConfig
+	if local {
+		config = ArchwayProviderConfig{
+			KeyDirectory:      absPath,
+			Key:               "testWallet",
+			ChainName:         "archway",
+			ChainID:           "localnet",
+			RPCAddr:           "http://localhost:26657",
+			AccountPrefix:     "archway",
+			KeyringBackend:    "test",
+			GasAdjustment:     1.5,
+			GasPrices:         "0.02stake",
+			Debug:             true,
+			Timeout:           "20s",
+			SignModeStr:       "direct",
+			MinGasAmount:      1000_000,
+			IbcHandlerAddress: handlerAddr,
+		}
+	} else {
+
+		config = ArchwayProviderConfig{
+			KeyDirectory:      absPath,
+			Key:               "testWallet",
+			ChainName:         "archway",
+			ChainID:           "constantine-2",
+			RPCAddr:           "https://rpc.constantine-2.archway.tech:443",
+			AccountPrefix:     "archway",
+			KeyringBackend:    "test",
+			GasAdjustment:     1.5,
+			GasPrices:         "0.02uconst",
+			Debug:             true,
+			Timeout:           "20s",
+			SignModeStr:       "direct",
+			MinGasAmount:      1000_000,
+			IbcHandlerAddress: handlerAddr,
+		}
 	}
 
 	p, err := config.NewProvider(&zap.Logger{}, "../../../env/archway", true, "archway")
@@ -72,7 +92,7 @@ func GetProvider(ctx context.Context) (provider.ChainProvider, error) {
 
 func TestGetAddress(t *testing.T) {
 	ctx := context.Background()
-	p, err := GetProvider(ctx)
+	p, err := GetProvider(ctx, "", false)
 	assert.NoError(t, err)
 	pArch := p.(*ArchwayProvider)
 	// _, err = pArch.AddKey("testWallet", 118)
@@ -159,7 +179,7 @@ func TestTxCall(t *testing.T) {
 
 	ctx := context.Background()
 
-	p, _ := GetProvider(ctx)
+	p, _ := GetProvider(ctx, "", false)
 	pArch := p.(*ArchwayProvider)
 
 	// cl, _ := client.NewClientFromNode("http://localhost:26657")
@@ -296,7 +316,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 		ICONNetworkID:     3,
 		BTPNetworkID:      int64(network_id),
 		BTPNetworkTypeID:  1,
-		IbcHandlerAddress: "cx00ba205e3366369b0ca7f8f2ca39293cffadd33b",
+		IbcHandlerAddress: "cxff5fce97254f26dee5a5d35496743f61169b6db6",
 		RPCAddr:           "http://localhost:9082/api/v3",
 		Timeout:           "20s",
 	}
@@ -310,7 +330,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // func TestCreateClient(t *testing.T) {
 
 // 	ctx := context.Background()
-// 	ap, err := GetProvider(ctx)
+// 	ap, err := GetProvider(ctx, "archway1maqs3qvslrjaq8xz9402shucnr4wzdujty8lr7ux5z5rnj989lwsmssrzk", true)
 // 	assert.NoError(t, err)
 
 // 	archwayP, ok := ap.(*ArchwayProvider)
@@ -319,7 +339,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	}
 
 // 	networkId := 2
-// 	height := 51
+// 	height := 307
 // 	ip := GetIconProvider(networkId)
 
 // 	btpHeader, err := ip.GetBtpHeader(int64(height))
@@ -347,13 +367,14 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // 	}
 
 // 	err = archwayP.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
+// 	time.Sleep(2 * 1000)
 // 	assert.NoError(t, err)
 
 // }
 
 func TestGetClientState(t *testing.T) {
 	ctx := context.Background()
-	ap, err := GetProvider(ctx)
+	ap, err := GetProvider(ctx, "", false)
 	assert.NoError(t, err)
 
 	archwayP, ok := ap.(*ArchwayProvider)
@@ -375,7 +396,7 @@ func TestDataDecode(t *testing.T) {
 	// assert.NoError(t, err)
 
 	ctx := context.Background()
-	ap, err := GetProvider(ctx)
+	ap, err := GetProvider(ctx, "", false)
 	assert.NoError(t, err)
 	archwayP, _ := ap.(*ArchwayProvider)
 
@@ -384,4 +405,9 @@ func TestDataDecode(t *testing.T) {
 	assert.NoError(t, err)
 	fmt.Println(iconee.GetLatestHeight())
 
+}
+
+func TestXxx(t *testing.T) {
+	signer := "hello"
+	assert.Equal(t, types.HexBytes(signer), types.NewHexBytes([]byte(signer)))
 }

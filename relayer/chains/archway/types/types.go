@@ -4,10 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 
-	types "github.com/cosmos/cosmos-sdk/codec/types"
-
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 )
@@ -28,16 +27,13 @@ func NewHexBytes(b []byte) HexBytes {
 // / IBC Handler Contract Methods and Parameters
 
 // / EXTERNAL METHODS
-type CreateClient struct {
-	CreateClient clienttypes.MsgCreateClient `json:"create_client"`
-}
 
-func MsgCreateClient(c1, c2 *types.Any, signer string) *CreateClient {
-	return &CreateClient{
-		CreateClient: clienttypes.MsgCreateClient{
-			ClientState:    c1,
-			ConsensusState: c2,
-			Signer:         signer,
+func MsgCreateClient(clientState, consensusState CustomAny, signer HexBytes) map[string]interface{} {
+	return map[string]interface{}{
+		"create_client": map[string]interface{}{
+			"client_state":    clientState,
+			"consensus_state": consensusState,
+			"signer":          signer,
 		},
 	}
 }
@@ -46,12 +42,13 @@ type UpdateClient struct {
 	UpdateClient clienttypes.MsgUpdateClient `json:"update_client"`
 }
 
-func MsgUpdateClient(clientId string, clientMsg *types.Any, signer string) *UpdateClient {
-	return &UpdateClient{
-		UpdateClient: clienttypes.MsgUpdateClient{
-			ClientId:      clientId,
-			ClientMessage: clientMsg,
-			Signer:        signer,
+func MsgUpdateClient(clientId string, clientMsg CustomAny, signer HexBytes) map[string]interface{} {
+
+	return map[string]interface{}{
+		"update_client": map[string]interface{}{
+			"client_id":      clientId,
+			"client_message": clientMsg,
+			"signer":         signer,
 		},
 	}
 }
@@ -382,5 +379,17 @@ func (x *GetNextChannelSequence) Bytes() ([]byte, error) {
 func NewNextChannelSequence() *GetNextChannelSequence {
 	return &GetNextChannelSequence{
 		Sequence: struct{}{},
+	}
+}
+
+type CustomAny struct {
+	TypeUrl string   `json:"type_url"`
+	Value   HexBytes `json:"value"`
+}
+
+func NewCustomAny(a *codectypes.Any) CustomAny {
+	return CustomAny{
+		TypeUrl: a.TypeUrl,
+		Value:   NewHexBytes(a.Value),
 	}
 }
