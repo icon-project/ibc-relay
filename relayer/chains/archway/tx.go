@@ -1,16 +1,23 @@
 package archway
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
+
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/gogoproto/proto"
 	"go.uber.org/zap"
 
@@ -31,6 +38,7 @@ import (
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/input"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -786,13 +794,148 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		sdkMsgs = append(sdkMsgs, archwayMsg.Msg)
 	}
 
-	return tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, sdkMsgs...)
+	txBytes, err := ap.buildMessages(cliCtx, factory, sdkMsgs...)
+	if err != nil {
+		return err
+	}
+
+	return ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback)
+}
+
+func (cc *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+}
+
+func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
+	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
+	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
+	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	if err.Error() != errUnknown {
+		return err
+	}
+	return nil
+}
+
+func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, error) {
+	for _, msg := range msgs {
+		if err := msg.ValidateBasic(); err != nil {
+			return nil, err
+		}
+	}
+
+	// If the --aux flag is set, we simply generate and print the AuxSignerData.
+	// tf is aux? do we need it? prolly not
+	if clientCtx.IsAux {
+		auxSignerData, err := makeAuxSignerData(clientCtx, txf, msgs...)
+		if err != nil {
+			return nil, err
+		}
+
+		return nil, clientCtx.PrintProto(&auxSignerData)
+	}
+
+	if clientCtx.GenerateOnly {
+		return nil, txf.PrintUnsignedTx(clientCtx, msgs...)
+	}
+
+	txf, err := txf.Prepare(clientCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	if txf.SimulateAndExecute() || clientCtx.Simulate {
+		if clientCtx.Offline {
+			return nil, errors.New("cannot estimate gas in offline mode")
+		}
+
+		_, adjusted, err := tx.CalculateGas(clientCtx, txf, msgs...)
+		if err != nil {
+			return nil, err
+		}
+
+		txf = txf.WithGas(adjusted)
+		_, _ = fmt.Fprintf(os.Stderr, "%s\n", tx.GasEstimateResponse{GasEstimate: txf.Gas()})
+	}
+
+	if clientCtx.Simulate {
+		return nil, nil
+	}
+
+	// txf = txf.WithGas(300_000)
+
+	txn, err := txf.BuildUnsignedTx(msgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	if !clientCtx.SkipConfirm {
+		txBytes, err := clientCtx.TxConfig.TxJSONEncoder()(txn.GetTx())
+		if err != nil {
+			return nil, err
+		}
+
+		if err := clientCtx.PrintRaw(json.RawMessage(txBytes)); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", txBytes)
+		}
+
+		buf := bufio.NewReader(os.Stdin)
+		ok, err := input.GetConfirmation("confirm transaction before signing and broadcasting", buf, os.Stderr)
+
+		if err != nil || !ok {
+			_, _ = fmt.Fprintf(os.Stderr, "%s\n", "cancelled transaction")
+			return nil, err
+		}
+	}
+
+	err = tx.Sign(txf, clientCtx.GetFromName(), txn, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return clientCtx.TxConfig.TxEncoder()(txn.GetTx())
 
 }
 
-// broadcastTx broadcasts a transaction with the given raw bytes and then, in an async goroutine, waits for the tx to be included in the block.
-// The wait will end after either the asyncTimeout has run out or the asyncCtx exits.
-// If there is no error broadcasting, the asyncCallback will be called with success/failure of the wait for block inclusion.
+func (ap *ArchwayProvider) BroadcastTx(
+	clientCtx client.Context,
+	txBytes []byte,
+	msgs []provider.RelayerMessage,
+	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
+	asyncTimeout time.Duration, // timeout for waiting for block inclusion
+	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+) error {
+	res, err := clientCtx.BroadcastTx(txBytes)
+
+	isErr := err != nil
+	isFailed := res != nil && res.Code != 0
+	if isErr || isFailed {
+		if isErr && res == nil {
+			// There are some cases where BroadcastTxSync will return an error but the associated
+			// ResultBroadcastTx will be nil.
+			return err
+		}
+		rlyResp := &provider.RelayerTxResponse{
+			TxHash:    res.TxHash,
+			Codespace: res.Codespace,
+			Code:      res.Code,
+			Data:      res.Data,
+		}
+		if isFailed {
+			err = ap.sdkError(res.Codespace, res.Code)
+			if err == nil {
+				err = fmt.Errorf("transaction failed to execute")
+			}
+		}
+		ap.LogFailedTx(rlyResp, err, msgs)
+		return err
+	}
+
+	go ap.waitForTx(asyncCtx, []byte(res.TxHash), msgs, asyncTimeout, asyncCallback)
+	return nil
+}
+
+// BroadcastTx attempts to generate, sign and broadcast a transaction with the
+// given set of messages. It will also simulate gas requirements if necessary.
+// It will return an error upon failure.
 func (ap *ArchwayProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted
@@ -804,6 +947,188 @@ func (ap *ArchwayProvider) broadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	return nil
+}
+
+func (ap *ArchwayProvider) waitForTx(
+	ctx context.Context,
+	txHash []byte,
+	msgs []provider.RelayerMessage, // used for logging only
+	waitTimeout time.Duration,
+	callback func(*provider.RelayerTxResponse, error),
+) {
+	res, err := ap.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	if err != nil {
+		ap.log.Error("Failed to wait for block inclusion", zap.Error(err))
+		if callback != nil {
+			callback(nil, err)
+		}
+		return
+	}
+
+	rlyResp := &provider.RelayerTxResponse{
+		Height:    res.Height,
+		TxHash:    res.TxHash,
+		Codespace: res.Codespace,
+		Code:      res.Code,
+		Data:      res.Data,
+		Events:    parseEventsFromTxResponse(res),
+	}
+
+	// transaction was executed, log the success or failure using the tx response code
+	// NOTE: error is nil, logic should use the returned error to determine if the
+	// transaction was successfully executed.
+
+	if res.Code != 0 {
+		// Check for any registered SDK errors
+		err := ap.sdkError(res.Codespace, res.Code)
+		if err == nil {
+			err = fmt.Errorf("transaction failed to execute")
+		}
+		if callback != nil {
+			callback(nil, err)
+		}
+		// ap.LogFailedTx(rlyResp, nil, msgs)
+		return
+	}
+
+	if callback != nil {
+		callback(rlyResp, nil)
+	}
+	// ap.LogSuccessTx(res, msgs)
+}
+
+func (ap *ArchwayProvider) waitForBlockInclusion(
+	ctx context.Context,
+	txHash []byte,
+	waitTimeout time.Duration,
+) (*sdk.TxResponse, error) {
+	exitAfter := time.After(waitTimeout)
+	for {
+		select {
+		case <-exitAfter:
+			return nil, fmt.Errorf("timed out after: %d; %w", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
+		case <-time.After(time.Millisecond * 100):
+			res, err := ap.RPCClient.Tx(ctx, txHash, false)
+			if err == nil {
+				return ap.mkTxResult(res)
+			}
+			if strings.Contains(err.Error(), "transaction indexing is disabled") {
+				return nil, fmt.Errorf("cannot determine success/failure of tx because transaction indexing is disabled on rpc url")
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+const (
+	ErrTimeoutAfterWaitingForTxBroadcast string = "timed out after waiting for tx to get included in the block"
+)
+
+type intoAny interface {
+	AsAny() *codectypes.Any
+}
+
+func (ap *ArchwayProvider) mkTxResult(resTx *coretypes.ResultTx) (*sdk.TxResponse, error) {
+	txbz, err := ap.Cdc.TxConfig.TxDecoder()(resTx.Tx)
+	if err != nil {
+		return nil, err
+	}
+	p, ok := txbz.(intoAny)
+	if !ok {
+		return nil, fmt.Errorf("expecting a type implementing intoAny, got: %T", txbz)
+	}
+	any := p.AsAny()
+	return sdk.NewResponseResultTx(resTx, any, ""), nil
+}
+
+func makeAuxSignerData(clientCtx client.Context, f tx.Factory, msgs ...sdk.Msg) (txtypes.AuxSignerData, error) {
+	b := tx.NewAuxTxBuilder()
+	fromAddress, name, _, err := client.GetFromFields(clientCtx, clientCtx.Keyring, clientCtx.From)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	b.SetAddress(fromAddress.String())
+	if clientCtx.Offline {
+		b.SetAccountNumber(f.AccountNumber())
+		b.SetSequence(f.Sequence())
+	} else {
+		accNum, seq, err := clientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, fromAddress)
+		if err != nil {
+			return txtypes.AuxSignerData{}, err
+		}
+		b.SetAccountNumber(accNum)
+		b.SetSequence(seq)
+	}
+
+	err = b.SetMsgs(msgs...)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	// if f.tip != nil {
+	// 	if _, err := sdk.AccAddressFromBech32(f.tip.Tipper); err != nil {
+	// 		return txtypes.AuxSignerData{}, sdkerrors.ErrInvalidAddress.Wrap("tipper must be a bech32 address")
+	// 	}
+	// 	b.SetTip(f.tip)
+	// }
+
+	err = b.SetSignMode(f.SignMode())
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	key, err := clientCtx.Keyring.Key(name)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	pub, err := key.GetPubKey()
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	err = b.SetPubKey(pub)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	b.SetChainID(clientCtx.ChainID)
+	signBz, err := b.GetSignBytes()
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+
+	sig, _, err := clientCtx.Keyring.Sign(name, signBz)
+	if err != nil {
+		return txtypes.AuxSignerData{}, err
+	}
+	b.SetSignature(sig)
+
+	return b.GetAuxSignerData()
+}
+
+func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
+	var events []provider.RelayerEvent
+
+	if resp == nil {
+		return events
+	}
+
+	for _, logs := range resp.Logs {
+		for _, event := range logs.Events {
+			attributes := make(map[string]string)
+			for _, attribute := range event.Attributes {
+				attributes[attribute.Key] = attribute.Value
+			}
+			events = append(events, provider.RelayerEvent{
+				EventType:  event.Type,
+				Attributes: attributes,
+			})
+		}
+	}
+	return events
 }
 
 // QueryABCI performs an ABCI query and returns the appropriate response and error sdk error code.
