@@ -114,7 +114,6 @@ func CreateClient(
 	memo string) (string, error) {
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
 	if !override && src.PathEnd.ClientID != "" {
-		// TODO: check client is not expired
 		_, err := src.ChainProvider.QueryClientStateResponse(ctx, int64(srcUpdateHeader.Height()), src.ClientID())
 		if err != nil {
 			return "", fmt.Errorf("please ensure provided on-chain client (%s) exists on the chain (%s): %w",
@@ -167,7 +166,6 @@ func CreateClient(
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
-	// TODO: Replace with NewClientState
 	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
