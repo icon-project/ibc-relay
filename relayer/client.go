@@ -32,11 +32,9 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 
 	if iconStartHeight != 0 {
 		if c.ChainProvider.Type() == "icon" {
-			fmt.Println("setting the start height ", srch)
 			srch = iconStartHeight
 		}
 		if dst.ChainProvider.Type() == "icon" {
-			fmt.Println("setting the dst height ", dsth)
 			dsth = iconStartHeight
 		}
 	}

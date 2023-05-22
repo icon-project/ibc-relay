@@ -11,7 +11,6 @@ import (
 	"time"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/cosmos/gogoproto/proto"
 	"go.uber.org/zap"
 
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
@@ -173,18 +172,22 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 	if err != nil {
 		return nil, err
 	}
-	clientStateB, _ := proto.Marshal(clientState)
-	consensusStateB, _ := proto.Marshal(consensusState)
-	msg := map[string]interface{}{
-		"create_client": map[string]interface{}{
-			"client_state":    types.NewHexBytes(clientStateB),
-			"consensus_state": types.NewHexBytes(consensusStateB),
-			"signer":          types.NewHexBytes([]byte(signer)),
-		},
+
+	anyClientState, err := clienttypes.PackClientState(clientState)
+	if err != nil {
+		return nil, err
 	}
 
-	msgParam, err := json.Marshal(msg)
+	anyConsensusState, err := clienttypes.PackConsensusState(consensusState)
+	if err != nil {
+		return nil, err
+	}
 
+	msg := types.MsgCreateClient(types.NewCustomAny(anyClientState),
+		types.NewCustomAny(anyConsensusState),
+		types.NewHexBytes([]byte(signer)),
+	)
+	msgParam, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -684,7 +687,7 @@ func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexporte
 	if err != nil {
 		return nil, err
 	}
-	msg := types.MsgUpdateClient(clientID, clientMsg, signer)
+	msg := types.MsgUpdateClient(clientID, types.NewCustomAny(clientMsg), types.NewHexBytes([]byte(signer)))
 	msgParam, err := json.Marshal(msg)
 	if err != nil {
 		return nil, err
