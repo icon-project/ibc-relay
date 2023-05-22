@@ -7,15 +7,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
-	"github.com/CosmWasm/wasmd/app"
-	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	"github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
-	icon_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
@@ -32,10 +29,6 @@ type mockAccountSequenceMismatchError struct {
 func (err mockAccountSequenceMismatchError) Error() string {
 	return fmt.Sprintf("account sequence mismatch, expected %d, got %d: incorrect account sequence", err.Expected, err.Actual)
 }
-
-const (
-	archway_mock_address = "archway1maqs3qvslrjaq8xz9402shucnr4wzdujty8lr7ux5z5rnj989lwsmssrzk"
-)
 
 func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.ChainProvider, error) {
 
@@ -92,20 +85,19 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 
 func TestGetAddress(t *testing.T) {
 	ctx := context.Background()
-	p, err := GetProvider(ctx, "", false)
+	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", true)
 	assert.NoError(t, err)
 	pArch := p.(*ArchwayProvider)
-	// _, err = pArch.AddKey("testWallet", 118)
-	// assert.NoError(t, err)
-	a := "archway1qlfxs7h3r02njh5cykjak2nel54hq8s47h7khl"
+	assert.NoError(t, err)
+	a := "archway1w7vrcfah6xv7x6wuuq0vj3ju8ne720dtk29jy5"
 	addr, err := pArch.GetKeyAddress()
 	assert.NoError(t, err)
 	assert.Equal(t, a, addr.String())
 
-	op, err := pArch.QueryBalance(ctx, "default")
-	assert.NoError(t, err)
+	// op, err := pArch.QueryBalance(ctx, "default")
+	// assert.NoError(t, err)
 
-	fmt.Println("balance", op)
+	// fmt.Println("balance", op)
 	// opx, err := pArch.ShowAddress("testWallet")
 	// assert.NoError(t, err)
 	// assert.Equal(t, addr, opx)
@@ -175,116 +167,207 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 
 // }
 
-func TestTxCall(t *testing.T) {
+func TestTxnResult(t *testing.T) {
+	hash := "A7FAA098E4671ABDB9C3557B4E94F5C208939804B4CE64BF066669EC75313151"
+	b, e := hex.DecodeString(hash)
+	assert.NoError(t, e)
 
 	ctx := context.Background()
-
-	p, _ := GetProvider(ctx, "", false)
-	pArch := p.(*ArchwayProvider)
-
-	// cl, _ := client.NewClientFromNode("http://localhost:26657")
-	cl, _ := client.NewClientFromNode("https://rpc.constantine-2.archway.tech:443")
-
-	addr, err := pArch.GetKeyAddress()
+	p, err := GetProvider(ctx, "archway21", true)
 	assert.NoError(t, err)
+	pArch, ok := p.(*ArchwayProvider)
+	assert.True(t, ok)
 
-	encodingConfig := app.MakeEncodingConfig()
-	cliCtx := client.Context{}.
-		WithClient(cl).
-		WithFromName(pArch.PCfg.Key).
-		WithFromAddress(addr).
-		WithTxConfig(encodingConfig.TxConfig).
-		WithSkipConfirmation(true).
-		WithBroadcastMode("sync")
+	a := make(chan provider.RelayerTxResponse, 10)
 
-	/////////////////////////////////////////////////
-	///////////////////// EXECUTION /////////////////
-	/////////////////////////////////////////////////
-
-	// pktData := []byte("hello_world")
-
-	// type SendPacketParams struct {
-	// 	Packet HexBytes `json:"packet"`
-	// 	Id     string   `json:"id"`
-	// }
-	// type SendPacket struct {
-	// 	Pkt SendPacketParams `json:"send_packet"`
-	// }
-
-	// sendPkt := SendPacket{
-	// 	Pkt: SendPacketParams{
-	// 		Packet: NewHexBytes(pktData),
-	// 		Id:     "345",
-	// 	},
-	// }
-
-	// dB, err := json.Marshal(sendPkt)
-	// assert.NoError(t, err)
-
-	// msg := &wasmtypes.MsgExecuteContract{
-	// 	Sender:   addr.String(),
-	// 	Contract: contract,
-	// 	Msg:      dB,
-	// }
-
-	// a := pArch.TxFactory()
-	// factory, err := pArch.PrepareFactory(a)
-	// assert.NoError(t, err)
-
-	// tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, msg)
-
-	/////////////////////////////////////////////////
-	/////////////////////// QUERY ///////////////////
-	/////////////////////////////////////////////////
-
-	type GetPacket struct {
-		GetPacket struct {
-			Id string `json:"id"`
-		} `json:"get_packet"`
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		fmt.Printf("Tx Response:: %+v\n ", rtr)
+		if err == nil {
+			a <- *rtr
+		}
+		return
 	}
 
-	type PacketOutput struct {
-		Packet []byte `json:"packet"`
+	pArch.waitForTx(ctx, b, nil, time.Minute*10, callback)
+brakHere:
+	for {
+		select {
+		case <-a:
+			{
+				fmt.Println("response received")
+				break brakHere
+			}
+		}
+
 	}
-
-	// _param := GetPacket{
-	// 	GetPacket: struct {
-	// 		Id string "json:\"id\""
-	// 	}{
-	// 		Id: "100",
-	// 	},
-	// }
-
-	// type GetAllPacket struct {
-	// 	GetAllPacket interface{} `json:"get_packet"`
-	// }
-
-	cs := types.GetClientState{
-		ClientState: struct {
-			ClientId string "json:\"client_id\""
-		}{
-			ClientId: "iconclient-0",
-		},
-	}
-
-	param, _ := json.Marshal(cs)
-
-	queryCLient := wasmtypes.NewQueryClient(cliCtx)
-	contractState, err := queryCLient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
-		Address:   archway_mock_address,
-		QueryData: param,
-	})
-
-	assert.NoError(t, err)
-	e := contractState.Data
-	var i icon_types.ClientState
-	err = json.Unmarshal(e, &i)
-	fmt.Printf("data is %s \n", e)
-	assert.NoError(t, err)
-	fmt.Printf("data is %+v \n", i)
 
 }
 
+func TestClientState(t *testing.T) {
+
+	ctx := context.Background()
+	contractAddr := "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz"
+	p, err := GetProvider(ctx, contractAddr, true)
+	assert.NoError(t, err)
+
+	archP := p.(*ArchwayProvider)
+
+	clientId := "iconclient-0"
+
+	iconM, err := archP.QueryClientStateContract(ctx, clientId)
+	assert.NoError(t, err)
+	fmt.Printf("%+v", iconM)
+}
+
+// func TestTxCall(t *testing.T) {
+
+// 	ctx := context.Background()
+
+// 	p, _ := GetProvider(ctx, "", false)
+// 	pArch := p.(*ArchwayProvider)
+
+// 	// cl, _ := client.NewClientFromNode("http://localhost:26657")
+// 	cl, _ := client.NewClientFromNode("https://rpc.constantine-2.archway.tech:443")
+
+// 	addr, err := pArch.GetKeyAddress()
+// 	assert.NoError(t, err)
+
+// 	encodingConfig := app.MakeEncodingConfig()
+// 	cliCtx := client.Context{}.
+// 		WithClient(cl).
+// 		WithFromName(pArch.PCfg.Key).
+// 		WithFromAddress(addr).
+// 		WithTxConfig(encodingConfig.TxConfig).
+// 		WithSkipConfirmation(true).
+// 		WithBroadcastMode("sync")
+
+// 	/////////////////////////////////////////////////
+// 	///////////////////// EXECUTION /////////////////
+// 	/////////////////////////////////////////////////
+
+// 	// pktData := []byte("hello_world")
+
+// 	// type SendPacketParams struct {
+// 	// 	Packet HexBytes `json:"packet"`
+// 	// 	Id     string   `json:"id"`
+// 	// }
+// 	// type SendPacket struct {
+// 	// 	Pkt SendPacketParams `json:"send_packet"`
+// 	// }
+
+// 	// sendPkt := SendPacket{
+// 	// 	Pkt: SendPacketParams{
+// 	// 		Packet: NewHexBytes(pktData),
+// 	// 		Id:     "345",
+// 	// 	},
+// 	// }
+
+// 	// dB, err := json.Marshal(sendPkt)
+// 	// assert.NoError(t, err)
+
+// 	// msg := &wasmtypes.MsgExecuteContract{
+// 	// 	Sender:   addr.String(),
+// 	// 	Contract: contract,
+// 	// 	Msg:      dB,
+// 	// }
+
+// 	// a := pArch.TxFactory()
+// 	// factory, err := pArch.PrepareFactory(a)
+// 	// assert.NoError(t, err)
+
+// 	// tx.GenerateOrBroadcastTxWithFactory(cliCtx, factory, msg)
+
+// 	/////////////////////////////////////////////////
+// 	/////////////////////// QUERY ///////////////////
+// 	/////////////////////////////////////////////////
+
+// 	type GetPacket struct {
+// 		GetPacket struct {
+// 			Id string `json:"id"`
+// 		} `json:"get_packet"`
+// 	}
+
+// 	type PacketOutput struct {
+// 		Packet []byte `json:"packet"`
+// 	}
+
+// 	// _param := GetPacket{
+// 	// 	GetPacket: struct {
+// 	// 		Id string "json:\"id\""
+// 	// 	}{
+// 	// 		Id: "100",
+// 	// 	},
+// 	// }
+
+// 	// type GetAllPacket struct {
+// 	// 	GetAllPacket interface{} `json:"get_packet"`
+// 	// }
+
+// 	cs := types.GetClientState{
+// 		ClientState: struct {
+// 			ClientId string "json:\"client_id\""
+// 		}{
+// 			ClientId: "iconclient-0",
+// 		},
+// 	}
+
+// 	param, _ := json.Marshal(cs)
+
+// 	queryCLient := wasmtypes.NewQueryClient(cliCtx)
+// 	contractState, err := queryCLient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+// 		Address:   archway_mock_address,
+// 		QueryData: param,
+// 	})
+
+// 	assert.NoError(t, err)
+// 	e := contractState.Data
+// 	var i icon_types.ClientState
+// 	err = json.Unmarshal(e, &i)
+// 	fmt.Printf("data is %s \n", e)
+// 	assert.NoError(t, err)
+// 	fmt.Printf("data is %+v \n", i)
+
+// }
+
+func TestCreateClient(t *testing.T) {
+
+	ctx := context.Background()
+	ap, err := GetProvider(ctx, "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz", true) //"archway1g4w5f2l25dav7h4mc0mzeute5859wa9hgmavancmprfldqun6ppqsn0zma")
+	assert.NoError(t, err)
+
+	networkId := 1
+	height := 27
+	ip := GetIconProvider(networkId)
+
+	btpHeader, err := ip.GetBtpHeader(int64(height))
+	assert.NoError(t, err)
+
+	header := icon.NewIconIBCHeader(btpHeader, nil, int64(height))
+
+	clS, err := ip.NewClientState("07-tendermint", header, 100, 100, true, true)
+	assert.NoError(t, err)
+
+	msg, err := ap.MsgCreateClient(clS, header.ConsensusState())
+	assert.NoError(t, err)
+
+	call := make(chan bool)
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		assert.NoError(t, err)
+		fmt.Printf("Tx Response:: %+v\n ", rtr)
+		call <- true
+	}
+
+	err = ap.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
+	assert.NoError(t, err)
+	for {
+		select {
+		case <-call:
+			break
+		}
+	}
+
+}
 func TestSerializeAny(t *testing.T) {
 
 	d := clienttypes.Height{
