@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 type mockAccountSequenceMismatchError struct {
@@ -54,8 +55,8 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 			KeyDirectory:      absPath,
 			Key:               "testWallet",
 			ChainName:         "archway",
-			ChainID:           "constantine-2",
-			RPCAddr:           "https://rpc.constantine-2.archway.tech:443",
+			ChainID:           "constantine-3",
+			RPCAddr:           "https://rpc.constantine.archway.tech:443",
 			AccountPrefix:     "archway",
 			KeyringBackend:    "test",
 			GasAdjustment:     1.5,
@@ -68,7 +69,7 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 		}
 	}
 
-	p, err := config.NewProvider(&zap.Logger{}, "../../../env/archway", true, "archway")
+	p, err := config.NewProvider(zaptest.NewLogger(&testing.T{}), "../../../env/archway", true, "archway")
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +83,11 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 
 func TestGetAddress(t *testing.T) {
 	ctx := context.Background()
-	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", true)
+	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", false)
 	assert.NoError(t, err)
 	pArch := p.(*ArchwayProvider)
 	assert.NoError(t, err)
-	a := "archway1w7vrcfah6xv7x6wuuq0vj3ju8ne720dtk29jy5"
+	a := "archway1wp03rwncntr0jxl2ec39agtd0rdzfmntnmud3c"
 	addr, err := pArch.GetKeyAddress()
 	assert.NoError(t, err)
 	assert.Equal(t, a, addr.String())
