@@ -24,3 +24,9 @@ const (
 	MethodGetNextChannelSequence    = "get_next_channel_sequence"
 	MethodGetNextConnectionSequence = "get_next_connection_sequence"
 )
+
+const (
+	ClientPrefix     = "iconclient"
+	ConnectionPrefix = "connection"
+	ChannelPrefix    = "channel"
+)
