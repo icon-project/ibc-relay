@@ -652,6 +652,12 @@ func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	)
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+
+		for i, e := range rtr.Events {
+			if startsWithWasm(e.EventType) {
+				rtr.Events[i].EventType = findEventType(e.EventType)
+			}
+		}
 		rlyResp = rtr
 		callbackErr = err
 		wg.Done()
