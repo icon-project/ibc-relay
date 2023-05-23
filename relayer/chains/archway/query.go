@@ -415,7 +415,7 @@ func (ap *ArchwayProvider) QueryClients(ctx context.Context) (clienttypes.Identi
 
 	identifiedClientStates := make(clienttypes.IdentifiedClientStates, 0)
 	for i := 0; i <= int(seq)-1; i++ {
-		clientIdentifier := fmt.Sprintf("client-%d", i)
+		clientIdentifier := fmt.Sprintf("%s-%d", ClientPrefix, i)
 		clientState, err := ap.QueryClientStateContract(ctx, clientIdentifier)
 		if err != nil {
 			return nil, err
@@ -491,7 +491,7 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 	}
 
 	for i := 0; i <= int(seq)-1; i++ {
-		connectionId := fmt.Sprintf("connection-%d", i)
+		connectionId := fmt.Sprintf("%s-%d", ConnectionPrefix, i)
 		conn, err := ap.QueryConnectionContract(ctx, connectionId)
 		if err != nil {
 			return nil, err
@@ -567,7 +567,7 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 	testPort := "mock" //TODO:
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
-		channelId := fmt.Sprintf("channel-%d", i)
+		channelId := fmt.Sprintf("%s-%d", ChannelPrefix, i)
 		channel, err := ap.QueryChannelContract(ctx, testPort, channelId)
 		if err != nil {
 			return nil, err
