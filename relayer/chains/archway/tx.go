@@ -8,11 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/cosmos/cosmos-sdk/codec/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
@@ -20,6 +22,7 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/cosmos/cosmos-sdk/store/rootmulti"
 	"google.golang.org/grpc/codes"
@@ -644,7 +647,7 @@ func (ap *ArchwayProvider) SendMessage(ctx context.Context, msg provider.Relayer
 	return ap.SendMessages(ctx, []provider.RelayerMessage{msg}, memo)
 }
 
-func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
 	var (
 		rlyResp     *provider.RelayerTxResponse
 		callbackErr error
@@ -666,11 +669,11 @@ func (cc *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	wg.Add(1)
 
 	if err := retry.Do(func() error {
-		return cc.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
+		return ap.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
-		cc.log.Info(
+		ap.log.Info(
 			"Error building or broadcasting transaction",
-			zap.String("chain_id", cc.PCfg.ChainID),
+			zap.String("chain_id", ap.PCfg.ChainID),
 			zap.Uint("attempt", n+1),
 			zap.Uint("max_attempts", rtyAttNum),
 			zap.Error(err),
@@ -731,8 +734,107 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 	return ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback)
 }
 
-func (cc *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
-	cc.log.Info("Transaction Failed", zap.Any("Error", err), zap.Int64("height", res.Height))
+func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
+
+	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
+	// if res != nil {
+	// 		channels := getChannelsIfPresent(res.Events)
+	// 		fields = append(fields, channels...)
+	// 	}
+	fields = append(fields, msgTypesField(msgs))
+
+	if err != nil {
+		// Make a copy since we may continue to the warning
+		errorFields := append(fields, zap.Error(err))
+		ap.log.Error(
+			"Failed sending archway transaction",
+			errorFields...,
+		)
+
+		if res == nil {
+			return
+		}
+	}
+	if res.Code != 0 {
+		if sdkErr := ap.sdkError(res.Codespace, res.Code); err != nil {
+			fields = append(fields, zap.NamedError("sdk_error", sdkErr))
+		}
+		fields = append(fields, zap.Object("response", res))
+		ap.log.Warn(
+			"Sent transaction but received failure response",
+			fields...,
+		)
+	}
+}
+
+// LogSuccessTx take the transaction and the messages to create it and logs the appropriate data
+func (ap *ArchwayProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
+	// Include the chain_id
+	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
+
+	// Extract the channels from the events, if present
+	// if res != nil {
+	// 	events := parseEventsFromTxResponse(res)
+	// 	fields = append(fields, getChannelsIfPresent(events)...)
+	// }
+
+	// Include the gas used
+	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
+
+	// Extract fees and fee_payer if present
+	ir := types.NewInterfaceRegistry()
+	var m sdk.Msg
+	if err := ir.UnpackAny(res.Tx, &m); err == nil {
+		if tx, ok := m.(*txtypes.Tx); ok {
+			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
+			if feePayer := getFeePayer(tx); feePayer != "" {
+				fields = append(fields, zap.String("fee_payer", feePayer))
+			}
+		} else {
+			ap.log.Debug(
+				"Failed to convert message to Tx type",
+				zap.Stringer("type", reflect.TypeOf(m)),
+			)
+		}
+	} else {
+		ap.log.Debug("Failed to unpack response Tx into sdk.Msg", zap.Error(err))
+	}
+
+	// Include the height, msgType, and tx_hash
+	fields = append(fields,
+		zap.Int64("height", res.Height),
+		msgTypesField(msgs),
+		zap.String("tx_hash", res.TxHash),
+	)
+
+	// Log the succesful transaction with fields
+	ap.log.Info(
+		"Successful transaction",
+		fields...,
+	)
+}
+
+// getFeePayer returns the bech32 address of the fee payer of a transaction.
+// This uses the fee payer field if set,
+// otherwise falls back to the address of whoever signed the first message.
+func getFeePayer(tx *txtypes.Tx) string {
+	payer := tx.AuthInfo.Fee.Payer
+	if payer != "" {
+		return payer
+	}
+	switch firstMsg := tx.GetMsgs()[0].(type) {
+
+	case *clienttypes.MsgCreateClient:
+		// Without this particular special case, there is a panic in ibc-go
+		// due to the sdk config singleton expecting one bech32 prefix but seeing another.
+		return firstMsg.Signer
+	case *clienttypes.MsgUpdateClient:
+		// Same failure mode as MsgCreateClient.
+		return firstMsg.Signer
+	default:
+		return firstMsg.GetSigners()[0].String()
+	}
+
 }
 
 func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
@@ -861,10 +963,14 @@ func (ap *ArchwayProvider) BroadcastTx(
 	}
 
 	hexTx, err := hex.DecodeString(res.TxHash)
-
 	if err != nil {
 		return err
 	}
+
+	ap.log.Info("Submitted transaction",
+		zap.String("chain_id", ap.PCfg.ChainID),
+		zap.String("txHash", res.TxHash),
+	)
 
 	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	return nil
@@ -924,16 +1030,14 @@ func (ap *ArchwayProvider) waitForTx(
 		if callback != nil {
 			callback(nil, err)
 		}
-		// ap.LogFailedTx(rlyResp, nil, msgs)
+		ap.LogFailedTx(rlyResp, nil, msgs)
 		return
 	}
 
 	if callback != nil {
-		fmt.Println("saved data in callback fn")
-		fmt.Println(rlyResp)
 		callback(rlyResp, nil)
 	}
-	// ap.LogSuccessTx(res, msgs)
+	ap.LogSuccessTx(res, msgs)
 }
 
 func (ap *ArchwayProvider) waitForBlockInclusion(
@@ -958,6 +1062,14 @@ func (ap *ArchwayProvider) waitForBlockInclusion(
 			return nil, ctx.Err()
 		}
 	}
+}
+
+func msgTypesField(msgs []provider.RelayerMessage) zap.Field {
+	msgTypes := make([]string, len(msgs))
+	for i, m := range msgs {
+		msgTypes[i] = m.Type()
+	}
+	return zap.Strings("msg_types", msgTypes)
 }
 
 const (
