@@ -19,6 +19,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 )
 
 type mockAccountSequenceMismatchError struct {
@@ -57,8 +58,8 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 			KeyDirectory:      absPath,
 			Key:               "testWallet",
 			ChainName:         "archway",
-			ChainID:           "constantine-2",
-			RPCAddr:           "https://rpc.constantine-2.archway.tech:443",
+			ChainID:           "constantine-3",
+			RPCAddr:           "https://rpc.constantine.archway.tech:443",
 			AccountPrefix:     "archway",
 			KeyringBackend:    "test",
 			GasAdjustment:     1.5,
@@ -71,7 +72,7 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 		}
 	}
 
-	p, err := config.NewProvider(&zap.Logger{}, "../../../env/archway", true, "archway")
+	p, err := config.NewProvider(zaptest.NewLogger(&testing.T{}), "../../../env/archway", true, "archway")
 	if err != nil {
 		return nil, err
 	}
@@ -85,11 +86,11 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 
 func TestGetAddress(t *testing.T) {
 	ctx := context.Background()
-	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", true)
+	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", false)
 	assert.NoError(t, err)
 	pArch := p.(*ArchwayProvider)
 	assert.NoError(t, err)
-	a := "archway1w7vrcfah6xv7x6wuuq0vj3ju8ne720dtk29jy5"
+	a := "archway1wp03rwncntr0jxl2ec39agtd0rdzfmntnmud3c"
 	addr, err := pArch.GetKeyAddress()
 	assert.NoError(t, err)
 	assert.Equal(t, a, addr.String())
@@ -168,12 +169,12 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // }
 
 func TestTxnResult(t *testing.T) {
-	hash := "A7FAA098E4671ABDB9C3557B4E94F5C208939804B4CE64BF066669EC75313151"
+	hash := "CC7F7057715ADD1CDB96116E6112A7C3E27966E6D6D5569CD8346E1B882E646B"
 	b, e := hex.DecodeString(hash)
 	assert.NoError(t, e)
 
 	ctx := context.Background()
-	p, err := GetProvider(ctx, "archway21", true)
+	p, err := GetProvider(ctx, "archway14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9sy85n2u", true)
 	assert.NoError(t, err)
 	pArch, ok := p.(*ArchwayProvider)
 	assert.True(t, ok)
@@ -181,7 +182,6 @@ func TestTxnResult(t *testing.T) {
 	a := make(chan provider.RelayerTxResponse, 10)
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
-		fmt.Printf("Tx Response:: %+v\n ", rtr)
 		if err == nil {
 			a <- *rtr
 		}
@@ -192,9 +192,10 @@ func TestTxnResult(t *testing.T) {
 brakHere:
 	for {
 		select {
-		case <-a:
+		case res := <-a:
 			{
 				fmt.Println("response received")
+				fmt.Printf("%+v\n", res)
 				break brakHere
 			}
 		}
@@ -332,11 +333,11 @@ func TestClientState(t *testing.T) {
 func TestCreateClient(t *testing.T) {
 
 	ctx := context.Background()
-	ap, err := GetProvider(ctx, "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz", true) //"archway1g4w5f2l25dav7h4mc0mzeute5859wa9hgmavancmprfldqun6ppqsn0zma")
+	ap, err := GetProvider(ctx, "archway1hpufl3l8g44aaz3qsqw886sjanhhu73ul6tllxuw3pqlhxzq9e4sqcz9uv", true) //"archway1g4w5f2l25dav7h4mc0mzeute5859wa9hgmavancmprfldqun6ppqsn0zma")
 	assert.NoError(t, err)
 
 	networkId := 1
-	height := 27
+	height := 59
 	ip := GetIconProvider(networkId)
 
 	btpHeader, err := ip.GetBtpHeader(int64(height))
@@ -360,12 +361,16 @@ func TestCreateClient(t *testing.T) {
 
 	err = ap.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
 	assert.NoError(t, err)
+namedLoop:
 	for {
 		select {
 		case <-call:
-			break
+			break namedLoop
 		}
 	}
+}
+
+func TestCreateConnectionOpenInit(t *testing.T) {
 
 }
 func TestSerializeAny(t *testing.T) {
@@ -493,4 +498,67 @@ func TestDataDecode(t *testing.T) {
 func TestXxx(t *testing.T) {
 	signer := "hello"
 	assert.Equal(t, types.HexBytes(signer), types.NewHexBytes([]byte(signer)))
+}
+
+func TestStructCast(t *testing.T) {
+
+	type Struct1 struct {
+		Fieldx int
+		Fieldy []byte
+	}
+	type StructA struct {
+		Field1 int
+		Field2 string
+		Field3 Struct1
+	}
+
+	type Struct2 struct {
+		Fieldx int
+		Fieldy []byte
+	}
+	type StructB struct {
+		Field1 uint
+		Field2 string
+		Field3 Struct2
+	}
+
+	a := &StructA{
+		Field1: 1,
+		Field2: "helo",
+		Field3: Struct1{
+			Fieldx: 0,
+			Fieldy: []byte("Hellllllllo"),
+		},
+	}
+
+	b, _ := json.Marshal(a)
+	var c StructB
+	err := json.Unmarshal(b, &c)
+	assert.NoError(t, err)
+	assert.Equal(t, c, StructB{
+		Field1: uint(a.Field1),
+		Field2: a.Field2,
+		Field3: Struct2{
+			Fieldx: a.Field3.Fieldx,
+			Fieldy: a.Field3.Fieldy,
+		},
+	})
+}
+
+func TestArchwayLightHeader(t *testing.T) {
+	ctx := context.Background()
+	apx, err := GetProvider(ctx, "abcd", true)
+	assert.NoError(t, err)
+
+	ap := apx.(*ArchwayProvider)
+
+	h := 1000
+	lightBlock, err := ap.LightProvider.LightBlock(ctx, int64(h))
+	byt, err := json.Marshal(lightBlock)
+	assert.NoError(t, err)
+	var a ArchwayIBCHeader
+	err = json.Unmarshal(byt, &a)
+	assert.NoError(t, err)
+	fmt.Printf("%+v", a)
+
 }

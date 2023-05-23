@@ -12,6 +12,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
@@ -475,13 +476,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 
-	//*******Should be removed later
-	c := counterpartyHeader.(*icon.SignedHeader)
-
-	cs, err := icp.NewClientStateMock("icon", NewIconIBCHeader(nil, nil, int64(c.Header.MainHeight)),
-		2000*time.Second, 2000*time.Second, false, false)
-
-	// ****TODO: should be counterpartyHeader
+	cs := counterpartyHeader.(*tmclient.Header)
 	clientMsg, err := proto.Marshal(cs)
 	if err != nil {
 		return nil, err

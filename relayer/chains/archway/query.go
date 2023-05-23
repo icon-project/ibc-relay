@@ -130,11 +130,8 @@ func (ap *ArchwayProvider) QueryIBCHeader(ctx context.Context, h int64) (provide
 	if err != nil {
 		return nil, err
 	}
-	return provider.TendermintIBCHeader{
-		SignedHeader: lightBlock.SignedHeader,
-		ValidatorSet: lightBlock.ValidatorSet,
-	}, nil
 
+	return NewArchwayIBCHeaderFromLightBlock(lightBlock), nil
 }
 
 // query packet info for sequence
