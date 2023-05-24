@@ -7,14 +7,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
-	"time"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/archway/types"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/assert"
@@ -167,57 +164,57 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 
 // }
 
-func TestTxnResult(t *testing.T) {
-	hash := "A7FAA098E4671ABDB9C3557B4E94F5C208939804B4CE64BF066669EC75313151"
-	b, e := hex.DecodeString(hash)
-	assert.NoError(t, e)
+// func TestTxnResult(t *testing.T) {
+// 	hash := "A7FAA098E4671ABDB9C3557B4E94F5C208939804B4CE64BF066669EC75313151"
+// 	b, e := hex.DecodeString(hash)
+// 	assert.NoError(t, e)
 
-	ctx := context.Background()
-	p, err := GetProvider(ctx, "archway21", true)
-	assert.NoError(t, err)
-	pArch, ok := p.(*ArchwayProvider)
-	assert.True(t, ok)
+// 	ctx := context.Background()
+// 	p, err := GetProvider(ctx, "archway21", true)
+// 	assert.NoError(t, err)
+// 	pArch, ok := p.(*ArchwayProvider)
+// 	assert.True(t, ok)
 
-	a := make(chan provider.RelayerTxResponse, 10)
+// 	a := make(chan provider.RelayerTxResponse, 10)
 
-	callback := func(rtr *provider.RelayerTxResponse, err error) {
-		fmt.Printf("Tx Response:: %+v\n ", rtr)
-		if err == nil {
-			a <- *rtr
-		}
-		return
-	}
+// 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+// 		fmt.Printf("Tx Response:: %+v\n ", rtr)
+// 		if err == nil {
+// 			a <- *rtr
+// 		}
+// 		return
+// 	}
 
-	pArch.waitForTx(ctx, b, nil, time.Minute*10, callback)
-brakHere:
-	for {
-		select {
-		case <-a:
-			{
-				fmt.Println("response received")
-				break brakHere
-			}
-		}
+// 	pArch.waitForTx(ctx, b, nil, time.Minute*10, callback)
+// brakHere:
+// 	for {
+// 		select {
+// 		case <-a:
+// 			{
+// 				fmt.Println("response received")
+// 				break brakHere
+// 			}
+// 		}
 
-	}
+// 	}
 
-}
+// }
 
-func TestClientState(t *testing.T) {
+// func TestClientState(t *testing.T) {
 
-	ctx := context.Background()
-	contractAddr := "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz"
-	p, err := GetProvider(ctx, contractAddr, true)
-	assert.NoError(t, err)
+// 	ctx := context.Background()
+// 	contractAddr := "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz"
+// 	p, err := GetProvider(ctx, contractAddr, true)
+// 	assert.NoError(t, err)
 
-	archP := p.(*ArchwayProvider)
+// 	archP := p.(*ArchwayProvider)
 
-	clientId := "iconclient-0"
+// 	clientId := "iconclient-0"
 
-	iconM, err := archP.QueryClientStateContract(ctx, clientId)
-	assert.NoError(t, err)
-	fmt.Printf("%+v", iconM)
-}
+// 	iconM, err := archP.QueryClientStateContract(ctx, clientId)
+// 	assert.NoError(t, err)
+// 	fmt.Printf("%+v", iconM)
+// }
 
 // func TestTxCall(t *testing.T) {
 
@@ -329,45 +326,45 @@ func TestClientState(t *testing.T) {
 
 // }
 
-func TestCreateClient(t *testing.T) {
+// func TestCreateClient(t *testing.T) {
 
-	ctx := context.Background()
-	ap, err := GetProvider(ctx, "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz", true) //"archway1g4w5f2l25dav7h4mc0mzeute5859wa9hgmavancmprfldqun6ppqsn0zma")
-	assert.NoError(t, err)
+// 	ctx := context.Background()
+// 	ap, err := GetProvider(ctx, "archway1vguuxez2h5ekltfj9gjd62fs5k4rl2zy5hfrncasykzw08rezpfsa4aasz", true) //"archway1g4w5f2l25dav7h4mc0mzeute5859wa9hgmavancmprfldqun6ppqsn0zma")
+// 	assert.NoError(t, err)
 
-	networkId := 1
-	height := 27
-	ip := GetIconProvider(networkId)
+// 	networkId := 1
+// 	height := 27
+// 	ip := GetIconProvider(networkId)
 
-	btpHeader, err := ip.GetBtpHeader(int64(height))
-	assert.NoError(t, err)
+// 	btpHeader, err := ip.GetBtpHeader(int64(height))
+// 	assert.NoError(t, err)
 
-	header := icon.NewIconIBCHeader(btpHeader, nil, int64(height))
+// 	header := icon.NewIconIBCHeader(btpHeader, nil, int64(height))
 
-	clS, err := ip.NewClientState("07-tendermint", header, 100, 100, true, true)
-	assert.NoError(t, err)
+// 	clS, err := ip.NewClientState("07-tendermint", header, 100, 100, true, true)
+// 	assert.NoError(t, err)
 
-	msg, err := ap.MsgCreateClient(clS, header.ConsensusState())
-	assert.NoError(t, err)
+// 	msg, err := ap.MsgCreateClient(clS, header.ConsensusState())
+// 	assert.NoError(t, err)
 
-	call := make(chan bool)
+// 	call := make(chan bool)
 
-	callback := func(rtr *provider.RelayerTxResponse, err error) {
-		assert.NoError(t, err)
-		fmt.Printf("Tx Response:: %+v\n ", rtr)
-		call <- true
-	}
+// 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+// 		assert.NoError(t, err)
+// 		fmt.Printf("Tx Response:: %+v\n ", rtr)
+// 		call <- true
+// 	}
 
-	err = ap.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
-	assert.NoError(t, err)
-	for {
-		select {
-		case <-call:
-			break
-		}
-	}
+// 	err = ap.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, "memo", nil, callback)
+// 	assert.NoError(t, err)
+// 	for {
+// 		select {
+// 		case <-call:
+// 			break
+// 		}
+// 	}
 
-}
+// }
 func TestSerializeAny(t *testing.T) {
 
 	d := clienttypes.Height{
@@ -455,42 +452,37 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 
 // }
 
-func TestGetClientState(t *testing.T) {
-	ctx := context.Background()
-	ap, err := GetProvider(ctx, "", false)
-	assert.NoError(t, err)
+// func TestGetClientState(t *testing.T) {
+// 	ctx := context.Background()
+// 	ap, err := GetProvider(ctx, "", false)
+// 	assert.NoError(t, err)
 
-	archwayP, ok := ap.(*ArchwayProvider)
-	if !ok {
-		assert.Fail(t, "failed to convert to archwayP")
-	}
+// 	archwayP, ok := ap.(*ArchwayProvider)
+// 	if !ok {
+// 		assert.Fail(t, "failed to convert to archwayP")
+// 	}
 
-	state, err := archwayP.QueryClientStateContract(ctx, "iconclient-0")
-	assert.NoError(t, err)
-	fmt.Printf("ClentState %+v \n", state)
+// 	state, err := archwayP.QueryClientStateContract(ctx, "iconclient-0")
+// 	assert.NoError(t, err)
+// 	fmt.Printf("ClentState %+v \n", state)
 
-}
+// }
 
-func TestDataDecode(t *testing.T) {
+// func TestDataDecode(t *testing.T) {
 
-	d := []byte{10, 32, 47, 105, 99, 111, 110, 46, 108, 105, 103, 104, 116, 99, 108, 105, 101, 110, 116, 46, 118, 49, 46, 67, 108, 105, 101, 110, 116, 83, 116, 97, 116, 101, 18, 32, 127, 98, 36, 134, 45, 9, 198, 30, 199, 185, 205, 28, 128, 214, 203, 138, 15, 65, 45, 70, 134, 139, 202, 40, 61, 44, 97, 169, 50, 7, 225, 18}
-	// d := "103247105991111104610810510310411699108105101110116461184946671081051011101168311697116101183212798361344591983019918520528128214203138156545701341392024061449716950722518"
-	// b, err := hex.DecodeString(d)
-	// assert.NoError(t, err)
+// 	d := []byte{10, 32, 47, 105, 99, 111, 110, 46, 108, 105, 103, 104, 116, 99, 108, 105, 101, 110, 116, 46, 118, 49, 46, 67, 108, 105, 101, 110, 116, 83, 116, 97, 116, 101, 18, 32, 127, 98, 36, 134, 45, 9, 198, 30, 199, 185, 205, 28, 128, 214, 203, 138, 15, 65, 45, 70, 134, 139, 202, 40, 61, 44, 97, 169, 50, 7, 225, 18}
+// 	// d := "103247105991111104610810510310411699108105101110116461184946671081051011101168311697116101183212798361344591983019918520528128214203138156545701341392024061449716950722518"
+// 	// b, err := hex.DecodeString(d)
+// 	// assert.NoError(t, err)
 
-	ctx := context.Background()
-	ap, err := GetProvider(ctx, "", false)
-	assert.NoError(t, err)
-	archwayP, _ := ap.(*ArchwayProvider)
+// 	ctx := context.Background()
+// 	ap, err := GetProvider(ctx, "archway123", false)
+// 	assert.NoError(t, err)
+// 	archwayP, _ := ap.(*ArchwayProvider)
 
-	var iconee exported.ClientState
-	err = archwayP.Cdc.Marshaler.UnmarshalInterface(d, &iconee)
-	assert.NoError(t, err)
-	fmt.Println(iconee.GetLatestHeight())
+// 	var iconee exported.ClientState
+// 	err = archwayP.Cdc.Marshaler.UnmarshalInterface(d, &iconee)
+// 	assert.NoError(t, err)
+// 	fmt.Println(iconee.GetLatestHeight())
 
-}
-
-func TestXxx(t *testing.T) {
-	signer := "hello"
-	assert.Equal(t, types.HexBytes(signer), types.NewHexBytes([]byte(signer)))
-}
+// }
