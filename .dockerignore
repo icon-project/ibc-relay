@@ -6,3 +6,6 @@ scripts/
 testnets/
 two-chains/
 examples/
+*.md
+LICENSE
+.github
