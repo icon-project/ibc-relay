@@ -77,11 +77,35 @@ func NewArchwayIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet)
 }
 
 func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) ArchwayIBCHeader {
-
 	vSets := make([]*itm.Validator, 0)
 	for _, v := range lightBlock.ValidatorSet.Validators {
-		vSets = append(vSets, &v)
+		_v := &itm.Validator{
+			Address: v.Address,
+			PubKey: &itm.PublicKey{
+				Sum: itm.GetPubKeyFromTx(v.PubKey.Type(), v.PubKey.Bytes()),
+			},
+			VotingPower:      v.VotingPower,
+			ProposerPriority: v.ProposerPriority,
+		}
+
+		vSets = append(vSets, _v)
 	}
+
+	signatures := make([]*itm.CommitSig, 0)
+	for _, d := range lightBlock.Commit.Signatures {
+
+		_d := &itm.CommitSig{
+			BlockIdFlag:      itm.BlockIDFlag(d.BlockIDFlag),
+			ValidatorAddress: d.ValidatorAddress,
+			Timestamp: &itm.Timestamp{
+				Seconds: int64(d.Timestamp.Unix()),
+				Nanos:   int32(d.Timestamp.Nanosecond()),
+			},
+			Signature: d.Signature,
+		}
+		signatures = append(signatures, _d)
+	}
+
 	return ArchwayIBCHeader{
 		SignedHeader: &itm.SignedHeader{
 			Header: &itm.LightHeader{
@@ -93,8 +117,8 @@ func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) Archwa
 
 				Height: lightBlock.Height,
 				Time: &itm.Timestamp{
-					Seconds: lightBlock.Time.Unix(),
-					Nanos:   0,
+					Seconds: int64(lightBlock.Time.Unix()),
+					Nanos:   int32(lightBlock.Time.Nanosecond()), // this is the offset after the nanosecond
 				},
 				LastBlockId: &itm.BlockID{
 					Hash: lightBlock.LastBlockID.Hash,
@@ -112,6 +136,18 @@ func NewArchwayIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) Archwa
 				LastResultsHash:    lightBlock.LastResultsHash,
 				EvidenceHash:       lightBlock.EvidenceHash,
 				ProposerAddress:    lightBlock.ProposerAddress,
+			},
+			Commit: &itm.Commit{
+				Height: lightBlock.Commit.Height,
+				Round:  lightBlock.Commit.Round,
+				BlockId: &itm.BlockID{
+					Hash: lightBlock.Commit.BlockID.Hash,
+					PartSetHeader: &itm.PartSetHeader{
+						Total: lightBlock.Commit.BlockID.PartSetHeader.Total,
+						Hash:  lightBlock.Commit.BlockID.PartSetHeader.Hash,
+					},
+				},
+				Signatures: signatures,
 			},
 		},
 		ValidatorSet: &itm.ValidatorSet{
