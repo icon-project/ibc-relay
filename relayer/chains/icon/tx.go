@@ -12,7 +12,10 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+
+	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
@@ -476,11 +479,12 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 
-	cs := counterpartyHeader.(*tmclient.Header)
+	cs := counterpartyHeader.(*itm.TmHeader)
 	clientMsg, err := proto.Marshal(cs)
 	if err != nil {
 		return nil, err
 	}
+
 	msg := types.MsgUpdateClient{
 		ClientId:      clientID,
 		ClientMessage: types.NewHexBytes(clientMsg),
