@@ -277,12 +277,24 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 }
 
 func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
+
+	h, ok := clientHeight.(clienttypes.Height)
+	if !ok {
+		return nil, fmt.Errorf("clientHeight type mismatched ")
+	}
+
+	heightBytes, err := icp.codec.Marshaler.Marshal(&h)
+	if err != nil {
+		return nil, err
+	}
+
 	callParams := icp.prepareCallParams(MethodGetConsensusState, map[string]interface{}{
 		"clientId": clientid,
-		"height":   clientHeight,
+		"height":   types.NewHexBytes(heightBytes),
 	})
+
 	var cnsStateHexByte types.HexBytes
-	err := icp.client.Call(callParams, cnsStateHexByte)
+	err = icp.client.Call(callParams, &cnsStateHexByte)
 	if err != nil {
 		return nil, err
 	}
