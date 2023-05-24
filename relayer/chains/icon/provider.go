@@ -260,12 +260,14 @@ func (icp *IconProvider) NewClientState(
 
 	iconHeader := dstUpdateHeader.(IconIBCHeader)
 
+	networkSectionhash := types.NewNetworkSection(iconHeader.Header).Hash()
+
 	return &icon.ClientState{
 		TrustingPeriod:     uint64(dstTrustingPeriod),
 		FrozenHeight:       0,
 		MaxClockDrift:      3600,
 		LatestHeight:       dstUpdateHeader.Height(),
-		NetworkSectionHash: iconHeader.Header.PrevNetworkSectionHash,
+		NetworkSectionHash: networkSectionhash,
 		Validators:         validatorSet,
 	}, nil
 

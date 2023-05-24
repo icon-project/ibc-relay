@@ -604,39 +604,22 @@ func (ap *ArchwayProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelI
 }
 
 func (ap *ArchwayProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	// trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
-	// if !ok {
-	// 	return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
-	// }
+	trustedArchwayHeader, ok := trustedHeader.(ArchwayIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
+	}
 
-	// latestCosmosHeader, ok := latestHeader.(provider.TendermintIBCHeader)
-	// if !ok {
-	// 	return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
-	// }
+	latestArchwayHeader, ok := latestHeader.(ArchwayIBCHeader)
+	if !ok {
+		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
+	}
 
-	// trustedValidatorsProto, err := trustedCosmosHeader.ValidatorSet.ToProto()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error converting trusted validators to proto object: %w", err)
-	// }
-
-	// signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
-
-	// validatorSetProto, err := latestCosmosHeader.ValidatorSet.ToProto()
-	// if err != nil {
-	// 	return nil, fmt.Errorf("error converting validator set to proto object: %w", err)
-	// }
-
-	// return &itm.TmHeader{
-
-	// }, nil
-
-	// return &itm.TmHeader{
-	// 	SignedHeader:      signedHeaderProto,
-	// 	ValidatorSet:      validatorSetProto,
-	// 	TrustedValidators: trustedValidatorsProto,
-	// 	TrustedHeight:     trustedHeight,
-	// }, nil
-	return nil, nil
+	return &itm.TmHeader{
+		SignedHeader:      latestArchwayHeader.SignedHeader,
+		ValidatorSet:      latestArchwayHeader.ValidatorSet,
+		TrustedValidators: trustedArchwayHeader.ValidatorSet,
+		TrustedHeight:     int64(trustedHeight.RevisionHeight),
+	}, nil
 }
 
 func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
