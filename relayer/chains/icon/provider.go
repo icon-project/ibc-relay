@@ -279,9 +279,11 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}
-	// if len(connStateProof) == 0 {
-	// 	return provider.ConnectionProof{}, fmt.Errorf("Received invalid zero length connection state proof")
-	// }
+
+	if len(connStateProof) == 0 {
+		return provider.ConnectionProof{}, fmt.Errorf("Received invalid zero length connection state proof")
+	}
+
 	return provider.ConnectionProof{
 		ClientState:          clientState,
 		ClientStateProof:     clientStateProof,

@@ -518,7 +518,27 @@ func (ap *ArchwayProvider) QueryConnectionsUsingClient(ctx context.Context, heig
 func (ap *ArchwayProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
 	clientStateProof []byte, consensusProof []byte, connectionProof []byte,
 	connectionProofHeight ibcexported.Height, err error) {
-	return nil, nil, nil, nil, nil, nil
+
+	clientResponse, err := ap.QueryClientStateResponse(ctx, height, clientId)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	anyClientState := clientResponse.ClientState
+	clientState_, err := clienttypes.UnpackClientState(anyClientState)
+	if err != nil {
+		return nil, nil, nil, nil, clienttypes.Height{}, err
+	}
+
+	connStorageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetConnectionCommitmentKey(connId))
+	proofConnBytes, err := ap.QueryArchwayProof(ctx, []byte(connStorageKey), height)
+
+	consStorageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetConsensusStateCommitmentKey(clientId, big.NewInt(0), big.NewInt(height)))
+	proofConsensusBytes, err := ap.QueryArchwayProof(ctx, []byte(consStorageKey), height)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
+	return clientState_, clientResponse.GetProof(), proofConsensusBytes, proofConnBytes, clienttypes.NewHeight(0, uint64(height)), nil
 }
 
 // ics 04 - channel
