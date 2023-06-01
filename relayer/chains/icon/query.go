@@ -94,13 +94,18 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	var err error
 	retry.Do(func() error {
 		block, err = icp.client.GetLastBlock()
+
 		return err
 	}, retry.Context(ctx),
 		retry.Attempts(queryRetries),
 		retry.OnRetry(func(n uint, err error) {
 			icp.log.Warn("failed to query latestHeight", zap.String("Chain Id", icp.ChainId()))
 		}))
-	return block.Height, err
+
+	if block != nil {
+		return block.Height, nil
+	}
+	return 0, fmt.Errorf("failed to query Block")
 }
 
 // legacy

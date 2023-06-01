@@ -37,7 +37,7 @@ var (
 // Default IBC settings
 var (
 	defaultChainPrefix = icon.MerklePrefix{
-		KeyPrefix: []byte("ibc"),
+		KeyPrefix: []byte("commitments"),
 	}
 	defaultDelayPeriod = types.NewHexInt(0)
 
@@ -48,7 +48,7 @@ var (
 		Features:   []string{"ORDER_ORDERED", "ORDER_UNORDERED"},
 	}
 
-	clientStoragePrefix = []byte("icon")
+	// clientStoragePrefix = []byte("")
 )
 
 type IconProviderConfig struct {
@@ -494,7 +494,7 @@ func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
 }
 
 func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	return commitmenttypes.NewMerklePrefix([]byte("commitments"))
 }
 
 func (icp *IconProvider) Key() string {

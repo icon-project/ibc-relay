@@ -61,7 +61,7 @@ var (
 
 // Default IBC settings
 var (
-	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	defaultChainPrefix = commitmenttypes.NewMerklePrefix([]byte("commitments"))
 	defaultDelayPeriod = uint64(0)
 )
 
@@ -733,6 +733,12 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 
 	var sdkMsgs []sdk.Msg
 	for _, msg := range msgs {
+
+		if msg == nil {
+			ap.log.Debug("One of the message is nil")
+			continue
+		}
+
 		archwayMsg, ok := msg.(*WasmContractMessage)
 		if !ok {
 			return fmt.Errorf("Invalid ArchwayMsg")
@@ -741,12 +747,24 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		sdkMsgs = append(sdkMsgs, archwayMsg.Msg)
 	}
 
+	if err != nil {
+
+		ap.log.Debug("error when dumping message")
+
+	}
+
 	txBytes, err := ap.buildMessages(cliCtx, factory, sdkMsgs...)
 	if err != nil {
 		return err
 	}
 
 	return ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback)
+}
+
+func handleJsonDumpMessage(msg *WasmContractMessage) {
+
+	// fileName := "test.json"
+
 }
 
 func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
@@ -1082,6 +1100,9 @@ func (ap *ArchwayProvider) waitForBlockInclusion(
 func msgTypesField(msgs []provider.RelayerMessage) zap.Field {
 	msgTypes := make([]string, len(msgs))
 	for i, m := range msgs {
+		if m == nil {
+			continue
+		}
 		msgTypes[i] = m.Type()
 	}
 	return zap.Strings("msg_types", msgTypes)
