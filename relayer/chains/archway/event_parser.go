@@ -104,9 +104,6 @@ func parseIBCMessageFromEvent(
 	if len(event.Attributes) == 0 {
 		return nil
 	}
-	if !eventFromIBCContractAddress(event.Attributes[0], contractAddress) {
-		return nil
-	}
 
 	eventType := findEventType(event.Type)
 	attrs := event.Attributes[1:]

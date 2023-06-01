@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -33,17 +34,30 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
+	storagePrefix, err := getClientStoragePrefix()
+	if err != nil {
+		return nil, err
+	}
+
 	clS := &types.GenericClientParams[types.MsgCreateClient]{
 		Msg: types.MsgCreateClient{
 			ClientState:    types.NewHexBytes(clientStateBytes),
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
 			ClientType:     clientState.ClientType(),
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
-			StoragePrefix:  types.NewHexBytes(clientStoragePrefix),
+			StoragePrefix:  types.NewHexBytes(storagePrefix),
 		},
 	}
 
-	return NewIconMessage(clS, MethodCreateClient), nil
+	return icp.NewIconMessage(clS, MethodCreateClient), nil
+}
+
+func getClientStoragePrefix() ([]byte, error) {
+	ibcAddr, err := sdk.AccAddressFromBech32("archway17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgssf05p7")
+	if err != nil {
+		return nil, err
+	}
+	return hex.DecodeString(fmt.Sprintf("03%x", ibcAddr))
 }
 
 // Upgrade Client Not Implemented implemented
@@ -54,7 +68,7 @@ func (icp *IconProvider) MsgUpgradeClient(srcClientId string, consRes *clienttyp
 		ClientMessage: types.HexBytes(""),
 	}
 
-	return NewIconMessage(clU, MethodUpdateClient), nil
+	return icp.NewIconMessage(clU, MethodUpdateClient), nil
 }
 
 func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -94,7 +108,7 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 		Msg: recvPacket,
 	}
 
-	return NewIconMessage(recvPacketMsg, MethodRecvPacket), nil
+	return icp.NewIconMessage(recvPacketMsg, MethodRecvPacket), nil
 }
 
 func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proofAcked provider.PacketProof) (provider.RelayerMessage, error) {
@@ -134,7 +148,7 @@ func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, p
 	packetAckMsg := &types.GenericPacketParams[types.MsgPacketAcknowledgement]{
 		Msg: msg,
 	}
-	return NewIconMessage(packetAckMsg, MethodAckPacket), nil
+	return icp.NewIconMessage(packetAckMsg, MethodAckPacket), nil
 }
 
 func (icp *IconProvider) MsgTimeout(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -165,7 +179,7 @@ func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, pro
 	connectionOpenMsg := &types.GenericConnectionParam[types.MsgConnectionOpenInit]{
 		Msg: msg,
 	}
-	return NewIconMessage(connectionOpenMsg, MethodConnectionOpenInit), nil
+	return icp.NewIconMessage(connectionOpenMsg, MethodConnectionOpenInit), nil
 }
 
 func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -224,7 +238,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	connectionOpenTryMsg := &types.GenericConnectionParam[types.MsgConnectionOpenTry]{
 		Msg: msg,
 	}
-	return NewIconMessage(connectionOpenTryMsg, MethodConnectionOpenTry), nil
+	return icp.NewIconMessage(connectionOpenTryMsg, MethodConnectionOpenTry), nil
 }
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -278,7 +292,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 	connectionOpenAckMsg := &types.GenericConnectionParam[types.MsgConnectionOpenAck]{
 		Msg: msg,
 	}
-	return NewIconMessage(connectionOpenAckMsg, MethodConnectionOpenAck), nil
+	return icp.NewIconMessage(connectionOpenAckMsg, MethodConnectionOpenAck), nil
 }
 
 func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
@@ -298,7 +312,7 @@ func (icp *IconProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connection
 	connectionOpenConfirmMsg := &types.GenericConnectionParam[types.MsgConnectionOpenConfirm]{
 		Msg: msg,
 	}
-	return NewIconMessage(connectionOpenConfirmMsg, MethodConnectionOpenConfirm), nil
+	return icp.NewIconMessage(connectionOpenConfirmMsg, MethodConnectionOpenConfirm), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -324,7 +338,7 @@ func (icp *IconProvider) MsgChannelOpenInit(info provider.ChannelInfo, proof pro
 	channelOpenMsg := &types.GenericChannelParam[types.MsgChannelOpenInit]{
 		Msg: msg,
 	}
-	return NewIconMessage(channelOpenMsg, MethodChannelOpenInit), nil
+	return icp.NewIconMessage(channelOpenMsg, MethodChannelOpenInit), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -359,7 +373,7 @@ func (icp *IconProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pro
 	channelOpenTryMsg := &types.GenericChannelParam[types.MsgChannelOpenTry]{
 		Msg: msg,
 	}
-	return NewIconMessage(channelOpenTryMsg, MethodChannelOpenTry), nil
+	return icp.NewIconMessage(channelOpenTryMsg, MethodChannelOpenTry), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -382,7 +396,7 @@ func (icp *IconProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, proo
 	channelOpenAckMsg := &types.GenericChannelParam[types.MsgChannelOpenAck]{
 		Msg: msg,
 	}
-	return NewIconMessage(channelOpenAckMsg, MethodChannelOpenAck), nil
+	return icp.NewIconMessage(channelOpenAckMsg, MethodChannelOpenAck), nil
 }
 
 func (icp *IconProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -403,7 +417,7 @@ func (icp *IconProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo, 
 	channelOpenConfirmMsg := &types.GenericChannelParam[types.MsgChannelOpenConfirm]{
 		Msg: msg,
 	}
-	return NewIconMessage(channelOpenConfirmMsg, MethodChannelOpenConfirm), nil
+	return icp.NewIconMessage(channelOpenConfirmMsg, MethodChannelOpenConfirm), nil
 }
 
 func (icp *IconProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -415,7 +429,7 @@ func (icp *IconProvider) MsgChannelCloseInit(info provider.ChannelInfo, proof pr
 	channelCloseInitMsg := &types.GenericChannelParam[types.MsgChannelCloseInit]{
 		Msg: msg,
 	}
-	return NewIconMessage(channelCloseInitMsg, MethodChannelCloseInit), nil
+	return icp.NewIconMessage(channelCloseInitMsg, MethodChannelCloseInit), nil
 }
 
 func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo, proof provider.ChannelProof) (provider.RelayerMessage, error) {
@@ -438,7 +452,7 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 	channelCloseConfirmMsg := &types.GenericChannelParam[types.MsgChannelCloseConfirm]{
 		Msg: msg,
 	}
-	return NewIconMessage(channelCloseConfirmMsg, MethodChannelCloseConfirm), nil
+	return icp.NewIconMessage(channelCloseConfirmMsg, MethodChannelCloseConfirm), nil
 }
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
@@ -499,7 +513,7 @@ func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibc
 	updateClientMsg := &types.GenericClientParams[types.MsgUpdateClient]{
 		Msg: msg,
 	}
-	return NewIconMessage(updateClientMsg, MethodUpdateClient), nil
+	return icp.NewIconMessage(updateClientMsg, MethodUpdateClient), nil
 }
 
 func (icp *IconProvider) SendMessageIcon(ctx context.Context, msg provider.RelayerMessage) (*types.TransactionResult, bool, error) {

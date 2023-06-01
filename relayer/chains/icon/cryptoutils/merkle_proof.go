@@ -169,10 +169,10 @@ func CalculateRootFromProof(value []byte, proof []*icon.MerkleNode) []byte {
 func (m *MerkleHashTree) MerkleProof(idx int) []*icon.MerkleNode {
 	data := m.Hashes
 	if data.Len() == 0 {
-		return []*icon.MerkleNode{}
+		return nil
 	}
 	if data.Len() == 1 {
-		return []*icon.MerkleNode{}
+		return nil
 	}
 	dataBuf := make([]byte, 0, data.Len()*hashLen)
 	for i := 0; i < data.Len(); i++ {

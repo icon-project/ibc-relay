@@ -390,7 +390,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := ccp.chainProvider.cometLegacyEncoding
+		base64Encoded := true
 
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
@@ -398,6 +398,8 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 				continue
 			}
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
+
+			fmt.Println("all the messages are ", messages)
 
 			for _, m := range messages {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
