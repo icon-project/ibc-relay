@@ -666,7 +666,7 @@ func (icp *IconProvider) QueryPacketCommitment(ctx context.Context, height int64
 	callParam := icp.prepareCallParams(MethodGetPacketCommitment, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
-		"sequence":  seq,
+		"sequence":  types.NewHexInt(int64(seq)),
 	}, callParamsWithHeight(types.NewHexInt(height)))
 	var packetCommitmentHexBytes types.HexBytes
 	if err := icp.client.Call(callParam, &packetCommitmentHexBytes); err != nil {
@@ -773,7 +773,6 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		icp.log.Info("BTP Message not present",
 			zap.Int64("Height", height),
 			zap.Int64("BtpNetwork", icp.PCfg.BTPNetworkID))
-		return nil, err
 	}
 
 	if len(messages) > 1 {
@@ -791,10 +790,9 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		merkleProofs = icon.MerkleProofs{
 			Proofs: proof,
 		}
+		return icp.codec.Marshaler.Marshal(&merkleProofs)
 	}
-
-	proofBytes, err := icp.codec.Marshaler.Marshal(&merkleProofs)
-	return proofBytes, nil
+	return nil, nil
 }
 
 func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Message) ([]byte, error) {
