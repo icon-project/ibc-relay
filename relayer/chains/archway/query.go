@@ -285,11 +285,13 @@ func (ap *ArchwayProvider) QueryChannelContract(ctx context.Context, portId, cha
 	if err != nil {
 		return nil, err
 	}
-	var channelS *chantypes.Channel
-	if err = ap.Cdc.Marshaler.Unmarshal(channelState, channelS); err != nil {
+
+	fmt.Printf("the channel is %x \n", channelState)
+	var channelS chantypes.Channel
+	if err = proto.Unmarshal(channelState, &channelS); err != nil {
 		return nil, err
 	}
-	return channelS, nil
+	return &channelS, nil
 }
 
 func (ap *ArchwayProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
@@ -299,13 +301,12 @@ func (ap *ArchwayProvider) QueryClientConsensusState(ctx context.Context, chainH
 		return nil, err
 	}
 
-	var consensusS *icon.ConsensusState
-
-	if err := ap.Cdc.Marshaler.Unmarshal(consensusState, consensusS); err != nil {
+	var consensusS icon.ConsensusState
+	if err := ap.Cdc.Marshaler.Unmarshal(consensusState, &consensusS); err != nil {
 		return nil, err
 	}
 
-	anyConsensusState, err := clienttypes.PackConsensusState(consensusS)
+	anyConsensusState, err := clienttypes.PackConsensusState(&consensusS)
 	if err != nil {
 		return nil, err
 	}
@@ -570,22 +571,25 @@ func (ap *ArchwayProvider) QueryChannel(ctx context.Context, height int64, chann
 		return nil, err
 	}
 
-	channelState, err := ap.QueryIBCHandlerContract(ctx, channelParams)
+	channelState, err := ap.QueryIBCHandlerContractProcessed(ctx, channelParams)
 	if err != nil {
 		return nil, err
 	}
 
-	var channelS *chantypes.Channel
-	if err := ap.Cdc.Marshaler.Unmarshal(channelState.Data.Bytes(), channelS); err != nil {
+	fmt.Printf("the channelState is %x \n ", channelState)
+	if channelState == nil {
 		return nil, err
 	}
 
-	// TODO: Check
+	var channelS chantypes.Channel
+	if err := proto.Unmarshal(channelState, &channelS); err != nil {
+		return nil, err
+	}
 
 	storageKey := fmt.Sprintf("%s%x", getKey(STORAGEKEY__Commitments), common.GetChannelCommitmentKey(portid, channelid))
 	proof, err := ap.QueryArchwayProof(ctx, common.MustHexStrToBytes(storageKey), height)
 
-	return chantypes.NewQueryChannelResponse(*channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
+	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
 }
 
 func (ap *ArchwayProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
@@ -609,7 +613,7 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 		channelId := fmt.Sprintf("%s-%d", ChannelPrefix, i)
 		channel, err := ap.QueryChannelContract(ctx, testPort, channelId)
 		if err != nil {
-			return nil, err
+			continue
 		}
 
 		// check if the channel is open

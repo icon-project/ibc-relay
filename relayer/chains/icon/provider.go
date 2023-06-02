@@ -353,7 +353,7 @@ func (icp *IconProvider) PacketCommitment(ctx context.Context, msgTransfer provi
 	)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetCommitmentResponse.Proof,
