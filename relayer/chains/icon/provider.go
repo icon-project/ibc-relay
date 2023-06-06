@@ -249,8 +249,9 @@ func (icp *IconProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
+
 	if !dstUpdateHeader.IsCompleteBlock() {
-		return nil, fmt.Errorf("Not complete block")
+		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
 	}
 
 	validatorSet, err := icp.GetProofContextByHeight(int64(dstUpdateHeader.Height()))
