@@ -363,6 +363,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
+			// fmt.Println("the lastqueried Block", i)
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
 		})
@@ -398,8 +399,6 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 				continue
 			}
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
-
-			fmt.Println("all the messages are ", messages)
 
 			for _, m := range messages {
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
