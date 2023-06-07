@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -34,7 +33,7 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
-	storagePrefix, err := getClientStoragePrefix()
+	storagePrefix, err := icp.getClientStoragePrefix()
 	if err != nil {
 		return nil, err
 	}
@@ -50,14 +49,6 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 	}
 
 	return icp.NewIconMessage(clS, MethodCreateClient), nil
-}
-
-func getClientStoragePrefix() ([]byte, error) {
-	ibcAddr, err := sdk.AccAddressFromBech32("archway17p9rzwnnfxcjp32un9ug7yhhzgtkhvl9jfksztgw5uh69wac2pgssf05p7")
-	if err != nil {
-		return nil, err
-	}
-	return hex.DecodeString(fmt.Sprintf("03%x", ibcAddr))
 }
 
 // Upgrade Client Not Implemented implemented

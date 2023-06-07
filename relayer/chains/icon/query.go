@@ -499,19 +499,19 @@ func (icp *IconProvider) QueryChannel(ctx context.Context, height int64, channel
 		"portId":    portid,
 	}, callParamsWithHeight(types.NewHexInt(height)))
 
-	var channel_string_ types.HexBytes
-	err = icp.client.Call(callParam, &channel_string_)
+	var _channel types.HexBytes
+	err = icp.client.Call(callParam, &_channel)
 	if err != nil {
 		return emptyChannelRes, err
 	}
 
-	channelBytes, err := channel_string_.Value()
+	channelBytes, err := _channel.Value()
 	if err != nil {
 		return emptyChannelRes, err
 	}
 
 	var channel icon.Channel
-	_, err = HexBytesToProtoUnmarshal(channel_string_, &channel)
+	_, err = HexBytesToProtoUnmarshal(_channel, &channel)
 	if err != nil {
 		return emptyChannelRes, err
 	}
@@ -577,18 +577,18 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
 		channelId := fmt.Sprintf("channel-%d", i)
-		var channel_string_ types.HexBytes
+		var _channel types.HexBytes
 		err := icp.client.Call(icp.prepareCallParams(MethodGetChannel, map[string]interface{}{
 			"channelId": channelId,
 			"portId":    testPort,
-		}), &channel_string_)
+		}), &_channel)
 		if err != nil {
 			icp.log.Error("unable to fetch channel for  ", zap.String("channel id ", channelId), zap.Error(err))
 			continue
 		}
 
 		var channel chantypes.Channel
-		_, err = HexBytesToProtoUnmarshal(channel_string_, &channel)
+		_, err = HexBytesToProtoUnmarshal(_channel, &channel)
 		if err != nil {
 			icp.log.Info("Unable to unmarshal channel for ",
 				zap.String("channel id ", channelId), zap.Error(err))
