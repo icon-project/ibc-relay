@@ -41,7 +41,6 @@ func NewMerkleHashTree(byteList [][]byte) *MerkleHashTree {
 	for _, b := range byteList {
 		hashList = append(hashList, common.Sha3keccak256(b))
 	}
-	// hashList = append(hashList, common.Sha3keccak256(byteList[2]))
 	return &MerkleHashTree{
 		Hashes: hashList,
 	}

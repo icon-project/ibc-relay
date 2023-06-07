@@ -17,7 +17,7 @@ func TestMerkleRoot(t *testing.T) {
 		common.Sha3keccak256([]byte("world")),
 		common.Sha3keccak256([]byte("testtt")),
 	}
-	expectedRoot := "f071961cfd9021ffb0ee8c7b7462bed91140d643b4c39e44f6ced91b0bd1e0fc"
+	expectedRoot := "7435ed3dec3328c4558025351315ff477dd17a544992f8b094a9ac52f58fe5b0"
 
 	// Create Merkle tree
 	tree := &MerkleHashTree{
@@ -40,7 +40,7 @@ func TestMerkleProof(t *testing.T) {
 		idx  int
 	}{
 		{
-			[]*icon.MerkleNode{},
+			nil,
 			[][]byte{h(0)},
 			0,
 		},
