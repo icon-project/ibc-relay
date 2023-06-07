@@ -439,12 +439,13 @@ $ %s tx conn demo-path --timeout 5s`,
 		},
 	}
 
-	cmd = timeoutFlag(a.viper, cmd)
-	cmd = retryFlag(a.viper, cmd)
-	cmd = clientParameterFlags(a.viper, cmd)
-	cmd = overrideFlag(a.viper, cmd)
-	cmd = memoFlag(a.viper, cmd)
-	cmd = initBlockFlag(a.viper, cmd)
+	cmd = timeoutFlag(a.Viper, cmd)
+	cmd = retryFlag(a.Viper, cmd)
+	cmd = clientParameterFlags(a.Viper, cmd)
+	cmd = overrideFlag(a.Viper, cmd)
+	cmd = memoFlag(a.Viper, cmd)
+	cmd = initBlockFlag(a.Viper, cmd)
+	cmd = iconStartHeightFlag(a.Viper, cmd)
 	return cmd
 }
 
