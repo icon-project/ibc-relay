@@ -39,5 +39,5 @@ const (
 	MethodGetNextChannelSequence    = "getNextChannelSequence"
 	MethodGetNextConnectionSequence = "getNextConnectionSequence"
 
-	MethodGetAllPorts = "getBindPorts"
+	MethodGetAllPorts = "getAllPorts"
 )
