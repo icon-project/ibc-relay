@@ -327,7 +327,7 @@ func NewNextChannelSequence() *GetNextChannelSequence {
 }
 
 type GetAllPorts struct {
-	AllPorts struct{} `json:"get_bind_ports"`
+	AllPorts struct{} `json:"get_all_ports"`
 }
 
 func (x *GetAllPorts) Bytes() ([]byte, error) {
