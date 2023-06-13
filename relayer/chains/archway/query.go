@@ -3,6 +3,7 @@ package archway
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -363,6 +364,24 @@ func (ap *ArchwayProvider) QueryConsensusState(ctx context.Context, height int64
 	return state, height, nil
 }
 
+func (ap *ArchwayProvider) getAllPorts(ctx context.Context) ([]string, error) {
+	param, err := types.NewGetAllPorts().Bytes()
+	if err != nil {
+		return make([]string, 0), err
+	}
+	op, err := ap.QueryIBCHandlerContract(ctx, param)
+	if err != nil {
+		return make([]string, 0), err
+	}
+	resp := op.Data.Bytes()
+	var ports []string
+	err = json.Unmarshal(resp, &ports)
+	if err != nil {
+		return make([]string, 0), nil
+	}
+	return ports, nil
+}
+
 func (ap *ArchwayProvider) getNextSequence(ctx context.Context, methodName string) (int, error) {
 	switch methodName {
 	case MethodGetNextClientSequence:
@@ -463,6 +482,10 @@ func (ap *ArchwayProvider) QueryArchwayProof(ctx context.Context, storageKey []b
 		return nil, err
 	}
 
+	if height > 2 {
+		height--
+	}
+
 	req := abci.RequestQuery{
 		Path:   fmt.Sprintf("store/wasm/key"),
 		Data:   key,
@@ -500,8 +523,6 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		return nil, err
 	}
 
-	fmt.Println("sequence numner is ", seq)
-
 	if seq == 0 {
 		return nil, nil
 	}
@@ -512,8 +533,6 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		if err != nil {
 			continue
 		}
-
-		fmt.Println("connection is ", conn)
 
 		// Only return open conenctions
 		if conn.State == 3 {
@@ -607,27 +626,35 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 	}
 	var channels []*chantypes.IdentifiedChannel
 
-	testPort := "mock" //TODO:
+	allPorts, err := ap.getAllPorts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if allPorts == nil || len(allPorts) <= 0 {
+		return nil, fmt.Errorf("No ports available")
+	}
 
 	for i := 0; i <= int(nextSeq)-1; i++ {
-		channelId := fmt.Sprintf("%s-%d", ChannelPrefix, i)
-		channel, err := ap.QueryChannelContract(ctx, testPort, channelId)
-		if err != nil {
-			continue
-		}
-
-		// check if the channel is open
-		if channel.State == 3 {
-			identifiedChannel := chantypes.IdentifiedChannel{
-				State:          channel.State,
-				Ordering:       channel.Ordering,
-				Counterparty:   channel.Counterparty,
-				ConnectionHops: channel.ConnectionHops,
-				Version:        channel.Version,
-				PortId:         testPort,
-				ChannelId:      channelId,
+		for _, portId := range allPorts {
+			channelId := fmt.Sprintf("%s-%d", ChannelPrefix, i)
+			channel, err := ap.QueryChannelContract(ctx, portId, channelId)
+			if err != nil {
+				continue
 			}
-			channels = append(channels, &identifiedChannel)
+
+			// check if the channel is open
+			if channel.State == 3 {
+				identifiedChannel := chantypes.IdentifiedChannel{
+					State:          channel.State,
+					Ordering:       channel.Ordering,
+					Counterparty:   channel.Counterparty,
+					ConnectionHops: channel.ConnectionHops,
+					Version:        channel.Version,
+					PortId:         portId,
+					ChannelId:      channelId,
+				}
+				channels = append(channels, &identifiedChannel)
+			}
 		}
 	}
 
