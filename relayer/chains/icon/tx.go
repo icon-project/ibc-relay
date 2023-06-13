@@ -741,7 +741,15 @@ func (icp *IconProvider) SendIconTransaction(
 		return err
 	}
 	icp.log.Debug("Submitted Icon Transaction", zap.String("chain_id", icp.ChainId()), zap.String("method", m.Method), zap.String("tx_hash", string(txParam.TxHash)))
-	go icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
+
+	// If update fails, the subsequent txn will fail, result of update not being fetched concurrently
+	switch m.Method {
+	case MethodUpdateClient:
+		icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
+	default:
+		go icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
+	}
+
 	return nil
 }
 
