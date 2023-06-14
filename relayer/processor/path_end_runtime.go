@@ -2,6 +2,7 @@ package processor
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
@@ -451,7 +452,8 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEndForHeight = pathEnd
 	}
 
-	if message.info.Height >= pathEndForHeight.latestBlock.Height {
+	// pathEndForHeight := counterparty
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
@@ -549,13 +551,15 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 	eventType := message.eventType
 	k := connectionInfoConnectionKey(message.info).Counterparty()
 
-	// if message.info.Height >= counterparty.latestBlock.Height {
-	// 	pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
-	// 		zap.Inline(k),
-	// 		zap.String("event_type", eventType),
-	// 	)
-	// 	return false
-	// }
+	pathEndForHeight := counterparty
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
+			zap.Inline(k),
+			zap.String("event_type", eventType),
+		)
+		return false
+	}
+
 	msgProcessCache, ok := pathEnd.connProcessing[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send.
@@ -631,7 +635,9 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		counterparty.channelOrderCache[channelKey.CounterpartyChannelID] = message.info.Order
 	}
 
-	if message.info.Height >= counterparty.latestBlock.Height {
+	pathEndForHeight := counterparty
+
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {	
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
 			zap.String("event_type", eventType),
