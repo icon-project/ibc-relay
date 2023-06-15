@@ -375,7 +375,7 @@ func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacke
 }
 
 func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetReceiptResponse, err := icp.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+	packetReceiptResponse, err := icp.QueryPacketCommitment(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -449,33 +449,6 @@ func (icp *IconProvider) AcknowledgementFromSequence(ctx context.Context, dst pr
 
 func (icp *IconProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented")
-}
-
-func (icp *IconProvider) SendMessagesToMempool(
-	ctx context.Context,
-	msgs []provider.RelayerMessage,
-	memo string,
-	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error),
-) error {
-	if len(msgs) == 0 {
-		icp.log.Info("Length of Messages is empty ")
-		return nil
-	}
-
-	for _, msg := range msgs {
-		if msg != nil {
-			res, bool, err := icp.SendMessage(ctx, msg, memo)
-			if err != nil {
-				return err
-			}
-			if !bool {
-				return fmt.Errorf("Transaction Failed, Transaction Hash: %x", res.TxHash)
-			}
-		}
-	}
-
-	return nil
 }
 
 func (icp *IconProvider) ChainName() string {
