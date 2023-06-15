@@ -61,6 +61,8 @@ COPY --from=busybox-min --chown=100:1000 /home/relayer /home/relayer
 
 USER relayer
 
-VOLUME [ "/data" ]
+WORKDIR /home/relayer
 
-CMD ["/bin/rly", "--home", "/data"]
+COPY ./env/godWallet.json ./keys/godwallet.json
+
+CMD ["/bin/rly"]
