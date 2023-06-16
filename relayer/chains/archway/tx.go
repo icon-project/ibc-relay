@@ -753,12 +753,16 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 
 	}
 
-	txBytes, err := ap.buildMessages(cliCtx, factory, sdkMsgs...)
+	txBytes, sequence, err := ap.buildMessages(cliCtx, factory, sdkMsgs...)
 	if err != nil {
 		return err
 	}
 
+	// updating the next sequence number
+	ap.updateNextAccountSequence(sequence + 1)
+
 	return ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback)
+
 }
 
 func handleJsonDumpMessage(msg *WasmContractMessage) {
@@ -880,10 +884,10 @@ func (ap *ArchwayProvider) sdkError(codespace string, code uint32) error {
 	return nil
 }
 
-func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, error) {
+func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, uint64, error) {
 	for _, msg := range msgs {
 		if err := msg.ValidateBasic(); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
@@ -892,29 +896,36 @@ func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factor
 	if clientCtx.IsAux {
 		auxSignerData, err := makeAuxSignerData(clientCtx, txf, msgs...)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
-		return nil, clientCtx.PrintProto(&auxSignerData)
+		return nil, 0, clientCtx.PrintProto(&auxSignerData)
 	}
 
 	if clientCtx.GenerateOnly {
-		return nil, txf.PrintUnsignedTx(clientCtx, msgs...)
+		return nil, 0, txf.PrintUnsignedTx(clientCtx, msgs...)
 	}
 
 	txf, err := txf.Prepare(clientCtx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	sequence := txf.Sequence()
+	ap.updateNextAccountSequence(sequence)
+	if sequence < ap.nextAccountSeq {
+		sequence = ap.nextAccountSeq
+		txf = txf.WithSequence(sequence)
 	}
 
 	if txf.SimulateAndExecute() || clientCtx.Simulate {
 		if clientCtx.Offline {
-			return nil, errors.New("cannot estimate gas in offline mode")
+			return nil, 0, errors.New("cannot estimate gas in offline mode")
 		}
 
 		_, adjusted, err := tx.CalculateGas(clientCtx, txf, msgs...)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		txf = txf.WithGas(adjusted)
@@ -922,20 +933,18 @@ func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factor
 	}
 
 	if clientCtx.Simulate {
-		return nil, nil
+		return nil, 0, nil
 	}
-
-	// txf = txf.WithGas(300_000)
 
 	txn, err := txf.BuildUnsignedTx(msgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if !clientCtx.SkipConfirm {
 		txBytes, err := clientCtx.TxConfig.TxJSONEncoder()(txn.GetTx())
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		if err := clientCtx.PrintRaw(json.RawMessage(txBytes)); err != nil {
@@ -947,17 +956,17 @@ func (ap *ArchwayProvider) buildMessages(clientCtx client.Context, txf tx.Factor
 
 		if err != nil || !ok {
 			_, _ = fmt.Fprintf(os.Stderr, "%s\n", "cancelled transaction")
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
 	err = tx.Sign(txf, clientCtx.GetFromName(), txn, true)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return clientCtx.TxConfig.TxEncoder()(txn.GetTx())
-
+	res, err := clientCtx.TxConfig.TxEncoder()(txn.GetTx())
+	return res, sequence, nil
 }
 
 func (ap *ArchwayProvider) BroadcastTx(

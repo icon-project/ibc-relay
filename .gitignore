@@ -19,7 +19,12 @@ _test/keys/
 dist/
 .release-env
 
+<<<<<<< Updated upstream
 **/log*.txt
+=======
+**/log.txt
+*.txt
+>>>>>>> Stashed changes
 
 # Don't commit the vendor directory if anyone runs 'go mod vendor'.
 /vendor
