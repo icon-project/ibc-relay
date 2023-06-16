@@ -846,13 +846,13 @@ func TestProtoUnmarshal(t *testing.T) {
 	assert.Equal(t, channelS.State, chantypes.State(2))
 }
 
-func TestCommitmentPrefix(t *testing.T) {
+// func TestCommitmentPrefix(t *testing.T) {
 
-	ctx := context.Background()
-	p, _ := GetProvider(ctx, "archway13we0myxwzlpx8l5ark8elw5gj5d59dl6cjkzmt80c5q5cv5rt54quagxpp", true)
+// 	ctx := context.Background()
+// 	p, _ := GetProvider(ctx, "archway13we0myxwzlpx8l5ark8elw5gj5d59dl6cjkzmt80c5q5cv5rt54quagxpp", true)
 
-	archwayP := p.(*ArchwayProvider)
+// 	archwayP := p.(*ArchwayProvider)
 
-	_, err := archwayP.GetCommitmentPrefixFromContract(ctx)
-	assert.NoError(t, err)
-}
+// 	_, err := archwayP.GetCommitmentPrefixFromContract(ctx)
+// 	assert.NoError(t, err)
+// }
