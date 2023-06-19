@@ -765,12 +765,6 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 
 }
 
-func handleJsonDumpMessage(msg *WasmContractMessage) {
-
-	// fileName := "test.json"
-
-}
-
 func (ap *ArchwayProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, msgs []provider.RelayerMessage) {
 
 	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
@@ -809,12 +803,6 @@ func (ap *ArchwayProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rel
 	// Include the chain_id
 	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
 
-	// Extract the channels from the events, if present
-	// if res != nil {
-	// 	events := parseEventsFromTxResponse(res)
-	// 	fields = append(fields, getChannelsIfPresent(events)...)
-	// }
-
 	// Include the gas used
 	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
 
@@ -849,6 +837,9 @@ func (ap *ArchwayProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rel
 		"Successful transaction",
 		fields...,
 	)
+
+	// uncomment for saving msg
+	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
 }
 
 // getFeePayer returns the bech32 address of the fee payer of a transaction.
