@@ -44,18 +44,12 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
-	storagePrefix, err := icp.getClientStoragePrefix()
-	if err != nil {
-		return nil, err
-	}
-
 	clS := &types.GenericClientParams[types.MsgCreateClient]{
 		Msg: types.MsgCreateClient{
 			ClientState:    types.NewHexBytes(clientStateBytes),
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
 			ClientType:     clientState.ClientType(),
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
-			StoragePrefix:  types.NewHexBytes(storagePrefix),
 		},
 	}
 
