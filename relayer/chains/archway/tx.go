@@ -670,6 +670,12 @@ func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	)
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		callbackErr = err
+
+		if err != nil {
+			wg.Done()
+			return
+		}
 
 		for i, e := range rtr.Events {
 			if startsWithWasm(e.EventType) {
@@ -677,7 +683,6 @@ func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 			}
 		}
 		rlyResp = rtr
-		callbackErr = err
 		wg.Done()
 	}
 
@@ -758,10 +763,16 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		return err
 	}
 
+	if err := ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback); err != nil {
+		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+			ap.handleAccountSequenceMismatchError(err)
+		}
+		return err
+	}
+
 	// updating the next sequence number
 	ap.updateNextAccountSequence(sequence + 1)
-
-	return ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback)
+	return nil
 
 }
 
@@ -1239,6 +1250,26 @@ func (cc *ArchwayProvider) QueryABCI(ctx context.Context, req abci.RequestQuery)
 	}
 
 	return result.Response, nil
+}
+
+func (cc *ArchwayProvider) handleAccountSequenceMismatchError(err error) {
+
+	clientCtx := cc.ClientContext()
+	fmt.Println("client context is ", clientCtx.GetFromAddress())
+
+	_, seq, err := cc.ClientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, clientCtx.GetFromAddress())
+
+	// sequences := numRegex.FindAllString(err.Error(), -1)
+	// if len(sequences) != 2 {
+	// 	return
+	// }
+	// nextSeq, err := strconv.ParseUint(sequences[0], 10, 64)
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("the next sequence is %d \n", seq)
+	cc.nextAccountSeq = seq
 }
 
 func sdkErrorToGRPCError(resp abci.ResponseQuery) error {
