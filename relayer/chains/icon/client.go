@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	DefaultSendTransactionRetryInterval        = 3 * time.Second         //3sec
-	DefaultGetTransactionResultPollingInterval = 1500 * time.Millisecond //1.5sec
+	DefaultSendTransactionRetryInterval        = 3 * time.Second        //3sec
+	DefaultGetTransactionResultPollingInterval = 100 * time.Millisecond //1.5sec
 )
 
 type Wallet interface {
