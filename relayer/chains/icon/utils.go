@@ -9,9 +9,11 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/cryptoutils"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	"github.com/cosmos/gogoproto/proto"
 
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/db"
@@ -114,4 +116,23 @@ func VerifyProof(commitmentkey []byte, msgval []byte, root []byte, proof []byte)
 
 func getSrcNetworkId(id int64) string {
 	return fmt.Sprintf("%s.icon", types.NewHexInt(id))
+}
+
+func getIconPacketEncodedBytes(pkt provider.PacketInfo) ([]byte, error) {
+	iconPkt := icon.Packet{
+		Sequence:           pkt.Sequence,
+		SourcePort:         pkt.SourcePort,
+		SourceChannel:      pkt.SourceChannel,
+		DestinationPort:    pkt.DestPort,
+		DestinationChannel: pkt.DestChannel,
+		TimeoutHeight: &icon.Height{
+			RevisionNumber: pkt.TimeoutHeight.RevisionNumber,
+			RevisionHeight: pkt.TimeoutHeight.RevisionHeight,
+		},
+		TimeoutTimestamp: pkt.TimeoutTimestamp,
+		Data:             pkt.Data,
+	}
+
+	return proto.Marshal(&iconPkt)
+
 }
