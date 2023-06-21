@@ -212,6 +212,7 @@ func (ap *ArchwayProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour i
 }
 
 func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
@@ -221,19 +222,21 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 	}
 
 	// This should not be possible, as it violates IBC spec
-	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
+	if msgTransfer.TimeoutHeight.IsZero() {
 		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
 	revision := clienttypes.ParseChainID(ap.PCfg.ChainID)
 	latestClientTypesHeight := clienttypes.NewHeight(revision, latest.Height)
+	// revision := clienttypes.ParseChainID(ap.PCfg.ChainID)
+	latestClientTypesHeight := clienttypes.NewHeight(0, latest.Height)
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
 		return provider.NewTimeoutHeightError(latest.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
-	latestTimestamp := uint64(latest.Time.UnixNano())
-	if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
-		return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
-	}
+	// latestTimestamp := uint64(latest.Time.UnixNano())
+	// if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
+	// 	return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
+	// }
 
 	return nil
 }

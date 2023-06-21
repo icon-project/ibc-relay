@@ -332,7 +332,7 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 		return fmt.Errorf("Refuse to relay packet with empty data")
 	}
 	// This should not be possible, as it violates IBC spec
-	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
+	if msgTransfer.TimeoutHeight.IsZero() {
 		return fmt.Errorf("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
@@ -341,10 +341,10 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
 		return provider.NewTimeoutHeightError(latestBlock.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
-	latestTimestamp := uint64(latestBlock.Time.UnixNano())
-	if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
-		return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
-	}
+	// latestTimestamp := uint64(latestBlock.Time.UnixNano())
+	// if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
+	// 	return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
+	// }
 
 	return nil
 }
