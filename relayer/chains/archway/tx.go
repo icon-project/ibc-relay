@@ -226,10 +226,8 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
-	revision := clienttypes.ParseChainID(ap.PCfg.ChainID)
-	latestClientTypesHeight := clienttypes.NewHeight(revision, latest.Height)
-	// revision := clienttypes.ParseChainID(ap.PCfg.ChainID)
-	latestClientTypesHeight := clienttypes.NewHeight(0, latest.Height)
+	revisionNumber := 0
+	latestClientTypesHeight := clienttypes.NewHeight(uint64(revisionNumber), latest.Height)
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
 		return provider.NewTimeoutHeightError(latest.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
