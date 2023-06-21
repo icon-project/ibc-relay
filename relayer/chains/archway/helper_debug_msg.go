@@ -42,6 +42,10 @@ func readExistingData(filename string, opPointer interface{}) error {
 			return fmt.Errorf("Error reading JSON from file: %v", err)
 		}
 
+		if jsonData == nil {
+			return nil
+		}
+
 		// Unmarshal JSON data into a slice of structs
 		err = json.Unmarshal(jsonData, opPointer)
 		if err != nil {
@@ -66,7 +70,7 @@ func SaveMsgToFile(filename string, msgs []provider.RelayerMessage) {
 	var d []DataFormat
 	err := readExistingData(filename, &d)
 	if err != nil {
-		fmt.Println("error savetoFile ")
+		fmt.Println("error savingtoFile ", err)
 		return
 	}
 
