@@ -308,7 +308,7 @@ loop:
 				}
 
 				ibcHeaderCache[uint64(br.Height)] = br.Header
-				icp.log.Info("Processing for block ",
+				icp.log.Info("Queried Latest height: ",
 					zap.String("chain id ", icp.chainProvider.ChainId()),
 					zap.Int64("height", br.Height))
 				err := icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)

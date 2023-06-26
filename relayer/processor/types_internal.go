@@ -61,6 +61,7 @@ func (msg packetIBCMessage) assemble(
 		packetProof = src.chainProvider.PacketAcknowledgement
 		assembleMessage = dst.chainProvider.MsgAcknowledgement
 	case chantypes.EventTypeTimeoutPacket:
+
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
 			packetProof = src.chainProvider.NextSeqRecv
 		} else {
@@ -70,6 +71,11 @@ func (msg packetIBCMessage) assemble(
 		assembleMessage = dst.chainProvider.MsgTimeout
 	case common.EventTimeoutRequest:
 		assembleMessage = dst.chainProvider.MsgTimeoutRequest
+		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
+			packetProof = src.chainProvider.NextSeqRecv
+		} else {
+			packetProof = src.chainProvider.PacketReceipt
+		}
 
 	case chantypes.EventTypeTimeoutPacketOnClose:
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
