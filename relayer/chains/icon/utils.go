@@ -102,15 +102,11 @@ func getCommitmentHash(key, msg []byte) []byte {
 
 func VerifyProof(commitmentkey []byte, msgval []byte, root []byte, proof []byte) (bool, error) {
 	leaf := getCommitmentHash(commitmentkey, msgval)
-	fmt.Printf("leaf is  %x \n ", leaf)
 	var decodedProof icn.MerkleProofs
 	if err := proto.Unmarshal(proof, &decodedProof); err != nil {
 		return false, err
 	}
 
-	for _, v := range decodedProof.Proofs {
-		fmt.Printf("index %d value %v", v.Dir, v.Value)
-	}
 	return cryptoutils.VerifyMerkleProof(root, leaf, decodedProof.Proofs), nil
 }
 

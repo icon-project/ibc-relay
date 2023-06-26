@@ -1008,6 +1008,7 @@ func (ap *ArchwayProvider) BroadcastTx(
 
 	if shouldWait {
 		ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
+		return nil
 	}
 	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	return nil

@@ -235,6 +235,8 @@ MsgTransferLoop:
 		if msgTimeout.ChannelOrder != chantypes.ORDERED.String() {
 			res.ToDeleteSrc[chantypes.EventTypeSendPacket] = append(res.ToDeleteSrc[chantypes.EventTypeSendPacket], timeoutSeq)
 			res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(res.ToDeleteSrc[chantypes.EventTypeTimeoutPacket], timeoutSeq)
+			res.ToDeleteDst[common.EventTimeoutRequest] = append(res.ToDeleteDst[common.EventTimeoutRequest], timeoutSeq)
+
 		}
 	}
 	for timeoutOnCloseSeq := range pathEndPacketFlowMessages.SrcMsgTimeoutOnClose {
