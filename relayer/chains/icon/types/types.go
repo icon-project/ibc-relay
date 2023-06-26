@@ -257,7 +257,7 @@ type MsgConnectionOpenTry struct {
 	ConsensusHeight      HexBytes   `json:"consensusHeight"`
 }
 
-type GenericPacketParams[T MsgPacketRecv | MsgPacketAcknowledgement | MsgTimeoutPacket] struct {
+type GenericPacketParams[T MsgPacketRecv | MsgPacketAcknowledgement | MsgTimeoutPacket | MsgRequestTimeout] struct {
 	Msg T `json:"msg"`
 }
 
@@ -282,7 +282,9 @@ type MsgTimeoutPacket struct {
 }
 
 type MsgRequestTimeout struct {
-	PacketPb HexBytes `json:"packetPb"`
+	Packet      HexBytes `json:"packet"`
+	Proof       HexBytes `json:"proof"`
+	ProofHeight HexBytes `json:"proofHeight"`
 }
 
 type CallParam struct {

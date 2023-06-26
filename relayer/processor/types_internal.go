@@ -71,11 +71,7 @@ func (msg packetIBCMessage) assemble(
 		assembleMessage = dst.chainProvider.MsgTimeout
 	case common.EventTimeoutRequest:
 		assembleMessage = dst.chainProvider.MsgTimeoutRequest
-		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			packetProof = src.chainProvider.NextSeqRecv
-		} else {
-			packetProof = src.chainProvider.PacketReceipt
-		}
+		packetProof = src.chainProvider.PacketCommitment
 
 	case chantypes.EventTypeTimeoutPacketOnClose:
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {

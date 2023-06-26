@@ -169,12 +169,21 @@ func (ip *IconProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof
 		return nil, err
 	}
 
-	fmt.Printf("")
-
-	packetAckMsg := types.MsgRequestTimeout{
-		PacketPb: types.NewHexBytes(pktEncode),
+	proofHeight, err := proto.Marshal(&proof.ProofHeight)
+	if err != nil {
+		return nil, err
 	}
-	return ip.NewIconMessage(packetAckMsg, MethodRequestTimeout), nil
+
+	timeoutMsg := types.MsgRequestTimeout{
+		Packet:      types.NewHexBytes(pktEncode),
+		Proof:       types.NewHexBytes(proof.Proof),
+		ProofHeight: types.NewHexBytes(proofHeight),
+	}
+
+	msg := types.GenericPacketParams[types.MsgRequestTimeout]{
+		Msg: timeoutMsg,
+	}
+	return ip.NewIconMessage(msg, MethodRequestTimeout), nil
 
 }
 
