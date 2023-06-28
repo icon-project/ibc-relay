@@ -175,7 +175,7 @@ MsgTransferLoop:
 			var timeoutTimestampErr *provider.TimeoutTimestampError
 			var timeoutOnCloseErr *provider.TimeoutOnCloseError
 
-			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == "icon" {
+			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == common.IconModule {
 				switch {
 				case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
 					timeoutRequestMsg := packetIBCMessage{

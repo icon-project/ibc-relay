@@ -10,6 +10,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
@@ -461,7 +462,7 @@ func (icp *IconProvider) ChainId() string {
 }
 
 func (icp *IconProvider) Type() string {
-	return "icon"
+	return common.IconModule
 }
 
 func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
