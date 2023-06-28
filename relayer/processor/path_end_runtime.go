@@ -9,6 +9,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -448,11 +449,11 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	pathEndForHeight := counterparty
-	if eventType == chantypes.EventTypeTimeoutPacket || eventType == chantypes.EventTypeTimeoutPacketOnClose {
+	if eventType == chantypes.EventTypeTimeoutPacket ||
+		eventType == chantypes.EventTypeTimeoutPacketOnClose {
 		pathEndForHeight = pathEnd
 	}
 
-	// pathEndForHeight := counterparty
 	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),

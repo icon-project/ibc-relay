@@ -66,6 +66,7 @@ func (msg packetIBCMessage) assemble(
 		packetProof = src.chainProvider.PacketAcknowledgement
 		assembleMessage = dst.chainProvider.MsgAcknowledgement
 	case chantypes.EventTypeTimeoutPacket:
+
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
 			packetProof = src.chainProvider.NextSeqRecv
 		} else {
@@ -73,6 +74,10 @@ func (msg packetIBCMessage) assemble(
 		}
 
 		assembleMessage = dst.chainProvider.MsgTimeout
+	case common.EventTimeoutRequest:
+		assembleMessage = dst.chainProvider.MsgTimeoutRequest
+		packetProof = src.chainProvider.PacketCommitment
+
 	case chantypes.EventTypeTimeoutPacketOnClose:
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
 			packetProof = src.chainProvider.NextSeqRecv
@@ -93,9 +98,11 @@ func (msg packetIBCMessage) assemble(
 
 	var proof provider.PacketProof
 	var err error
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
-	if err != nil {
-		return nil, fmt.Errorf("error querying packet proof: %w", err)
+	if packetProof != nil {
+		proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
+		if err != nil {
+			return nil, fmt.Errorf("error querying packet proof: %w", err)
+		}
 	}
 	return assembleMessage(msg.info, proof)
 }
@@ -169,6 +176,7 @@ func (msg channelIBCMessage) assemble(
 	case chantypes.EventTypeChannelOpenConfirm:
 		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
+
 	case chantypes.EventTypeChannelCloseInit:
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelCloseInit
@@ -404,6 +412,9 @@ type pathEndPacketFlowMessages struct {
 	SrcMsgAcknowledgement PacketSequenceCache
 	SrcMsgTimeout         PacketSequenceCache
 	SrcMsgTimeoutOnClose  PacketSequenceCache
+	
+	// Adding for Icon chain
+	DstMsgRequestTimeout PacketSequenceCache
 }
 
 type pathEndConnectionHandshakeMessages struct {

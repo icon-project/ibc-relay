@@ -9,6 +9,8 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -163,6 +165,13 @@ func (pp *PathProcessor) getMessagesToSend(
 						}
 					}
 				}
+		case common.EventTimeoutRequest:
+			if dst.shouldSendPacketMessage(firstMsg, src) {
+				dstMsgs = append(dstMsgs, firstMsg)
+			}
+		default:
+			if src.shouldSendPacketMessage(firstMsg, dst) {
+				srcMsgs = append(srcMsgs, firstMsg)
 			}
 		}
 
@@ -174,6 +183,10 @@ func (pp *PathProcessor) getMessagesToSend(
 		switch msg.eventType {
 		case chantypes.EventTypeRecvPacket:
 			if uint64(len(dstMsgs)) <= pp.maxMsgs && dst.shouldSendPacketMessage(msg, src) {
+				dstMsgs = append(dstMsgs, msg)
+			}
+		case common.EventTimeoutRequest:
+			if dst.shouldSendPacketMessage(msg, src) {
 				dstMsgs = append(dstMsgs, msg)
 			}
 		default:
@@ -291,6 +304,25 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 			var timeoutHeightErr *provider.TimeoutHeightError
 			var timeoutTimestampErr *provider.TimeoutTimestampError
 			var timeoutOnCloseErr *provider.TimeoutOnCloseError
+
+			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == common.IconModule {
+				switch {
+				case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
+					timeoutRequestMsg := packetIBCMessage{
+						eventType: common.EventTimeoutRequest,
+						info:      msgTransfer,
+					}
+					msgs = append(msgs, timeoutRequestMsg)
+
+				default:
+					pp.log.Error("Packet is invalid",
+						zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
+						zap.Error(err),
+					)
+				}
+				continue MsgTransferLoop
+
+			}
 
 			switch {
 			case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
@@ -1031,6 +1063,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			DstMsgRequestTimeout:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][common.EventTimeoutRequest],
 		}
 
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
@@ -1043,6 +1076,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:         pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
 			SrcMsgTimeoutOnClose:  pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			DstMsgRequestTimeout:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][common.EventTimeoutRequest],
 		}
 
 		pathEnd1ProcessRes[i] = pp.unrelayedPacketFlowMessages(ctx, pathEnd1PacketFlowMessages)
