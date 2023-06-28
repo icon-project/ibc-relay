@@ -452,6 +452,10 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 	}
 }
 
+func (app *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("Not implemented for Icon")
+}
+
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
 func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)

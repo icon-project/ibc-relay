@@ -578,3 +578,7 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 	}
 	return info.StartHeight.Value()
 }
+
+func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("Not implemented for Icon")
+}
