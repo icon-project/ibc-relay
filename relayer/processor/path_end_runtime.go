@@ -547,10 +547,13 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
-	k := ConnectionInfoConnectionKey(message.info).Counterparty()
 
-	pathEndForHeight := counterparty
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	k := ConnectionInfoConnectionKey(message.info)
+	if eventType != conntypes.EventTypeConnectionOpenInit {
+		k = k.Counterparty()
+	}
+
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
 			zap.Inline(k),
 			zap.String("event_type", eventType),
@@ -621,11 +624,14 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 // shouldSendChannelMessage determines if the channel handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
-	eventType := message.eventType
-	channelKey := ChannelInfoChannelKey(message.info).Counterparty()
 
-	pathEndForHeight := counterparty
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	eventType := message.eventType
+	channelKey := ChannelInfoChannelKey(message.info)
+	if eventType != chantypes.EventTypeChannelOpenInit {
+		channelKey = channelKey.Counterparty()
+	}
+
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
 			zap.String("event_type", eventType),
