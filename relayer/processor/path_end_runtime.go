@@ -451,7 +451,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEndForHeight = pathEnd
 	}
 
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
@@ -553,7 +553,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		k = k.Counterparty()
 	}
 
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= counterparty.latestBlock.Height {
+	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
 			zap.Inline(k),
 			zap.String("event_type", eventType),
@@ -631,7 +631,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		channelKey = channelKey.Counterparty()
 	}
 
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= counterparty.latestBlock.Height {
+	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
 			zap.String("event_type", eventType),
