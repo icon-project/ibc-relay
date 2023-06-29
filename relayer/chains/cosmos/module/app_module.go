@@ -5,7 +5,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	solomachine "github.com/cosmos/ibc-go/v7/modules/light-clients/06-solomachine"
-	localhost "github.com/cosmos/ibc-go/v7/modules/light-clients/09-localhost"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
@@ -27,7 +26,6 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(*codec.LegacyAmino) {}
 func (AppModuleBasic) RegisterInterfaces(registry codectypes.InterfaceRegistry) {
 	tmlightclient.RegisterInterfaces(registry)
 	solomachine.RegisterInterfaces(registry)
-	localhost.RegisterInterfaces(registry)
 }
 
 // RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the ibc module.
