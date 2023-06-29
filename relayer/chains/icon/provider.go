@@ -77,17 +77,6 @@ func (pp *IconProviderConfig) Validate() error {
 	return nil
 }
 
-func (pp *IconProviderConfig) Set(field string, value interface{}) error {
-	switch field {
-	case "btpHeight":
-		pp.BTPHeight = value.(int64)
-	default:
-		return fmt.Errorf("unknown field or not allowed to set %s", field)
-	}
-	return nil
-
-}
-
 // NewProvider should provide a new Icon provider
 // NewProvider should provide a new Icon provider
 func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {

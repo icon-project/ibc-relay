@@ -191,11 +191,6 @@ func (pp *ArchwayProviderConfig) Validate() error {
 	return nil
 }
 
-func (pp *ArchwayProviderConfig) Set(field string, value interface{}) error {
-	// TODO: implement
-	return nil
-}
-
 func (pp *ArchwayProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }

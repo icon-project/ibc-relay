@@ -343,20 +343,20 @@ func (a *appState) CheckIfProviderType(providerName string, providerType string)
 // 	return nil
 // }
 
-func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
-	providerConfigs := cfg.ProviderConfigs
-	providerConfigWrapper, ok := providerConfigs[providerName]
-	if !ok {
-		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
-	}
-	providerConfigValue := providerConfigWrapper.Value
-	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
-		return err
-	}
-	providerConfigWrapper.Value = providerConfigValue
+// func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
+// 	providerConfigs := cfg.ProviderConfigs
+// 	providerConfigWrapper, ok := providerConfigs[providerName]
+// 	if !ok {
+// 		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
+// 	}
+// 	providerConfigValue := providerConfigWrapper.Value
+// 	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
+// 		return err
+// 	}
+// 	providerConfigWrapper.Value = providerConfigValue
 
-	return nil
-}
+// 	return nil
+// }
 
 // updatePathConfig overwrites the config file concurrently,
 // locking to read, modify, then write the config.

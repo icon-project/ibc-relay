@@ -163,11 +163,6 @@ func (cc *PenumbraProvider) ChainId() string {
 	return cc.PCfg.ChainID
 }
 
-func (cc PenumbraProviderConfig) Set(field string, value interface{}) error {
-	return nil
-
-}
-
 func (cc *PenumbraProvider) ChainName() string {
 	return cc.PCfg.ChainName
 }
