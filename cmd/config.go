@@ -443,6 +443,8 @@ func (iw *ProviderConfigYAMLWrapper) UnmarshalYAML(n *yaml.Node) error {
 		iw.Value = new(penumbra.PenumbraProviderConfig)
 	case "archway":
 		iw.Value = new(archway.ArchwayProviderConfig)
+	case "penumbra":
+		iw.Value = new(penumbra.PenumbraProviderConfig)
 	default:
 		return fmt.Errorf("%s is an invalid chain type, check your config file", iw.Type)
 	}

@@ -14,10 +14,6 @@ type PrometheusMetrics struct {
 	LatestHeightGauge     *prometheus.GaugeVec
 	WalletBalance         *prometheus.GaugeVec
 	FeesSpent             *prometheus.GaugeVec
-	TxFailureError        *prometheus.CounterVec
-	BlockQueryFailure     *prometheus.CounterVec
-	ClientExpiration      *prometheus.GaugeVec
-	ClientTrustingPeriod  *prometheus.GaugeVec
 }
 
 func (m *PrometheusMetrics) AddPacketsObserved(pathName, chain, channel, port, eventType string, count int) {

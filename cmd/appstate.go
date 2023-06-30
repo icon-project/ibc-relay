@@ -194,19 +194,9 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 		return fmt.Errorf("failed to initialize config from file: %w", err)
 	}
 
-	path, ok := a.Config.Paths[pathName]
-
-	if !ok {
-		return fmt.Errorf("config does not exist for that path: %s", pathName)
-	}
-	if clientSrc != "" {
-		path.Src.ClientID = clientSrc
-	}
-	if clientDst != "" {
-		path.Dst.ClientID = clientDst
-	}
-	if connectionSrc != "" {
-		path.Src.ConnectionID = connectionSrc
+	// perform the operation that requires config flock.
+	if err := operation(); err != nil {
+		return err
 	}
 
 	// validate config after changes have been made.
@@ -226,12 +216,13 @@ func (a *appState) performConfigLockingOperation(ctx context.Context, operation 
 	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
 	}
+
 	return nil
 }
 
 func (a *appState) GetConfigProviderNameFromChainId(chainId string) (string, error) {
 
-	chains := a.Config.Chains
+	chains := a.config.Chains
 	for k, v := range chains {
 		if v.ChainID() == chainId {
 			return k, nil
@@ -242,7 +233,7 @@ func (a *appState) GetConfigProviderNameFromChainId(chainId string) (string, err
 }
 
 func (a *appState) CheckIfProviderType(providerName string, providerType string) bool {
-	providers := a.Config.Wrapped()
+	providers := a.config.Wrapped()
 	for p, v := range providers.ProviderConfigs {
 		if p == providerName && v.Type == providerType {
 			return true
@@ -251,121 +242,154 @@ func (a *appState) CheckIfProviderType(providerName string, providerType string)
 	return false
 }
 
-func (a *appState) UpdateConfigsIfContainIcon(cmd *cobra.Command, src *relayer.Chain, dst *relayer.Chain) error {
+// func (a *appState) UpdateConfigsIfContainIcon(cmd *cobra.Command, src *relayer.Chain, dst *relayer.Chain) error {
 
-	ctx := context.Background()
-	eg, egCtx := errgroup.WithContext(ctx)
+// 	ctx := context.Background()
+// 	eg, egCtx := errgroup.WithContext(ctx)
 
-	eg.Go(func() error {
-		var err error
-		err = a.UpdateProviderIfIcon(cmd, egCtx, src)
-		if err != nil {
-			return err
-		}
+// 	eg.Go(func() error {
+// 		var err error
+// 		err = a.UpdateProviderIfIcon(cmd, egCtx, src)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		return nil
+// 		return nil
 
-	})
-	eg.Go(func() error {
-		var err error
-		err = a.UpdateProviderIfIcon(cmd, egCtx, dst)
-		if err != nil {
-			return err
-		}
-		return nil
+// 	})
+// 	eg.Go(func() error {
+// 		var err error
+// 		err = a.UpdateProviderIfIcon(cmd, egCtx, dst)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		return nil
 
-	})
+// 	})
 
-	if err := eg.Wait(); err != nil {
-		return err
-	}
+// 	if err := eg.Wait(); err != nil {
+// 		return err
+// 	}
 
-	return nil
+// 	return nil
 
-}
+// }
 
-func (a *appState) UpdateProviderIfIcon(cmd *cobra.Command, ctx context.Context, chain *relayer.Chain) error {
+// func (a *appState) UpdateProviderIfIcon(cmd *cobra.Command, ctx context.Context, chain *relayer.Chain) error {
 
-	providerName, err := a.GetConfigProviderNameFromChainId(chain.ChainID())
-	if err != nil {
-		return err
-	}
+// 	providerName, err := a.GetConfigProviderNameFromChainId(chain.ChainID())
+// 	if err != nil {
+// 		return err
+// 	}
 
-	if !a.CheckIfProviderType(providerName, "icon") {
-		return nil
-	}
-	height, err := chain.ChainProvider.QueryLatestHeight(ctx)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error fetching chain latest height %s ", chain.ChainID()))
-	}
+// 	if !a.CheckIfProviderType(providerName, "icon") {
+// 		return nil
+// 	}
+// 	// height, err := chain.ChainProvider.QueryLatestHeight(ctx)
+// 	// if err != nil {
+// 	// 	return errors.New(fmt.Sprintf("Error fetching chain latest height %s ", chain.ChainID()))
+// 	// }
 
-	err = a.OverwriteChainConfig(cmd, providerName, "btpHeight", height)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Error updating BTPHeight of config of chain %s ", chain.ChainID()))
-	}
-	return nil
-}
+// 	// err = a.OverwriteChainConfig(cmd, providerName, "btpHeight", height)
+// 	// if err != nil {
+// 	// 	return errors.New(fmt.Sprintf("Error updating BTPHeight of config of chain %s ", chain.ChainID()))
+// 	// }
+// 	return nil
+// }
 
-func (a *appState) OverwriteChainConfig(
-	cmd *cobra.Command,
-	providerName string,
-	fieldName string,
-	fieldValue interface{},
+// func (a *appState) OverwriteChainConfig(
+// 	cmd *cobra.Command,
+// 	providerName string,
+// 	fieldName string,
+// 	fieldValue interface{},
+// ) error {
+
+// 	// use lock file to guard concurrent access to config.yaml
+// 	lockFilePath := path.Join(a.homePath, "config", "config.lock")
+// 	fileLock := flock.New(lockFilePath)
+// 	err := fileLock.Lock()
+// 	if err != nil {
+// 		return fmt.Errorf("failed to acquire config lock: %w", err)
+// 	}
+// 	defer func() {
+// 		if err := fileLock.Unlock(); err != nil {
+// 			a.Log.Error("error unlocking config file lock, please manually delete",
+// 				zap.String("filepath", lockFilePath),
+// 			)
+// 		}
+// 	}()
+
+// 	if err := initConfig(cmd, a); err != nil {
+// 		return fmt.Errorf("failed to initialize config from file: %w", err)
+// 	}
+
+// 	wrappedConfig := a.config.Wrapped()
+// 	err = setProviderConfigField(wrappedConfig, providerName, fieldName, fieldValue)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	out, err := yaml.Marshal(wrappedConfig)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	cfgPath := a.viper.ConfigFileUsed()
+
+// 	// Overwrite the config file.
+// 	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
+// 		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
+// 	}
+
+// 	return nil
+// }
+
+// func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
+// 	providerConfigs := cfg.ProviderConfigs
+// 	providerConfigWrapper, ok := providerConfigs[providerName]
+// 	if !ok {
+// 		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
+// 	}
+// 	providerConfigValue := providerConfigWrapper.Value
+// 	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
+// 		return err
+// 	}
+// 	providerConfigWrapper.Value = providerConfigValue
+
+// 	return nil
+// }
+
+// updatePathConfig overwrites the config file concurrently,
+// locking to read, modify, then write the config.
+func (a *appState) updatePathConfig(
+	ctx context.Context,
+	pathName string,
+	clientSrc, clientDst string,
+	connectionSrc, connectionDst string,
 ) error {
-
-	// use lock file to guard concurrent access to config.yaml
-	lockFilePath := path.Join(a.HomePath, "config", "config.lock")
-	fileLock := flock.New(lockFilePath)
-	err := fileLock.Lock()
-	if err != nil {
-		return fmt.Errorf("failed to acquire config lock: %w", err)
+	if pathName == "" {
+		return errors.New("empty path name not allowed")
 	}
-	defer func() {
-		if err := fileLock.Unlock(); err != nil {
-			a.Log.Error("error unlocking config file lock, please manually delete",
-				zap.String("filepath", lockFilePath),
-			)
+
+	return a.performConfigLockingOperation(ctx, func() error {
+		path, ok := a.config.Paths[pathName]
+		if !ok {
+			return fmt.Errorf("config does not exist for that path: %s", pathName)
 		}
-	}()
-
-	if err := initConfig(cmd, a); err != nil {
-		return fmt.Errorf("failed to initialize config from file: %w", err)
-	}
-
-	wrappedConfig := a.Config.Wrapped()
-	err = setProviderConfigField(wrappedConfig, providerName, fieldName, fieldValue)
-	if err != nil {
-		return err
-	}
-
-	out, err := yaml.Marshal(wrappedConfig)
-	if err != nil {
-		return err
-	}
-
-	cfgPath := a.Viper.ConfigFileUsed()
-
-	// Overwrite the config file.
-	if err := os.WriteFile(cfgPath, out, 0600); err != nil {
-		return fmt.Errorf("failed to write config file at %s: %w", cfgPath, err)
-	}
-
-	return nil
-}
-
-func setProviderConfigField(cfg *ConfigOutputWrapper, providerName string, fieldToChange string, newValue interface{}) error {
-	providerConfigs := cfg.ProviderConfigs
-	providerConfigWrapper, ok := providerConfigs[providerName]
-	if !ok {
-		return fmt.Errorf("ProviderConfigWrapper %s not found", providerName)
-	}
-	providerConfigValue := providerConfigWrapper.Value
-	if err := providerConfigValue.Set(fieldToChange, newValue); err != nil {
-		return err
-	}
-	providerConfigWrapper.Value = providerConfigValue
-
-	return nil
+		if clientSrc != "" {
+			path.Src.ClientID = clientSrc
+		}
+		if clientDst != "" {
+			path.Dst.ClientID = clientDst
+		}
+		if connectionSrc != "" {
+			path.Src.ConnectionID = connectionSrc
+		}
+		if connectionDst != "" {
+			path.Dst.ConnectionID = connectionDst
+		}
+		return nil
+	})
 }
 
 // updatePathConfig overwrites the config file concurrently,

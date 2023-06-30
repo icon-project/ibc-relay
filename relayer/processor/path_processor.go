@@ -333,7 +333,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTimer.C:
 		// Periodic flush to clear out any old packets
-		// pp.flush(ctx)  // TODO original not commented
+		pp.handleFlush(ctx)
 	}
 	return false
 }
@@ -361,8 +361,8 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 			continue
 		}
 
-		if !pp.initialFlushComplete {
-			// pp.flush(ctx)   // TODO :: commented by icon-project
+		if pp.shouldFlush() && !pp.initialFlushComplete {
+			// pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
 			cancel()

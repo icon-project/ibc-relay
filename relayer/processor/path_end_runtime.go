@@ -454,7 +454,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEndForHeight = pathEnd
 	}
 
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
@@ -550,10 +550,13 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBCMessage, counterparty *pathEndRuntime) bool {
 	eventType := message.eventType
-	k := connectionInfoConnectionKey(message.info).Counterparty()
 
-	pathEndForHeight := counterparty
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	k := ConnectionInfoConnectionKey(message.info)
+	if eventType != conntypes.EventTypeConnectionOpenInit {
+		k = k.Counterparty()
+	}
+
+	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
 			zap.Inline(k),
 			zap.String("event_type", eventType),
@@ -624,6 +627,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 // shouldSendChannelMessage determines if the channel handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
+
 	eventType := message.eventType
 	channelKey := ChannelInfoChannelKey(message.info)
 	if eventType != chantypes.EventTypeChannelOpenInit {

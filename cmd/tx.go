@@ -105,7 +105,7 @@ func createClientsCmd(a *appState) *cobra.Command {
 				return fmt.Errorf("key %s not found on dst chain %s", c[dst].ChainProvider.Key(), c[dst].ChainID())
 			}
 
-			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd), iconStartHeight)
+			clientSrc, clientDst, err := c[src].CreateClients(cmd.Context(), c[dst], allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight)
 			if err != nil {
 				return err
 			}
@@ -124,10 +124,10 @@ func createClientsCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	cmd = clientParameterFlags(a.Viper, cmd)
-	cmd = overrideFlag(a.Viper, cmd)
-	cmd = memoFlag(a.Viper, cmd)
-	cmd = iconStartHeightFlag(a.Viper, cmd)
+	cmd = clientParameterFlags(a.viper, cmd)
+	cmd = overrideFlag(a.viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
+	cmd = iconStartHeightFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -236,7 +236,7 @@ func createClientCmd(a *appState) *cobra.Command {
 				return err
 			}
 
-			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.Config.memo(cmd), iconStartHeight)
+			clientID, err := relayer.CreateClient(cmd.Context(), src, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, a.config.memo(cmd), iconStartHeight)
 			if err != nil {
 				return err
 			}
@@ -256,10 +256,10 @@ func createClientCmd(a *appState) *cobra.Command {
 		},
 	}
 
-	cmd = clientParameterFlags(a.Viper, cmd)
-	cmd = overrideFlag(a.Viper, cmd)
-	cmd = memoFlag(a.Viper, cmd)
-	cmd = iconStartHeightFlag(a.Viper, cmd)
+	cmd = clientParameterFlags(a.viper, cmd)
+	cmd = overrideFlag(a.viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
+	cmd = iconStartHeightFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -440,13 +440,13 @@ $ %s tx conn demo-path --timeout 5s`,
 		},
 	}
 
-	cmd = timeoutFlag(a.Viper, cmd)
-	cmd = retryFlag(a.Viper, cmd)
-	cmd = clientParameterFlags(a.Viper, cmd)
-	cmd = overrideFlag(a.Viper, cmd)
-	cmd = memoFlag(a.Viper, cmd)
-	cmd = initBlockFlag(a.Viper, cmd)
-	cmd = iconStartHeightFlag(a.Viper, cmd)
+	cmd = timeoutFlag(a.viper, cmd)
+	cmd = retryFlag(a.viper, cmd)
+	cmd = clientParameterFlags(a.viper, cmd)
+	cmd = overrideFlag(a.viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
+	cmd = initBlockFlag(a.viper, cmd)
+	cmd = iconStartHeightFlag(a.viper, cmd)
 	return cmd
 }
 
@@ -517,12 +517,7 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			}
 
 			// create channel if it isn't already created
-			err = c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.Config.memo(cmd), pathName)
-			if err != nil {
-				return err
-			}
-
-			return nil
+			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, a.config.memo(cmd), pathName)
 		},
 	}
 
@@ -723,14 +718,14 @@ $ %s tx connect demo-path --src-port mock --dst-port mock --order unordered --ve
 			return c[src].CreateOpenChannels(cmd.Context(), c[dst], retries, to, srcPort, dstPort, order, version, override, memo, pathName)
 		},
 	}
-	cmd = timeoutFlag(a.Viper, cmd)
-	cmd = retryFlag(a.Viper, cmd)
-	cmd = clientParameterFlags(a.Viper, cmd)
-	cmd = channelParameterFlags(a.Viper, cmd)
-	cmd = overrideFlag(a.Viper, cmd)
-	cmd = memoFlag(a.Viper, cmd)
-	cmd = initBlockFlag(a.Viper, cmd)
-	cmd = iconStartHeightFlag(a.Viper, cmd)
+	cmd = timeoutFlag(a.viper, cmd)
+	cmd = retryFlag(a.viper, cmd)
+	cmd = clientParameterFlags(a.viper, cmd)
+	cmd = channelParameterFlags(a.viper, cmd)
+	cmd = overrideFlag(a.viper, cmd)
+	cmd = memoFlag(a.viper, cmd)
+	cmd = initBlockFlag(a.viper, cmd)
+	cmd = iconStartHeightFlag(a.viper, cmd)
 	return cmd
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -20,8 +21,9 @@ import (
 // i.e. a MsgConnectionOpenInit or a MsgChannelOpenInit should be broadcasted to start
 // the handshake if this key exists in the relevant cache.
 const (
-	preInitKey  = "pre_init"
-	preCloseKey = "pre_close"
+	preInitKey         = "pre_init"
+	preCloseKey        = "pre_close"
+	maxPacketsPerFlush = 10
 )
 
 // getMessagesToSend returns only the lowest sequence message (if it should be sent) for ordered channels,
@@ -296,6 +298,17 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 
 	processRemovals()
 
+	for seq, msgTimeoutRequest := range pathEndPacketFlowMessages.DstMsgRequestTimeout {
+		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
+		toDeleteDst[common.EventTimeoutRequest] = append(toDeleteDst[common.EventTimeoutRequest], seq)
+		timeoutMsg := packetIBCMessage{
+			eventType: chantypes.EventTypeTimeoutPacket,
+			info:      msgTimeoutRequest,
+		}
+		msgs = append(msgs, timeoutMsg)
+	}
+	processRemovals()
+
 	for _, info := range pathEndPacketFlowMessages.SrcMsgTransfer {
 		deletePreInitIfMatches(info)
 
@@ -306,11 +319,12 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 			var timeoutOnCloseErr *provider.TimeoutOnCloseError
 
 			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == common.IconModule {
+
 				switch {
 				case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
 					timeoutRequestMsg := packetIBCMessage{
 						eventType: common.EventTimeoutRequest,
-						info:      msgTransfer,
+						info:      info,
 					}
 					msgs = append(msgs, timeoutRequestMsg)
 
@@ -320,8 +334,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 						zap.Error(err),
 					)
 				}
-				continue MsgTransferLoop
-
+				continue
 			}
 
 			switch {
@@ -361,6 +374,13 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		}
 		msgs = append(msgs, msgTransfer)
 	}
+
+	res.SrcMessages, res.DstMessages = pp.getMessagesToSend(
+		ctx,
+		msgs,
+		pathEndPacketFlowMessages.Src,
+		pathEndPacketFlowMessages.Dst,
+	)
 
 	res.SrcMessages, res.DstMessages = pp.getMessagesToSend(
 		ctx,
@@ -601,7 +621,6 @@ func (pp *PathProcessor) unrelayedChannelHandshakeMessages(
 			eventType: chantypes.EventTypeChannelOpenTry,
 			info:      info,
 		}
-
 		if pathEndChannelHandshakeMessages.Dst.shouldSendChannelMessage(
 			msgOpenTry, pathEndChannelHandshakeMessages.Src,
 		) {
@@ -846,7 +865,6 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 			pp.pathEnd2.messageCache.PacketFlow[channelKey][eventType][0] = m.Initial.Info
 		}
 	case *ConnectionMessageLifecycle:
-
 		pp.sentInitialMsg = true
 		if m.Initial == nil {
 			return

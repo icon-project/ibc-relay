@@ -131,6 +131,14 @@ func (h PenumbraIBCHeader) NextValidatorsHash() []byte {
 	return h.SignedHeader.NextValidatorsHash
 }
 
+func (h PenumbraIBCHeader) IsCompleteBlock() bool {
+	return true
+}
+
+func (h PenumbraIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	return false
+}
+
 type PenumbraProvider struct {
 	log *zap.Logger
 
