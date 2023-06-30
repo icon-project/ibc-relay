@@ -186,7 +186,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
 		toDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(toDeleteSrc[chantypes.EventTypeTimeoutPacket], seq)
-		toDeleteSrc[common.EventTimeoutRequest] = append(toDeleteSrc[common.EventTimeoutRequest], seq)
+		toDeleteDst[common.EventTimeoutRequest] = append(toDeleteDst[common.EventTimeoutRequest], seq)
 		if info.ChannelOrder == chantypes.ORDERED.String() {
 			// Channel is now closed on src.
 			// enqueue channel close init observation to be handled by channel close correlation
@@ -206,16 +206,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 
 	processRemovals()
 
-	for _, msgTimeoutRequest := range pathEndPacketFlowMessages.DstMsgRequestTimeout {
-		timeoutMsg := packetIBCMessage{
-			eventType: chantypes.EventTypeTimeoutPacket,
-			info:      msgTimeoutRequest,
-		}
-		msgs = append(msgs, timeoutMsg)
-	}
-
-	// todo: need removals ?
-
 	for seq, info := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
@@ -234,6 +224,17 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 
 	processRemovals()
 
+	for seq, msgTimeoutRequest := range pathEndPacketFlowMessages.DstMsgRequestTimeout {
+		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
+		toDeleteDst[common.EventTimeoutRequest] = append(toDeleteDst[common.EventTimeoutRequest], seq)
+		timeoutMsg := packetIBCMessage{
+			eventType: chantypes.EventTypeTimeoutPacket,
+			info:      msgTimeoutRequest,
+		}
+		msgs = append(msgs, timeoutMsg)
+	}
+	processRemovals()
+
 	for _, info := range pathEndPacketFlowMessages.SrcMsgTransfer {
 		deletePreInitIfMatches(info)
 
@@ -244,6 +245,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 			var timeoutOnCloseErr *provider.TimeoutOnCloseError
 
 			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == common.IconModule {
+
 				switch {
 				case errors.As(err, &timeoutHeightErr) || errors.As(err, &timeoutTimestampErr):
 					timeoutRequestMsg := packetIBCMessage{
@@ -258,7 +260,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 						zap.Error(err),
 					)
 				}
-
+				continue
 			}
 
 			switch {
