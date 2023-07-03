@@ -212,6 +212,7 @@ func (ap *ArchwayProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour i
 }
 
 func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
+
 	if msgTransfer.Sequence == 0 {
 		return errors.New("refusing to relay packet with sequence: 0")
 	}
@@ -221,19 +222,21 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 	}
 
 	// This should not be possible, as it violates IBC spec
-	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
+	if msgTransfer.TimeoutHeight.IsZero() {
 		return errors.New("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
-	revision := clienttypes.ParseChainID(ap.PCfg.ChainID)
-	latestClientTypesHeight := clienttypes.NewHeight(revision, latest.Height)
+	revisionNumber := 0
+	latestClientTypesHeight := clienttypes.NewHeight(uint64(revisionNumber), latest.Height)
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
+		fmt.Println("packet timeout failed finally ", msgTransfer.TimeoutHeight)
+
 		return provider.NewTimeoutHeightError(latest.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
-	latestTimestamp := uint64(latest.Time.UnixNano())
-	if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
-		return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
-	}
+	// latestTimestamp := uint64(latest.Time.UnixNano())
+	// if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
+	// 	return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
+	// }
 
 	return nil
 }
@@ -264,7 +267,8 @@ func (ap *ArchwayProvider) PacketAcknowledgement(ctx context.Context, msgRecvPac
 }
 
 func (ap *ArchwayProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetReceiptResponse, err := ap.QueryPacketCommitment(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+
+	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -297,7 +301,8 @@ func (ap *ArchwayProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof 
 	}
 
 	params := &chantypes.MsgRecvPacket{
-		Packet:          msgTransfer.Packet(),
+		Packet: msgTransfer.Packet(),
+		// Packet:          chantypes.Packet{}, //TODO: just to check packet timeout
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
@@ -337,6 +342,10 @@ func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pro
 	}
 
 	return ap.NewWasmContractMessage(MethodTimeoutPacket, params)
+}
+
+func (ap *ArchwayProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Archway module")
 }
 
 func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -715,10 +724,6 @@ func (ap *ArchwayProvider) SendMessages(ctx context.Context, msgs []provider.Rel
 	return rlyResp, true, callbackErr
 }
 
-func (ap *ArchwayProvider) ClientContext() client.Context {
-	return ap.ClientCtx
-}
-
 func (ap *ArchwayProvider) SendMessagesToMempool(
 	ctx context.Context,
 	msgs []provider.RelayerMessage,
@@ -736,42 +741,42 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		return err
 	}
 
-	var sdkMsgs []sdk.Msg
 	for _, msg := range msgs {
-
 		if msg == nil {
-			ap.log.Debug("One of the message is nil")
+			ap.log.Debug("One of the message of archway")
 			continue
 		}
 
 		archwayMsg, ok := msg.(*WasmContractMessage)
 		if !ok {
-			return fmt.Errorf("Invalid ArchwayMsg")
+			return fmt.Errorf("Archway Message is not valid %s", archwayMsg.Type())
 		}
 
-		sdkMsgs = append(sdkMsgs, archwayMsg.Msg)
-	}
-
-	if err != nil {
-
-		ap.log.Debug("error when dumping message")
-
-	}
-
-	txBytes, sequence, err := ap.buildMessages(cliCtx, factory, sdkMsgs...)
-	if err != nil {
-		return err
-	}
-
-	if err := ap.BroadcastTx(cliCtx, txBytes, msgs, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback); err != nil {
-		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-			ap.handleAccountSequenceMismatchError(err)
+		txBytes, sequence, err := ap.buildMessages(cliCtx, factory, archwayMsg.Msg)
+		if err != nil {
+			return err
 		}
-		return err
+
+		if msg.Type() == MethodUpdateClient {
+			if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+				if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+					ap.handleAccountSequenceMismatchError(err)
+				}
+				return fmt.Errorf("Archway: failed during updateClient %v", err)
+			}
+			ap.updateNextAccountSequence(sequence + 1)
+			continue
+		}
+		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
+			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+				ap.handleAccountSequenceMismatchError(err)
+			}
+		}
+		ap.updateNextAccountSequence(sequence + 1)
 	}
 
-	// updating the next sequence number
-	ap.updateNextAccountSequence(sequence + 1)
+	//TODO: comment this on production
+	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
 	return nil
 
 }
@@ -849,8 +854,6 @@ func (ap *ArchwayProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Rel
 		fields...,
 	)
 
-	// uncomment for saving msg
-	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
 }
 
 // getFeePayer returns the bech32 address of the fee payer of a transaction.
@@ -978,6 +981,7 @@ func (ap *ArchwayProvider) BroadcastTx(
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+	shouldWait bool,
 ) error {
 	res, err := clientCtx.BroadcastTx(txBytes)
 	// log submitted txn
@@ -1014,8 +1018,14 @@ func (ap *ArchwayProvider) BroadcastTx(
 	ap.log.Info("Submitted transaction",
 		zap.String("chain_id", ap.PCfg.ChainID),
 		zap.String("txHash", res.TxHash),
+		zap.Int64("Height", res.Height),
+		zap.Any("Methods called", msgTypesField(msgs)),
 	)
 
+	if shouldWait {
+		ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
+		return nil
+	}
 	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	return nil
 }
@@ -1043,7 +1053,7 @@ func (ap *ArchwayProvider) waitForTx(
 	waitTimeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
 ) {
-	res, err := ap.waitForBlockInclusion(ctx, txHash, waitTimeout)
+	res, err := ap.waitForTxResult(ctx, txHash, waitTimeout)
 	if err != nil {
 		ap.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if callback != nil {
@@ -1084,7 +1094,7 @@ func (ap *ArchwayProvider) waitForTx(
 	ap.LogSuccessTx(res, msgs)
 }
 
-func (ap *ArchwayProvider) waitForBlockInclusion(
+func (ap *ArchwayProvider) waitForTxResult(
 	ctx context.Context,
 	txHash []byte,
 	waitTimeout time.Duration,

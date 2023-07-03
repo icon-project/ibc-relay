@@ -10,6 +10,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
@@ -74,17 +75,6 @@ func (pp *IconProviderConfig) Validate() error {
 	}
 
 	return nil
-}
-
-func (pp *IconProviderConfig) Set(field string, value interface{}) error {
-	switch field {
-	case "btpHeight":
-		pp.BTPHeight = value.(int64)
-	default:
-		return fmt.Errorf("unknown field or not allowed to set %s", field)
-	}
-	return nil
-
 }
 
 // NewProvider should provide a new Icon provider
@@ -332,7 +322,7 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 		return fmt.Errorf("Refuse to relay packet with empty data")
 	}
 	// This should not be possible, as it violates IBC spec
-	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
+	if msgTransfer.TimeoutHeight.IsZero() {
 		return fmt.Errorf("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
@@ -341,10 +331,10 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 	if !msgTransfer.TimeoutHeight.IsZero() && latestClientTypesHeight.GTE(msgTransfer.TimeoutHeight) {
 		return provider.NewTimeoutHeightError(latestBlock.Height, msgTransfer.TimeoutHeight.RevisionHeight)
 	}
-	latestTimestamp := uint64(latestBlock.Time.UnixNano())
-	if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
-		return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
-	}
+	// latestTimestamp := uint64(latestBlock.Time.UnixNano())
+	// if msgTransfer.TimeoutTimestamp > 0 && latestTimestamp > msgTransfer.TimeoutTimestamp {
+	// 	return provider.NewTimeoutTimestampError(latestTimestamp, msgTransfer.TimeoutTimestamp)
+	// }
 
 	return nil
 }
@@ -376,7 +366,7 @@ func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacke
 }
 
 func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetReceiptResponse, err := icp.QueryPacketCommitment(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+	packetReceiptResponse, err := icp.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -461,7 +451,7 @@ func (icp *IconProvider) ChainId() string {
 }
 
 func (icp *IconProvider) Type() string {
-	return "icon"
+	return common.IconModule
 }
 
 func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
@@ -576,4 +566,8 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 		return 0, err
 	}
 	return info.StartHeight.Value()
+}
+
+func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("Not implemented for Icon")
 }

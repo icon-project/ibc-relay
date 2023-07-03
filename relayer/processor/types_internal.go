@@ -8,9 +8,15 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
+
+var _ zapcore.ObjectMarshaler = packetIBCMessage{}
+var _ zapcore.ObjectMarshaler = channelIBCMessage{}
+var _ zapcore.ObjectMarshaler = connectionIBCMessage{}
+var _ zapcore.ObjectMarshaler = clientICQMessage{}
 
 // pathEndMessages holds the different IBC messages that
 // will attempt to be sent to the pathEnd.
@@ -60,6 +66,7 @@ func (msg packetIBCMessage) assemble(
 		packetProof = src.chainProvider.PacketAcknowledgement
 		assembleMessage = dst.chainProvider.MsgAcknowledgement
 	case chantypes.EventTypeTimeoutPacket:
+
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
 			packetProof = src.chainProvider.NextSeqRecv
 		} else {
@@ -67,6 +74,10 @@ func (msg packetIBCMessage) assemble(
 		}
 
 		assembleMessage = dst.chainProvider.MsgTimeout
+	case common.EventTimeoutRequest:
+		assembleMessage = dst.chainProvider.MsgTimeoutRequest
+		packetProof = src.chainProvider.PacketCommitment
+
 	case chantypes.EventTypeTimeoutPacketOnClose:
 		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
 			packetProof = src.chainProvider.NextSeqRecv
@@ -78,15 +89,16 @@ func (msg packetIBCMessage) assemble(
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
 	}
-
 	ctx, cancel := context.WithTimeout(ctx, packetProofQueryTimeout)
 	defer cancel()
 
 	var proof provider.PacketProof
 	var err error
-	proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
-	if err != nil {
-		return nil, fmt.Errorf("error querying packet proof: %w", err)
+	if packetProof != nil {
+		proof, err = packetProof(ctx, msg.info, src.latestBlock.Height)
+		if err != nil {
+			return nil, fmt.Errorf("error querying packet proof: %w", err)
+		}
 	}
 	return assembleMessage(msg.info, proof)
 }
@@ -160,6 +172,7 @@ func (msg channelIBCMessage) assemble(
 	case chantypes.EventTypeChannelOpenConfirm:
 		chanProof = src.chainProvider.ChannelProof
 		assembleMessage = dst.chainProvider.MsgChannelOpenConfirm
+
 	case chantypes.EventTypeChannelCloseInit:
 		// don't need proof for this message
 		assembleMessage = dst.chainProvider.MsgChannelCloseInit
@@ -380,20 +393,24 @@ type clientICQProcessingCache map[provider.ClientICQQueryID]processingMessage
 // contains MsgRecvPacket from counterparty
 // entire packet flow
 type pathEndPacketFlowMessages struct {
-	Src                       *pathEndRuntime
-	Dst                       *pathEndRuntime
-	ChannelKey                ChannelKey
-	SrcMsgTransfer            PacketSequenceCache
-	DstMsgRecvPacket          PacketSequenceCache
-	SrcMsgAcknowledgement     PacketSequenceCache
-	SrcMsgTimeout             PacketSequenceCache
-	SrcMsgTimeoutOnClose      PacketSequenceCache
-	DstMsgChannelCloseConfirm *provider.ChannelInfo
+	Src                   *pathEndRuntime
+	Dst                   *pathEndRuntime
+	ChannelKey            ChannelKey
+	SrcPreTransfer        PacketSequenceCache
+	SrcMsgTransfer        PacketSequenceCache
+	DstMsgRecvPacket      PacketSequenceCache
+	SrcMsgAcknowledgement PacketSequenceCache
+	SrcMsgTimeout         PacketSequenceCache
+	SrcMsgTimeoutOnClose  PacketSequenceCache
+
+	// Adding for Icon chain
+	DstMsgRequestTimeout PacketSequenceCache
 }
 
 type pathEndConnectionHandshakeMessages struct {
 	Src                         *pathEndRuntime
 	Dst                         *pathEndRuntime
+	SrcMsgConnectionPreInit     ConnectionMessageCache
 	SrcMsgConnectionOpenInit    ConnectionMessageCache
 	DstMsgConnectionOpenTry     ConnectionMessageCache
 	SrcMsgConnectionOpenAck     ConnectionMessageCache
@@ -403,10 +420,19 @@ type pathEndConnectionHandshakeMessages struct {
 type pathEndChannelHandshakeMessages struct {
 	Src                      *pathEndRuntime
 	Dst                      *pathEndRuntime
+	SrcMsgChannelPreInit     ChannelMessageCache
 	SrcMsgChannelOpenInit    ChannelMessageCache
 	DstMsgChannelOpenTry     ChannelMessageCache
 	SrcMsgChannelOpenAck     ChannelMessageCache
 	DstMsgChannelOpenConfirm ChannelMessageCache
+}
+
+type pathEndChannelCloseMessages struct {
+	Src                       *pathEndRuntime
+	Dst                       *pathEndRuntime
+	SrcMsgChannelPreInit      ChannelMessageCache
+	SrcMsgChannelCloseInit    ChannelMessageCache
+	DstMsgChannelCloseConfirm ChannelMessageCache
 }
 
 type pathEndPacketFlowResponse struct {
@@ -414,26 +440,16 @@ type pathEndPacketFlowResponse struct {
 	DstMessages []packetIBCMessage
 
 	DstChannelMessage []channelIBCMessage
-
-	ToDeleteSrc        map[string][]uint64
-	ToDeleteDst        map[string][]uint64
-	ToDeleteDstChannel map[string][]ChannelKey
 }
 
 type pathEndChannelHandshakeResponse struct {
 	SrcMessages []channelIBCMessage
 	DstMessages []channelIBCMessage
-
-	ToDeleteSrc map[string][]ChannelKey
-	ToDeleteDst map[string][]ChannelKey
 }
 
 type pathEndConnectionHandshakeResponse struct {
 	SrcMessages []connectionIBCMessage
 	DstMessages []connectionIBCMessage
-
-	ToDeleteSrc map[string][]ConnectionKey
-	ToDeleteDst map[string][]ConnectionKey
 }
 
 func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
@@ -442,24 +458,6 @@ func packetInfoChannelKey(p provider.PacketInfo) ChannelKey {
 		PortID:                p.SourcePort,
 		CounterpartyChannelID: p.DestChannel,
 		CounterpartyPortID:    p.DestPort,
-	}
-}
-
-func connectionInfoConnectionKey(c provider.ConnectionInfo) ConnectionKey {
-	return ConnectionKey{
-		ClientID:             c.ClientID,
-		ConnectionID:         c.ConnID,
-		CounterpartyClientID: c.CounterpartyClientID,
-		CounterpartyConnID:   c.CounterpartyConnID,
-	}
-}
-
-func channelInfoChannelKey(c provider.ChannelInfo) ChannelKey {
-	return ChannelKey{
-		ChannelID:             c.ChannelID,
-		PortID:                c.PortID,
-		CounterpartyChannelID: c.CounterpartyChannelID,
-		CounterpartyPortID:    c.CounterpartyPortID,
 	}
 }
 
