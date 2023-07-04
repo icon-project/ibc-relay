@@ -94,7 +94,7 @@ docker exec $ARCHWAY_CONTAINER archwayd keys list --keyring-backend test
 
 echo "+++++++++++++++++++++"
 echo "==> Starting link..."
-rly tx link icon-archway --client-tp=10000m --src-port mock --dst-port mock --order=ordered -d
+rly tx link icon-archway --client-tp=10000m --src-port mock --dst-port mock -d
 # Enable when debug is required
 # rly tx link icon-archway --client-tp=10000m --src-port mock --dst-port mock --order=ordered -d
 # for txhash in $(cat log.txt | grep 'Submitted transaction" provider_type=archway chain_id=localnet txHash=' | awk -F\= '{print $NF}')
