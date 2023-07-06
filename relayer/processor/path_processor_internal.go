@@ -998,7 +998,10 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
 				recvPacketInfo.Ack = ackInfo.Ack
 				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
+				continue
 			}
+			pathEnd1DstMsgRecvPacket[seq] = ackInfo
+
 		}
 
 		pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
@@ -1006,7 +1009,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
 				recvPacketInfo.Ack = ackInfo.Ack
 				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
+				continue
 			}
+			pathEnd2DstMsgRecvPacket[seq] = ackInfo
 		}
 
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
