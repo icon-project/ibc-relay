@@ -434,7 +434,7 @@ func TestUpdateClientHeader(t *testing.T) {
 
 	p := GetMockIconProvider(2, "dddd")
 
-	height := int64(201)
+	height := int64(401)
 	header, _ := p.GetBtpHeader(height)
 	proofContext, _ := p.GetProofContextByHeight(height - 1)
 
@@ -458,14 +458,12 @@ func TestUpdateClientHeader(t *testing.T) {
 		// NextProofContext:       signedHeader.Header.NextProofContext,
 	}
 	networkSection := types.NewNetworkSection(&btpLocalHeader)
-	fmt.Printf("newtworkSection :%x \n", networkSection.Encode())
+	fmt.Printf("newtworkSection :%x \n", networkSection.Hash())
 	decision := types.NewNetworkTypeSectionDecision(getSrcNetworkId(3), 1, height, btpLocalHeader.Round,
 		types.NetworkTypeSection{
 			NextProofContextHash: btpLocalHeader.NextProofContextHash,
 			NetworkSectionsRoot:  GetNetworkSectionRoot(&btpLocalHeader),
 		})
-
-	fmt.Println("decision value: ")
 
 	isValid, err := VerifyBtpProof(decision, signedHeader.Signatures, proofContext)
 	assert.NoError(t, err)

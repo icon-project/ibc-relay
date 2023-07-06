@@ -567,14 +567,14 @@ type NetworkSection struct {
 func NewNetworkSection(
 	header *BTPBlockHeader,
 ) *NetworkSection {
-	messageSn := (header.UpdateNumber - header.MessageCount) << 1
-	if header.NextProofContext != nil {
-		messageSn |= 1
-	}
+	// messageSn := (header.UpdateNumber + header.MessageCount) << 1
+	// if header.NextProofContext != nil {
+	// 	messageSn |= 1
+	// }
 
 	return &NetworkSection{
 		Nid:          int64(header.NetworkID),
-		MessageSn:    uint64(messageSn),
+		MessageSn:    uint64(header.UpdateNumber),
 		Prev:         header.PrevNetworkSectionHash,
 		MessageCount: int64(header.MessageCount),
 		MessageRoot:  header.MessageRoot,
@@ -622,7 +622,7 @@ func (h *NetworkTypeSectionDecision) Encode() []byte {
 }
 
 func (h *NetworkTypeSectionDecision) Hash() []byte {
-	return relayer_common.Sha3keccak256(codec.RLP.MustMarshalToBytes(h))
+	return relayer_common.Sha3keccak256(h.Encode())
 }
 
 func (h *NetworkTypeSection) Encode() []byte {
@@ -630,5 +630,5 @@ func (h *NetworkTypeSection) Encode() []byte {
 }
 
 func (h *NetworkTypeSection) Hash() []byte {
-	return (codec.RLP.MustMarshalToBytes(h))
+	return relayer_common.Sha3keccak256(h.Encode())
 }
