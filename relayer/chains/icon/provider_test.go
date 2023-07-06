@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 
 	"github.com/stretchr/testify/assert"
@@ -47,7 +49,7 @@ func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
 		BTPNetworkTypeID:  1,
 		IbcHandlerAddress: contractAddress,
 		RPCAddr:           "http://localhost:9082/api/v3",
-		// RPCAddr: "http://localhost:9999",
+		// RPCAddr: "https://berlin.net.solidwallet.io/api/v3",
 		Timeout: "20s",
 	}
 	log, _ := zap.NewProduction()
@@ -428,13 +430,54 @@ func TestHash(t *testing.T) {
 	// assert.Equal(common.Sha3keccak256(b))
 }
 
-// goloop rpc sendtx call \
-//     --uri http://localhost:9082/api/v3  \
-//     --nid 3 \
-//     --step_limit 1000000000\
-//     --to cxc3c1f693b1616860d9f709d9c85b5f613ea2dbdb \
-//     --method sendCallMessage \
-//     --param _to=eth \
-//         --param _data=0x6e696c696e \
-//     --key_store /Users/viveksharmapoudel/keystore/godWallet.json \
-//     --key_password gochain
+func TestUpdateClientHeader(t *testing.T) {
+
+	p := GetMockIconProvider(2, "dddd")
+
+	height := int64(201)
+	header, _ := p.GetBtpHeader(height)
+	proofContext, _ := p.GetProofContextByHeight(height - 1)
+
+	cs, _ := p.MsgUpdateClientHeader(NewIconIBCHeader(header, proofContext, height), clienttypes.Height{}, nil)
+
+	signedHeader, ok := cs.(*icon.SignedHeader)
+	assert.True(t, ok)
+
+	fmt.Println("update number is ", header.UpdateNumber)
+
+	btpLocalHeader := types.BTPBlockHeader{
+		MainHeight:             signedHeader.Header.MainHeight,
+		Round:                  int32(signedHeader.Header.Round),
+		NextProofContextHash:   signedHeader.Header.NextProofContextHash,
+		NetworkSectionToRoot:   signedHeader.Header.NetworkSectionToRoot,
+		NetworkID:              signedHeader.Header.NetworkId,
+		UpdateNumber:           header.UpdateNumber,
+		PrevNetworkSectionHash: signedHeader.Header.PrevNetworkSectionHash,
+		MessageCount:           signedHeader.Header.MessageCount,
+		MessageRoot:            signedHeader.Header.MessageRoot,
+		// NextProofContext:       signedHeader.Header.NextProofContext,
+	}
+	networkSection := types.NewNetworkSection(&btpLocalHeader)
+	fmt.Printf("newtworkSection :%x \n", networkSection.Encode())
+	decision := types.NewNetworkTypeSectionDecision(getSrcNetworkId(3), 1, height, btpLocalHeader.Round,
+		types.NetworkTypeSection{
+			NextProofContextHash: btpLocalHeader.NextProofContextHash,
+			NetworkSectionsRoot:  GetNetworkSectionRoot(&btpLocalHeader),
+		})
+
+	fmt.Println("decision value: ")
+
+	isValid, err := VerifyBtpProof(decision, signedHeader.Signatures, proofContext)
+	assert.NoError(t, err)
+
+	assert.True(t, isValid)
+}
+
+func TestValue(t *testing.T) {
+	updateNumber := (17 - 3) << 1
+	if false {
+		updateNumber |= 1
+	}
+
+	fmt.Println(updateNumber)
+}

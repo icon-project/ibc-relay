@@ -143,6 +143,8 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	return err
 }
 
+// clientState ->  2022 ->  4000
+
 func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) error {
 	// TODO:
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
@@ -319,8 +321,14 @@ loop:
 					)
 					break
 				}
+
+				// TODO: this is temporary adjustment
+				// if icp.firstTime {
+				// 	time.Sleep(4000 * time.Millisecond)
+				// } else {
+				// 	time.Sleep(100 * time.Millisecond)
+				// }
 				icp.firstTime = false
-				time.Sleep(100 * time.Millisecond)
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}

@@ -558,7 +558,7 @@ type ValidatorSignatures struct {
 
 type NetworkSection struct {
 	Nid          int64
-	UpdateNumber int64
+	MessageSn    uint64
 	Prev         []byte
 	MessageCount int64
 	MessageRoot  []byte
@@ -567,9 +567,14 @@ type NetworkSection struct {
 func NewNetworkSection(
 	header *BTPBlockHeader,
 ) *NetworkSection {
+	messageSn := (header.UpdateNumber - header.MessageCount) << 1
+	if header.NextProofContext != nil {
+		messageSn |= 1
+	}
+
 	return &NetworkSection{
 		Nid:          int64(header.NetworkID),
-		UpdateNumber: int64(header.UpdateNumber),
+		MessageSn:    uint64(messageSn),
 		Prev:         header.PrevNetworkSectionHash,
 		MessageCount: int64(header.MessageCount),
 		MessageRoot:  header.MessageRoot,
@@ -577,6 +582,53 @@ func NewNetworkSection(
 }
 
 func (h *NetworkSection) Hash() []byte {
-	return relayer_common.Sha3keccak256(codec.RLP.MustMarshalToBytes(h))
+	return relayer_common.Sha3keccak256(h.Encode())
+}
+func (h *NetworkSection) Encode() []byte {
+	return codec.RLP.MustMarshalToBytes(h)
+}
 
+type NetworkTypeSection struct {
+	NextProofContextHash []byte
+	NetworkSectionsRoot  []byte
+}
+
+type NetworkTypeSectionDecision struct {
+	SrcNetworkID           string
+	NetworkTypeId          int64
+	Height                 int64
+	Round                  int32
+	NetworkTypeSectionHash []byte
+	// mod                    module.NetworkTypeModule
+}
+
+func NewNetworkTypeSectionDecision(SrcNetworkID string,
+	NetworkTypeId int64,
+	Height int64,
+	Round int32,
+	networkTypeSection NetworkTypeSection,
+) *NetworkTypeSectionDecision {
+	return &NetworkTypeSectionDecision{
+		SrcNetworkID,
+		NetworkTypeId,
+		Height,
+		Round,
+		(networkTypeSection.Hash()),
+	}
+}
+
+func (h *NetworkTypeSectionDecision) Encode() []byte {
+	return codec.RLP.MustMarshalToBytes(h)
+}
+
+func (h *NetworkTypeSectionDecision) Hash() []byte {
+	return relayer_common.Sha3keccak256(codec.RLP.MustMarshalToBytes(h))
+}
+
+func (h *NetworkTypeSection) Encode() []byte {
+	return codec.RLP.MustMarshalToBytes(h)
+}
+
+func (h *NetworkTypeSection) Hash() []byte {
+	return (codec.RLP.MustMarshalToBytes(h))
 }
