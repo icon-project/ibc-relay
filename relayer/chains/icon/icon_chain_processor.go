@@ -143,10 +143,8 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	return err
 }
 
-// clientState ->  2022 ->  4000
-
 func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) error {
-	// TODO:
+	// TODO: review
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
@@ -220,6 +218,7 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 	return icp.latestBlock.Height
 }
 
+// TODO: review add verifier
 func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *queryCyclePersistence) error {
 
 	errCh := make(chan error)                                            // error channel
@@ -296,6 +295,8 @@ loop:
 			}(ctxMonitorBlock, cancelMonitorBlock)
 		case br := <-btpBlockRespCh:
 			for ; br != nil; processedheight++ {
+
+				// TODO: review remove Lock
 				icp.latestBlockMu.Lock()
 				icp.latestBlock = provider.LatestBlock{
 					Height: uint64(processedheight),

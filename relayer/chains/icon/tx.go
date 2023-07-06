@@ -783,6 +783,7 @@ func (icp *IconProvider) SendIconTransaction(
 	return nil
 }
 
+// TODO: review try to remove wait for Tx from packet-transfer and only use this for client and connection creation
 func (icp *IconProvider) WaitForTxResult(
 	asyncCtx context.Context,
 	txHash []byte,
