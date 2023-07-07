@@ -412,7 +412,7 @@ func (ap *ArchwayProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionI
 	counterparty := conntypes.Counterparty{
 		ClientId:     msgOpenInit.ClientID,
 		ConnectionId: msgOpenInit.ConnID,
-		Prefix:       defaultChainPrefix,
+		Prefix:       msgOpenInit.CommitmentPrefix,
 	}
 
 	params := &conntypes.MsgConnectionOpenTry{
@@ -1095,6 +1095,9 @@ func (ap *ArchwayProvider) waitForTxResult(
 			return nil, fmt.Errorf("timed out after: %d; %s", waitTimeout, ErrTimeoutAfterWaitingForTxBroadcast)
 		case <-time.After(time.Millisecond * 100):
 			res, err := ap.RPCClient.Tx(ctx, txHash, false)
+			if err == nil && res == nil {
+				continue
+			}
 			if err == nil {
 				return ap.mkTxResult(res)
 			}
