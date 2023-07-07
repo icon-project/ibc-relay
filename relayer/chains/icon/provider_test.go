@@ -123,7 +123,9 @@ func TestMsgOpenTryProof(t *testing.T) {
 		Counterparty: &icn.Counterparty{
 			ClientId:     msgOpenTry.ClientId,
 			ConnectionId: "",
-			Prefix:       &defaultChainPrefix,
+			Prefix: &icon.MerklePrefix{
+				KeyPrefix: []byte("commitments"),
+			},
 		},
 	}
 	key = common.GetConnectionCommitmentKey("connection-0")
