@@ -1,6 +1,7 @@
 package icon
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sort"
@@ -66,8 +67,9 @@ type IconChainProcessor struct {
 }
 
 type Verifier struct {
-	nextProofContext [][]byte
-	verifiedHeight   int64
+	nextProofContext       [][]byte
+	verifiedHeight         int64
+	prevNetworkSectionHash []byte
 }
 
 func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
@@ -459,6 +461,12 @@ func (icp *IconChainProcessor) verifyBlock(ctx context.Context, ibcHeader provid
 		return nil
 	}
 
+	// prevNetworkSectionHash would be nil for first block
+	if icp.verifier.prevNetworkSectionHash != nil &&
+		!bytes.Equal(icp.verifier.prevNetworkSectionHash, header.Header.PrevNetworkSectionHash) {
+		return fmt.Errorf("failed to match prevNetworkSectionHash")
+	}
+
 	sigs, err := icp.chainProvider.GetBTPProof(int64(header.MainHeight))
 	if err != nil {
 		return err
@@ -482,8 +490,10 @@ func (icp *IconChainProcessor) verifyBlock(ctx context.Context, ibcHeader provid
 	if !valid {
 		return fmt.Errorf("failed to Verify block")
 	}
+
 	icp.verifier.nextProofContext = header.Validators
 	icp.verifier.verifiedHeight = int64(header.Height())
+	icp.verifier.prevNetworkSectionHash = types.NewNetworkSection(header.Header).Hash()
 	return nil
 }
 
