@@ -61,6 +61,13 @@ type IconChainProcessor struct {
 
 	// metrics to monitor lifetime of processor
 	metrics *processor.PrometheusMetrics
+
+	verifier *Verifier
+}
+
+type Verifier struct {
+	nextProofContext [][]byte
+	verifiedHeight   int64
 }
 
 func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
@@ -295,13 +302,20 @@ loop:
 			}(ctxMonitorBlock, cancelMonitorBlock)
 		case br := <-btpBlockRespCh:
 			for ; br != nil; processedheight++ {
+				// verify BTP Block
+				err := icp.verifyBlock(ctx, br.Header)
+				if err != nil {
+					reconnect()
+					icp.log.Warn("failed to Verify BTP Block",
+						zap.Int64("got", br.Height),
+						zap.Error(err),
+					)
+					break
+				}
 
-				// TODO: review remove Lock
-				icp.latestBlockMu.Lock()
 				icp.latestBlock = provider.LatestBlock{
 					Height: uint64(processedheight),
 				}
-				icp.latestBlockMu.Unlock()
 
 				ibcMessage := parseIBCMessagesFromEventlog(icp.log, br.EventLogs, uint64(br.Height))
 				ibcMessageCache := processor.NewIBCMessagesCache()
@@ -314,7 +328,7 @@ loop:
 				icp.log.Info("Queried Latest height: ",
 					zap.String("chain id ", icp.chainProvider.ChainId()),
 					zap.Int64("height", br.Height))
-				err := icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
+				err = icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
 				if err != nil {
 					reconnect()
 					icp.log.Warn("Reconnect: error occured during handle block response  ",
@@ -346,11 +360,6 @@ loop:
 				requestCh := make(chan *btpBlockRequest, cap(btpBlockNotifCh))
 				for i := int64(0); bn != nil; i++ {
 					height, err := bn.Height.Value()
-
-					// icp.log.Info("for loop when receiving blockNotification",
-					// 	zap.Int64("height", height),
-					// 	zap.Int64("index", i),
-					// 	zap.Int64("processedheight", processedheight))
 
 					if err != nil {
 						return err
@@ -426,6 +435,56 @@ loop:
 			}
 		}
 	}
+}
+
+func (icp *IconChainProcessor) verifyBlock(ctx context.Context, ibcHeader provider.IBCHeader) error {
+	header, ok := ibcHeader.(IconIBCHeader)
+	if !ok {
+		return fmt.Errorf("Provided Header is not compatible with IBCHeader")
+	}
+	if icp.firstTime {
+		proofContext, err := icp.chainProvider.GetProofContextByHeight(int64(header.MainHeight) - 1)
+		if err != nil {
+			return err
+		}
+		icp.verifier = &Verifier{
+			nextProofContext: proofContext,
+			verifiedHeight:   int64(header.MainHeight) - 1,
+		}
+	}
+
+	if !ibcHeader.IsCompleteBlock() {
+		icp.verifier.nextProofContext = header.Validators
+		icp.verifier.verifiedHeight = int64(header.Height())
+		return nil
+	}
+
+	sigs, err := icp.chainProvider.GetBTPProof(int64(header.MainHeight))
+	if err != nil {
+		return err
+	}
+
+	decision := types.NewNetworkTypeSectionDecision(
+		getSrcNetworkId(icp.chainProvider.PCfg.ICONNetworkID),
+		icp.chainProvider.PCfg.BTPNetworkTypeID,
+		int64(header.MainHeight),
+		header.Header.Round,
+		types.NetworkTypeSection{
+			NextProofContextHash: header.Header.NextProofContextHash,
+			NetworkSectionsRoot:  GetNetworkSectionRoot(header.Header),
+		})
+
+	valid, err := VerifyBtpProof(decision, sigs, icp.verifier.nextProofContext)
+	if err != nil {
+		return err
+	}
+
+	if !valid {
+		return fmt.Errorf("failed to Verify block")
+	}
+	icp.verifier.nextProofContext = header.Validators
+	icp.verifier.verifiedHeight = int64(header.Height())
+	return nil
 }
 
 func (icp *IconChainProcessor) handleBTPBlockRequest(

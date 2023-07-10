@@ -152,10 +152,8 @@ func VerifyBtpProof(decision *types.NetworkTypeSectionDecision, proof [][]byte, 
 
 	numVotes := 0
 	validators := make(map[types.HexBytes]struct{})
-	for i, val := range listValidators {
-
+	for _, val := range listValidators {
 		validators[types.NewHexBytes(val)] = struct{}{}
-		fmt.Printf("validator: %d  value :%x \n", i, val)
 	}
 
 	for _, raw_sig := range proof {
@@ -165,19 +163,16 @@ func VerifyBtpProof(decision *types.NetworkTypeSectionDecision, proof [][]byte, 
 		}
 		pubkey, err := sig.RecoverPublicKey(decision.Hash())
 		if err != nil {
-			fmt.Println("error when generating pubkey", err)
 			continue
 		}
 
 		address, err := newEthAddressFromPubKey(pubkey.SerializeCompressed())
 		if err != nil {
-			fmt.Printf("error %v \n ", err)
 			continue
 		}
 		if address == nil {
 			continue
 		}
-		fmt.Printf("address %x \n", address)
 		if _, ok := validators[types.NewHexBytes(address)]; !ok {
 			continue
 		}
