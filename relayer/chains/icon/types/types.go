@@ -558,7 +558,7 @@ type ValidatorSignatures struct {
 
 type NetworkSection struct {
 	Nid          int64
-	MessageSn    uint64
+	UpdateNumber uint64
 	Prev         []byte
 	MessageCount int64
 	MessageRoot  []byte
@@ -567,14 +567,10 @@ type NetworkSection struct {
 func NewNetworkSection(
 	header *BTPBlockHeader,
 ) *NetworkSection {
-	// messageSn := (header.UpdateNumber + header.MessageCount) << 1
-	// if header.NextProofContext != nil {
-	// 	messageSn |= 1
-	// }
 
 	return &NetworkSection{
 		Nid:          int64(header.NetworkID),
-		MessageSn:    uint64(header.UpdateNumber),
+		UpdateNumber: uint64(header.UpdateNumber), //
 		Prev:         header.PrevNetworkSectionHash,
 		MessageCount: int64(header.MessageCount),
 		MessageRoot:  header.MessageRoot,
@@ -599,7 +595,6 @@ type NetworkTypeSectionDecision struct {
 	Height                 int64
 	Round                  int32
 	NetworkTypeSectionHash []byte
-	// mod                    module.NetworkTypeModule
 }
 
 func NewNetworkTypeSectionDecision(SrcNetworkID string,
