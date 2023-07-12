@@ -641,9 +641,9 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
-	// if state, ok := icp.latestClientState[clientID]; ok {
-	// 	return state, nil
-	// }
+	if state, ok := icp.latestClientState[clientID]; ok {
+		return state, nil
+	}
 	cs, err := icp.chainProvider.QueryClientStateWithoutProof(ctx, int64(icp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err
