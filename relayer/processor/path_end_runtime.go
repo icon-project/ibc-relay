@@ -577,6 +577,9 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 			// this message was sent less than blocksToRetrySendAfter ago, do not attempt to send again yet.
 			return false
 		}
+		if inProgress.retryCount <= 1 && blocksSinceLastProcessed < pathEnd.chainProvider.FirstRetryBlockAfter() {
+			return false
+		}
 	} else {
 		if blocksSinceLastProcessed < blocksToRetryAssemblyAfter {
 			// this message was sent less than blocksToRetryAssemblyAfter ago, do not attempt assembly again yet.
