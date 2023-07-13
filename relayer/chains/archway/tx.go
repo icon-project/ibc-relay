@@ -764,7 +764,7 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 	}
 
 	//uncomment for saving msg
-	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+	// SaveMsgToFile(ArchwayDebugMessagePath, msgs)
 
 	return nil
 
