@@ -283,20 +283,28 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 	for seq, info := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
+	}
+	// 	if len(info.Ack) == 0 {
+	// 		// have recv_packet but not write_acknowledgement yet. skip for now.
+	// 		continue
+	// 	}
+	// 	// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
+	// 	ackMsg := packetIBCMessage{
+	// 		eventType: chantypes.EventTypeAcknowledgePacket,
+	// 		info:      info,
+	// 	}
+	// 	msgs = append(msgs, ackMsg)
+	// }
 
-		if len(info.Ack) == 0 {
-			// have recv_packet but not write_acknowledgement yet. skip for now.
-			continue
-		}
-		// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
+	processRemovals()
+
+	for _, info := range pathEndPacketFlowMessages.DstMsgWriteAcknowledgementPacket {
 		ackMsg := packetIBCMessage{
 			eventType: chantypes.EventTypeAcknowledgePacket,
 			info:      info,
 		}
 		msgs = append(msgs, ackMsg)
 	}
-
-	processRemovals()
 
 	for seq, msgTimeoutRequest := range pathEndPacketFlowMessages.DstMsgRequestTimeout {
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
@@ -1075,6 +1083,27 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 
 	for i, pair := range channelPairs {
 		// Append acks into recv packet info if present
+		// pathEnd1DstMsgRecvPacket :=
+		// for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
+		// 	if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
+		// 		recvPacketInfo.Ack = ackInfo.Ack
+		// 		pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
+		// 		continue
+		// 	}
+		// 	pathEnd1DstMsgRecvPacket[seq] = ackInfo
+
+		// }
+
+		// pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
+		// for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
+		// 	if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
+		// 		recvPacketInfo.Ack = ackInfo.Ack
+		// 		pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
+		// 		continue
+		// 	}
+
+		// 	pathEnd2DstMsgRecvPacket[seq] = ackInfo
+		// }
 		pathEnd1DstMsgRecvPacket := pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket]
 		for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
 			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
@@ -1092,29 +1121,31 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 		}
 
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
-			Src:                   pp.pathEnd1,
-			Dst:                   pp.pathEnd2,
-			ChannelKey:            pair.pathEnd1ChannelKey,
-			SrcPreTransfer:        pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][preInitKey],
-			SrcMsgTransfer:        pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:      pathEnd1DstMsgRecvPacket,
-			SrcMsgAcknowledgement: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
-			SrcMsgTimeout:         pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
-			DstMsgRequestTimeout:      pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][common.EventTimeoutRequest],
+			Src:                              pp.pathEnd1,
+			Dst:                              pp.pathEnd2,
+			ChannelKey:                       pair.pathEnd1ChannelKey,
+			SrcPreTransfer:                   pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][preInitKey],
+			SrcMsgTransfer:                   pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeSendPacket],
+			DstMsgRecvPacket:                 pathEnd1DstMsgRecvPacket,
+			DstMsgWriteAcknowledgementPacket: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck],
+			SrcMsgAcknowledgement:            pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
+			SrcMsgTimeout:                    pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
+			SrcMsgTimeoutOnClose:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			DstMsgRequestTimeout:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][common.EventTimeoutRequest],
 		}
 
 		pathEnd2PacketFlowMessages := pathEndPacketFlowMessages{
-			Src:                   pp.pathEnd2,
-			Dst:                   pp.pathEnd1,
-			ChannelKey:            pair.pathEnd2ChannelKey,
-			SrcPreTransfer:        pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd1ChannelKey][preInitKey],
-			SrcMsgTransfer:        pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:      pathEnd2DstMsgRecvPacket,
-			SrcMsgAcknowledgement: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
-			SrcMsgTimeout:         pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:  pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
-			DstMsgRequestTimeout:      pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][common.EventTimeoutRequest],
+			Src:                              pp.pathEnd2,
+			Dst:                              pp.pathEnd1,
+			ChannelKey:                       pair.pathEnd2ChannelKey,
+			SrcPreTransfer:                   pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd1ChannelKey][preInitKey],
+			SrcMsgTransfer:                   pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeSendPacket],
+			DstMsgRecvPacket:                 pathEnd2DstMsgRecvPacket,
+			DstMsgWriteAcknowledgementPacket: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck],
+			SrcMsgAcknowledgement:            pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
+			SrcMsgTimeout:                    pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
+			SrcMsgTimeoutOnClose:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
+			DstMsgRequestTimeout:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][common.EventTimeoutRequest],
 		}
 
 		pathEnd1ProcessRes[i] = pp.unrelayedPacketFlowMessages(ctx, pathEnd1PacketFlowMessages)
