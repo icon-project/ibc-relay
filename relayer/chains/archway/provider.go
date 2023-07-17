@@ -17,6 +17,8 @@ import (
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+
 	prov "github.com/cometbft/cometbft/light/provider/http"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
@@ -42,26 +44,27 @@ var (
 )
 
 type ArchwayProviderConfig struct {
-	KeyDirectory      string                  `json:"key-directory" yaml:"key-directory"`
-	Key               string                  `json:"key" yaml:"key"`
-	ChainName         string                  `json:"-" yaml:"-"`
-	ChainID           string                  `json:"chain-id" yaml:"chain-id"`
-	RPCAddr           string                  `json:"rpc-addr" yaml:"rpc-addr"`
-	AccountPrefix     string                  `json:"account-prefix" yaml:"account-prefix"`
-	KeyringBackend    string                  `json:"keyring-backend" yaml:"keyring-backend"`
-	GasAdjustment     float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
-	GasPrices         string                  `json:"gas-prices" yaml:"gas-prices"`
-	MinGasAmount      uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
-	Debug             bool                    `json:"debug" yaml:"debug"`
-	Timeout           string                  `json:"timeout" yaml:"timeout"`
-	BlockTimeout      string                  `json:"block-timeout" yaml:"block-timeout"`
-	OutputFormat      string                  `json:"output-format" yaml:"output-format"`
-	SignModeStr       string                  `json:"sign-mode" yaml:"sign-mode"`
-	ExtraCodecs       []string                `json:"extra-codecs" yaml:"extra-codecs"`
-	Modules           []module.AppModuleBasic `json:"-" yaml:"-"`
-	Slip44            int                     `json:"coin-type" yaml:"coin-type"`
-	Broadcast         provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
-	IbcHandlerAddress string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	KeyDirectory         string                  `json:"key-directory" yaml:"key-directory"`
+	Key                  string                  `json:"key" yaml:"key"`
+	ChainName            string                  `json:"-" yaml:"-"`
+	ChainID              string                  `json:"chain-id" yaml:"chain-id"`
+	RPCAddr              string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	AccountPrefix        string                  `json:"account-prefix" yaml:"account-prefix"`
+	KeyringBackend       string                  `json:"keyring-backend" yaml:"keyring-backend"`
+	GasAdjustment        float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
+	GasPrices            string                  `json:"gas-prices" yaml:"gas-prices"`
+	MinGasAmount         uint64                  `json:"min-gas-amount" yaml:"min-gas-amount"`
+	Debug                bool                    `json:"debug" yaml:"debug"`
+	Timeout              string                  `json:"timeout" yaml:"timeout"`
+	BlockTimeout         string                  `json:"block-timeout" yaml:"block-timeout"`
+	OutputFormat         string                  `json:"output-format" yaml:"output-format"`
+	SignModeStr          string                  `json:"sign-mode" yaml:"sign-mode"`
+	ExtraCodecs          []string                `json:"extra-codecs" yaml:"extra-codecs"`
+	Modules              []module.AppModuleBasic `json:"-" yaml:"-"`
+	Slip44               int                     `json:"coin-type" yaml:"coin-type"`
+	Broadcast            provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
+	IbcHandlerAddress    string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
+	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 }
 
 type ArchwayIBCHeader struct {
@@ -313,7 +316,9 @@ func (ap *ArchwayProvider) Init(ctx context.Context) error {
 		WithTxConfig(app.MakeEncodingConfig().TxConfig).
 		WithSkipConfirmation(true).
 		WithBroadcastMode("sync").
-		WithCodec(ap.Cdc.Marshaler)
+		WithCodec(ap.Cdc.Marshaler).
+		WithInterfaceRegistry(ap.Cdc.InterfaceRegistry).
+		WithAccountRetriever(authtypes.AccountRetriever{})
 
 	addr, _ := ap.GetKeyAddress()
 	if addr != nil {
@@ -449,6 +454,13 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 
 func (app *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented for Icon")
+}
+
+func (cc *ArchwayProvider) FirstRetryBlockAfter() uint64 {
+	if cc.PCfg.FirstRetryBlockAfter != 0 {
+		return cc.PCfg.FirstRetryBlockAfter
+	}
+	return 3
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
