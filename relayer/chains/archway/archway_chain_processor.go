@@ -16,6 +16,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cometbft/cometbft/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -53,6 +54,12 @@ type ArchwayChainProcessor struct {
 
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
+
+	verifier *Verifier
+}
+
+type Verifier struct {
+	verifiedHeader *types.LightBlock
 }
 
 func NewArchwayChainProcessor(log *zap.Logger, provider *ArchwayProvider, metrics *processor.PrometheusMetrics) *ArchwayChainProcessor {
@@ -214,7 +221,6 @@ func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory u
 			continue
 		}
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 		break
 	}
 
@@ -227,6 +233,19 @@ func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory u
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
+	_, lightBlock, err := ccp.chainProvider.QueryLightBlock(ctx, persistence.latestQueriedBlock)
+	if err != nil {
+		ccp.log.Error("Failed to get ibcHeader",
+			zap.Int64("height", persistence.latestQueriedBlock),
+			zap.Any("error", err),
+		)
+		return err
+	}
+
+	ccp.verifier = &Verifier{
+		verifiedHeader: lightBlock,
+	}
+
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return ccp.initializeConnectionState(ctx)
@@ -238,7 +257,7 @@ func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory u
 		return err
 	}
 
-	ccp.log.Debug("Entering main query loop")
+	ccp.log.Debug("Entering Archway main query loop")
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
@@ -359,6 +378,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var ibcHeader provider.IBCHeader
+		var lightBlock *types.LightBlock
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
@@ -370,7 +390,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			ibcHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -379,7 +399,16 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 			break
 		}
 
-		latestHeader = ibcHeader.(ArchwayIBCHeader)
+		if err := ccp.Verify(ctx, lightBlock); err != nil {
+			ccp.log.Error("failed to Verify Archway Header", zap.Int64("Height", blockRes.Height))
+			return err
+		}
+
+		latestHeader, ok := ibcHeader.(ArchwayIBCHeader)
+		if !ok {
+			ccp.log.Warn("Failed to convert ibcHeader to archwayIbcHeader", zap.Int64("Height", int64(ibcHeader.Height())))
+			return fmt.Errorf("Error type conversion from ibcHeader to ArchwayIbcHeader")
+		}
 
 		heightUint64 := uint64(i)
 
@@ -463,6 +492,30 @@ func (ccp *ArchwayChainProcessor) CollectMetrics(ctx context.Context, persistenc
 
 func (ccp *ArchwayChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
+}
+
+func (ccp *ArchwayChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
+
+	// is height h+1
+	if untrusted.Height != ccp.verifier.verifiedHeader.Height()+1 {
+		return errors.New("headers must be adjacent in height")
+	}
+
+	// calculating the validator_hash
+	// merkle.HashFromByteSlices(bzs)
+
+	// if !bytes.Equal(untrustedHeader.SignedHeader.Header.ValidatorsHash) {
+	// 	return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
+	// 		untrustedHeader.ValidatorsHash,
+	// 		untrustedVals.Hash(),
+	// 		untrustedHeader.Height,
+	// 	)
+	// }
+
+	//
+
+	return nil
+
 }
 
 // func (ccp *ArchwayChainProcessor) CurrentRelayerBalance(ctx context.Context) {
