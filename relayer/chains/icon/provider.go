@@ -61,6 +61,7 @@ type IconProviderConfig struct {
 	BTPHeight            int64  `json:"start-btp-height" yaml:"start-btp-height"`
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
+	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -177,7 +178,8 @@ func (h IconIBCHeader) IsCompleteBlock() bool {
 func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	if h.IsBTPBlock {
 		return &icon.ConsensusState{
-			MessageRoot: h.Header.MessageRoot,
+			MessageRoot:          h.Header.MessageRoot,
+			NextProofContextHash: h.Header.NextProofContextHash,
 		}
 	}
 	return &icon.ConsensusState{}
@@ -240,25 +242,20 @@ func (icp *IconProvider) NewClientState(
 		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
 	}
 
-	validatorSet, err := icp.GetProofContextByHeight(int64(dstUpdateHeader.Height()))
-	if err != nil {
-		return nil, err
+	if icp.PCfg.BlockInterval == 0 {
+		return nil, fmt.Errorf("Blockinterval cannot be empty in Icon config")
 	}
-
-	iconHeader := dstUpdateHeader.(IconIBCHeader)
-
-	networkSectionhash := types.NewNetworkSection(iconHeader.Header).Hash()
+	trustingBlockPeriod := uint64(dstTrustingPeriod) / icp.PCfg.BlockInterval
 
 	return &icon.ClientState{
-		TrustingPeriod:     uint64(dstTrustingPeriod),
-		FrozenHeight:       0,
-		MaxClockDrift:      3600,
-		LatestHeight:       dstUpdateHeader.Height(),
-		NetworkSectionHash: networkSectionhash,
-		Validators:         validatorSet,
-		SrcNetworkId:       getSrcNetworkId(icp.PCfg.ICONNetworkID),
-		NetworkId:          uint64(icp.PCfg.BTPNetworkID),
-		NetworkTypeId:      uint64(icp.PCfg.BTPNetworkTypeID),
+		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration
+		TrustingPeriod: uint64(trustingBlockPeriod),
+		FrozenHeight:   0,
+		MaxClockDrift:  3600,
+		LatestHeight:   dstUpdateHeader.Height(),
+		SrcNetworkId:   getSrcNetworkId(icp.PCfg.ICONNetworkID),
+		NetworkId:      uint64(icp.PCfg.BTPNetworkID),
+		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
 	}, nil
 
 }
