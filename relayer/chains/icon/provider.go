@@ -58,7 +58,7 @@ type IconProviderConfig struct {
 	ICONNetworkID        int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
 	BTPNetworkID         int64  `json:"btp-network-id" yaml:"btp-network-id"`
 	BTPNetworkTypeID     int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	BTPHeight            int64  `json:"start-btp-height" yaml:"start-btp-height"`
+	StartHeight          int64  `json:"start-height" yaml:"start-height"`
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
@@ -102,12 +102,12 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	codec := MakeCodec(ModuleBasics, []string{})
 
 	return &IconProvider{
-		log:                log.With(zap.String("sys", "chain_client")),
-		client:             NewClient(pp.getRPCAddr(), log),
-		PCfg:               pp,
-		wallet:             wallet,
-		lastBTPBlockHeight: uint64(pp.BTPHeight),
-		codec:              codec,
+		log:         log.With(zap.String("sys", "chain_client")),
+		client:      NewClient(pp.getRPCAddr(), log),
+		PCfg:        pp,
+		wallet:      wallet,
+		StartHeight: uint64(pp.StartHeight),
+		codec:       codec,
 	}, nil
 }
 
@@ -124,15 +124,14 @@ func (pp IconProviderConfig) BroadcastMode() provider.BroadcastMode {
 }
 
 type IconProvider struct {
-	log                  *zap.Logger
-	PCfg                 *IconProviderConfig
-	txMu                 sync.Mutex
-	client               *Client
-	wallet               module.Wallet
-	metrics              *processor.PrometheusMetrics
-	codec                Codec
-	lastBTPBlockHeight   uint64
-	lastBTPBlockHeightMu sync.Mutex
+	log         *zap.Logger
+	PCfg        *IconProviderConfig
+	txMu        sync.Mutex
+	client      *Client
+	wallet      module.Wallet
+	metrics     *processor.PrometheusMetrics
+	codec       Codec
+	StartHeight uint64
 }
 
 type IconIBCHeader struct {
