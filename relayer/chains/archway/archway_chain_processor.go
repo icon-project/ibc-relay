@@ -405,6 +405,9 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 			return err
 		}
 
+		ccp.log.Debug("Archway chain processor Verified block ",
+			zap.Int64("height", lightBlock.Header.Height))
+
 		latestHeader, ok := ibcHeader.(ArchwayIBCHeader)
 		if !ok {
 			ccp.log.Warn("Failed to convert ibcHeader to archwayIbcHeader", zap.Int64("Height", int64(ibcHeader.Height())))
@@ -521,6 +524,8 @@ func (ccp *ArchwayChainProcessor) Verify(ctx context.Context, untrusted *types.L
 		untrusted.Header.Height, untrusted.Commit); err != nil {
 		return fmt.Errorf("invalid header: %v", err)
 	}
+
+	ccp.verifier.Header = untrusted
 
 	return nil
 
