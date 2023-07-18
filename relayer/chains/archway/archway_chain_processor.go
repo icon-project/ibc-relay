@@ -364,21 +364,17 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 	}
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
-
 	ibcHeaderCache := make(processor.IBCHeaderCache)
 
 	ppChanged := false
 
-	var latestHeader ArchwayIBCHeader
-
 	newLatestQueriedBlock := persistence.latestQueriedBlock
-
 	chainID := ccp.chainProvider.ChainId()
+	var latestHeader provider.IBCHeader
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
-		var ibcHeader provider.IBCHeader
 		var lightBlock *types.LightBlock
 		i := i
 		eg.Go(func() (err error) {
@@ -391,7 +387,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			ibcHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
+			latestHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -405,20 +401,13 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 			return err
 		}
 
-		ccp.log.Debug("Archway chain processor Verified block ",
+		ccp.log.Debug("Verified block ",
 			zap.Int64("height", lightBlock.Header.Height))
-
-		latestHeader, ok := ibcHeader.(ArchwayIBCHeader)
-		if !ok {
-			ccp.log.Warn("Failed to convert ibcHeader to archwayIbcHeader", zap.Int64("Height", int64(ibcHeader.Height())))
-			return fmt.Errorf("Error type conversion from ibcHeader to ArchwayIbcHeader")
-		}
 
 		heightUint64 := uint64(i)
 
 		ccp.latestBlock = provider.LatestBlock{
 			Height: heightUint64,
-			// Time:   latestHeader.SignedHeader.Header.Time,
 		}
 
 		ibcHeaderCache[heightUint64] = latestHeader
@@ -504,19 +493,19 @@ func (ccp *ArchwayChainProcessor) Verify(ctx context.Context, untrusted *types.L
 		return errors.New("headers must be adjacent in height")
 	}
 
+	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
+		untrusted.ValidatorSet,
+		ccp.verifier.Header.SignedHeader,
+		time.Now(), 0); err != nil {
+		return fmt.Errorf("Failed to verify Header: %v", err)
+	}
+
 	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
 		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
 			ccp.verifier.Header.NextValidatorsHash,
 			untrusted.Header.ValidatorsHash,
 		)
 		return err
-	}
-
-	if !bytes.Equal(untrusted.Header.ValidatorsHash, untrusted.ValidatorSet.Hash()) {
-		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
-			untrusted.Header.ValidatorsHash,
-			untrusted.ValidatorSet.Hash(),
-			untrusted.Header.Height)
 	}
 
 	// Ensure that +2/3 of new validators signed correctly.
@@ -526,9 +515,49 @@ func (ccp *ArchwayChainProcessor) Verify(ctx context.Context, untrusted *types.L
 	}
 
 	ccp.verifier.Header = untrusted
-
 	return nil
 
+}
+
+func verifyNewHeaderAndVals(
+	untrustedHeader *types.SignedHeader,
+	untrustedVals *types.ValidatorSet,
+	trustedHeader *types.SignedHeader,
+	now time.Time,
+	maxClockDrift time.Duration) error {
+
+	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
+		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
+	}
+
+	if untrustedHeader.Height <= trustedHeader.Height {
+		return fmt.Errorf("expected new header height %d to be greater than one of old header %d",
+			untrustedHeader.Height,
+			trustedHeader.Height)
+	}
+
+	if !untrustedHeader.Time.After(trustedHeader.Time) {
+		return fmt.Errorf("expected new header time %v to be after old header time %v",
+			untrustedHeader.Time,
+			trustedHeader.Time)
+	}
+
+	if !untrustedHeader.Time.Before(now.Add(maxClockDrift)) {
+		return fmt.Errorf("new header has a time from the future %v (now: %v; max clock drift: %v)",
+			untrustedHeader.Time,
+			now,
+			maxClockDrift)
+	}
+
+	if !bytes.Equal(untrustedHeader.ValidatorsHash, untrustedVals.Hash()) {
+		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
+			untrustedHeader.ValidatorsHash,
+			untrustedVals.Hash(),
+			untrustedHeader.Height,
+		)
+	}
+
+	return nil
 }
 
 // func (ccp *ArchwayChainProcessor) CurrentRelayerBalance(ctx context.Context) {
