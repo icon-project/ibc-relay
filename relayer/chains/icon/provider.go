@@ -245,11 +245,12 @@ func (icp *IconProvider) NewClientState(
 	if icp.PCfg.BlockInterval == 0 {
 		return nil, fmt.Errorf("Blockinterval cannot be empty in Icon config")
 	}
-	trustingBlockPeriod := uint64(dstTrustingPeriod) / icp.PCfg.BlockInterval
+
+	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(common.NanosecondRatio))
 
 	return &icon.ClientState{
 		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration
-		TrustingPeriod: uint64(trustingBlockPeriod),
+		TrustingPeriod: trustingBlockPeriod,
 		FrozenHeight:   0,
 		MaxClockDrift:  3600,
 		LatestHeight:   dstUpdateHeader.Height(),
