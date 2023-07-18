@@ -1,6 +1,7 @@
 package archway
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -59,7 +60,7 @@ type ArchwayChainProcessor struct {
 }
 
 type Verifier struct {
-	verifiedHeader *types.LightBlock
+	Header *types.LightBlock
 }
 
 func NewArchwayChainProcessor(log *zap.Logger, provider *ArchwayProvider, metrics *processor.PrometheusMetrics) *ArchwayChainProcessor {
@@ -243,7 +244,7 @@ func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory u
 	}
 
 	ccp.verifier = &Verifier{
-		verifiedHeader: lightBlock,
+		Header: lightBlock,
 	}
 
 	var eg errgroup.Group
@@ -496,23 +497,30 @@ func (ccp *ArchwayChainProcessor) CurrentBlockHeight(ctx context.Context, persis
 
 func (ccp *ArchwayChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
 
-	// is height h+1
-	if untrusted.Height != ccp.verifier.verifiedHeader.Height()+1 {
+	if untrusted.Height != ccp.verifier.Header.Height+1 {
 		return errors.New("headers must be adjacent in height")
 	}
 
-	// calculating the validator_hash
-	// merkle.HashFromByteSlices(bzs)
+	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
+		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
+			ccp.verifier.Header.NextValidatorsHash,
+			untrusted.Header.ValidatorsHash,
+		)
+		return err
+	}
 
-	// if !bytes.Equal(untrustedHeader.SignedHeader.Header.ValidatorsHash) {
-	// 	return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
-	// 		untrustedHeader.ValidatorsHash,
-	// 		untrustedVals.Hash(),
-	// 		untrustedHeader.Height,
-	// 	)
-	// }
+	if !bytes.Equal(untrusted.Header.ValidatorsHash, untrusted.ValidatorSet.Hash()) {
+		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
+			untrusted.Header.ValidatorsHash,
+			untrusted.ValidatorSet.Hash(),
+			untrusted.Header.Height)
+	}
 
-	//
+	// Ensure that +2/3 of new validators signed correctly.
+	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
+		untrusted.Header.Height, untrusted.Commit); err != nil {
+		return fmt.Errorf("invalid header: %v", err)
+	}
 
 	return nil
 
