@@ -508,6 +508,14 @@ func (ccp *ArchwayChainProcessor) Verify(ctx context.Context, untrusted *types.L
 		return err
 	}
 
+	if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
+		err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
+			ccp.verifier.Header.NextValidatorsHash,
+			untrusted.Header.ValidatorsHash,
+		)
+		return err
+	}
+
 	// Ensure that +2/3 of new validators signed correctly.
 	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
 		untrusted.Header.Height, untrusted.Commit); err != nil {
