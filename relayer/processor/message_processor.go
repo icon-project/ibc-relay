@@ -117,19 +117,23 @@ func (mp *messageProcessor) processMessages(
 // Otherwise, it will be attempted if either 2/3 of the trusting period
 // or the configured client update threshold duration has passed.
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
-
+	var err error
 	// handle if dst is IconLightClient
 	if ClientIsIcon(dst.clientState) {
-
 		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
 		if !found {
-			return false, nil
+			header, err = src.chainProvider.QueryIBCHeader(ctx, int64(src.latestBlock.Height))
+			if err != nil {
+				return false, err
+			}
+			if !header.IsCompleteBlock() {
+				return false, nil
+			}
 		}
 
 		if header.ShouldUpdateWithZeroMessage() {
 			return true, nil
 		}
-
 		return false, nil
 	}
 
