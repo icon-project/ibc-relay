@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 import (
 	"context"
@@ -20,10 +20,10 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type ArchwayChainProcessor struct {
+type WasmChainProcessor struct {
 	log *zap.Logger
 
-	chainProvider *ArchwayProvider
+	chainProvider *WasmProvider
 
 	pathProcessors processor.PathProcessors
 
@@ -55,8 +55,8 @@ type ArchwayChainProcessor struct {
 	parsedGasPrices *sdk.DecCoins
 }
 
-func NewArchwayChainProcessor(log *zap.Logger, provider *ArchwayProvider, metrics *processor.PrometheusMetrics) *ArchwayChainProcessor {
-	return &ArchwayChainProcessor{
+func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *processor.PrometheusMetrics) *WasmChainProcessor {
+	return &WasmChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
 		latestClientState:    make(latestClientState),
@@ -82,7 +82,7 @@ const (
 // latestClientState is a map of clientID to the latest clientInfo for that client.
 type latestClientState map[string]provider.ClientState
 
-func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ccp *ArchwayChainProcessor) {
+func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ccp *WasmChainProcessor) {
 	existingClientInfo, ok := l[clientInfo.clientID]
 	var trustingPeriod time.Duration
 	if ok {
@@ -112,19 +112,19 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, cc
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
-func (ccp *ArchwayChainProcessor) Provider() provider.ChainProvider {
+func (ccp *WasmChainProcessor) Provider() provider.ChainProvider {
 	return ccp.chainProvider
 }
 
 // Set the PathProcessors that this ChainProcessor should publish relevant IBC events to.
 // ChainProcessors need reference to their PathProcessors and vice-versa, handled by EventProcessorBuilder.Build().
-func (ccp *ArchwayChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {
+func (ccp *WasmChainProcessor) SetPathProcessors(pathProcessors processor.PathProcessors) {
 	ccp.pathProcessors = pathProcessors
 }
 
 // latestHeightWithRetry will query for the latest height, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *ArchwayChainProcessor) latestHeightWithRetry(ctx context.Context) (latestHeight int64, err error) {
+func (ccp *WasmChainProcessor) latestHeightWithRetry(ctx context.Context) (latestHeight int64, err error) {
 	return latestHeight, retry.Do(func() error {
 		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
 		defer cancelLatestHeightQueryCtx()
@@ -143,7 +143,7 @@ func (ccp *ArchwayChainProcessor) latestHeightWithRetry(ctx context.Context) (la
 
 // nodeStatusWithRetry will query for the latest node status, retrying in case of failure.
 // It will delay by latestHeightQueryRetryDelay between attempts, up to latestHeightQueryRetries.
-func (ccp *ArchwayChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *ctypes.ResultStatus, err error) {
+func (ccp *WasmChainProcessor) nodeStatusWithRetry(ctx context.Context) (status *ctypes.ResultStatus, err error) {
 	return status, retry.Do(func() error {
 		latestHeightQueryCtx, cancelLatestHeightQueryCtx := context.WithTimeout(ctx, queryTimeout)
 		defer cancelLatestHeightQueryCtx()
@@ -162,7 +162,7 @@ func (ccp *ArchwayChainProcessor) nodeStatusWithRetry(ctx context.Context) (stat
 
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
-func (ccp *ArchwayChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
+func (ccp *WasmChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
 	if state, ok := ccp.latestClientState[clientID]; ok && state.TrustingPeriod > 0 {
 		return state, nil
 	}
@@ -191,7 +191,7 @@ type queryCyclePersistence struct {
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
-func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
+func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
 		minQueryLoopDuration:      defaultMinQueryLoopDuration,
@@ -257,7 +257,7 @@ func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory u
 }
 
 // initializeConnectionState will bootstrap the connectionStateCache with the open connection state.
-func (ccp *ArchwayChainProcessor) initializeConnectionState(ctx context.Context) error {
+func (ccp *WasmChainProcessor) initializeConnectionState(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	connections, err := ccp.chainProvider.QueryConnections(ctx)
@@ -277,7 +277,7 @@ func (ccp *ArchwayChainProcessor) initializeConnectionState(ctx context.Context)
 }
 
 // initializeChannelState will bootstrap the channelStateCache with the open channel state.
-func (ccp *ArchwayChainProcessor) initializeChannelState(ctx context.Context) error {
+func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	channels, err := ccp.chainProvider.QueryChannels(ctx)
@@ -304,10 +304,10 @@ func (ccp *ArchwayChainProcessor) initializeChannelState(ctx context.Context) er
 	return nil
 }
 
-func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
+func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
-		// don't want to cause ArchwayChainProcessor to quit here, can retry again next cycle.
+		// don't want to cause WasmChainProcessor to quit here, can retry again next cycle.
 		ccp.log.Error(
 			"Failed to query node status after max attempts",
 			zap.Uint("attempts", latestHeightQueryRetries),
@@ -349,7 +349,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 
 	ppChanged := false
 
-	var latestHeader ArchwayIBCHeader
+	var latestHeader WasmIBCHeader
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
@@ -379,7 +379,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 			break
 		}
 
-		latestHeader = ibcHeader.(ArchwayIBCHeader)
+		latestHeader = ibcHeader.(WasmIBCHeader)
 
 		heightUint64 := uint64(i)
 
@@ -451,7 +451,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 	return nil
 }
 
-func (ccp *ArchwayChainProcessor) CollectMetrics(ctx context.Context, persistence *queryCyclePersistence) {
+func (ccp *WasmChainProcessor) CollectMetrics(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.CurrentBlockHeight(ctx, persistence)
 
 	// Wait a while before updating the balance
@@ -461,11 +461,11 @@ func (ccp *ArchwayChainProcessor) CollectMetrics(ctx context.Context, persistenc
 	}
 }
 
-func (ccp *ArchwayChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
+func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
 }
 
-// func (ccp *ArchwayChainProcessor) CurrentRelayerBalance(ctx context.Context) {
+// func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {
 // 	// memoize the current gas prices to only show metrics for "interesting" denoms
 // 	if ccp.parsedGasPrices == nil {
 // 		gp, err := sdk.ParseDecCoins(ccp.chainProvider.PCfg.GasPrices)
