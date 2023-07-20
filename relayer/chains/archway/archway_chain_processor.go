@@ -12,6 +12,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -188,6 +189,20 @@ type queryCyclePersistence struct {
 	balanceUpdateWaitDuration time.Duration
 }
 
+func (ccp *ArchwayChainProcessor) StartFromHeight(ctx context.Context) int {
+	cfg := ccp.Provider().ProviderConfig().(*ArchwayProviderConfig)
+	if cfg.StartHeight != 0 {
+		return int(cfg.StartHeight)
+	}
+	snapshotHeight, err := common.LoadSnapshotHeight(ccp.Provider().ChainId())
+	if err != nil {
+		ccp.log.Warn("Failed to load height from snapshot", zap.Error(err))
+	} else {
+		ccp.log.Info("Obtained start height from config", zap.Int("height", snapshotHeight))
+	}
+	return snapshotHeight
+}
+
 // Run starts the query loop for the chain which will gather applicable ibc messages and push events out to the relevant PathProcessors.
 // The initialBlockHistory parameter determines how many historical blocks should be fetched and processed before continuing with current blocks.
 // ChainProcessors should obey the context and return upon context cancellation.
@@ -219,13 +234,17 @@ func (ccp *ArchwayChainProcessor) Run(ctx context.Context, initialBlockHistory u
 	}
 
 	// this will make initial QueryLoop iteration look back initialBlockHistory blocks in history
-	latestQueriedBlock := persistence.latestHeight - int64(initialBlockHistory)
-
+	latestQueriedBlock := ccp.StartFromHeight(ctx)
 	if latestQueriedBlock < 0 {
-		latestQueriedBlock = 0
+		latestQueriedBlock = int(persistence.latestHeight - int64(initialBlockHistory))
+		if latestQueriedBlock < 0 {
+			latestQueriedBlock = 0
+		}
 	}
 
-	persistence.latestQueriedBlock = latestQueriedBlock
+	persistence.latestQueriedBlock = int64(latestQueriedBlock)
+
+	ccp.log.Info("Start to query from height ", zap.Int("height", latestQueriedBlock))
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -319,7 +338,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
+	ccp.log.Info("Queried latest height",
 		zap.Int64("latest_height", persistence.latestHeight),
 	)
 
@@ -354,6 +373,8 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 	newLatestQueriedBlock := persistence.latestQueriedBlock
 
 	chainID := ccp.chainProvider.ChainId()
+
+	ccp.SnapshotHeight(int(persistence.latestHeight))
 
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
@@ -449,6 +470,22 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 	persistence.latestQueriedBlock = newLatestQueriedBlock
 
 	return nil
+}
+
+func (ccp *ArchwayChainProcessor) SnapshotHeight(height int) {
+
+	blockInterval := ccp.Provider().ProviderConfig().BlockInterval()
+	snapshotThreshold := common.ONE_HOUR / int(blockInterval)
+
+	retryAfter := ccp.Provider().FirstRetryBlockAfter()
+	snapshotHeight := height - int(retryAfter)
+
+	if snapshotHeight%snapshotThreshold == 0 {
+		err := common.SnapshotHeight(ccp.Provider().ChainId(), height)
+		if err != nil {
+			ccp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
+		}
+	}
 }
 
 func (ccp *ArchwayChainProcessor) CollectMetrics(ctx context.Context, persistence *queryCyclePersistence) {

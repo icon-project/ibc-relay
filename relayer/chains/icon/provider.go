@@ -61,6 +61,8 @@ type IconProviderConfig struct {
 	BTPHeight            int64  `json:"start-btp-height" yaml:"start-btp-height"`
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
+	StartHeight          uint64 `json:"start-height" yaml:"start-height"`
+	ChainBlockInterval   uint64 `json:"block-interval" yaml:"block-interval"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -72,7 +74,15 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
+	if pp.ChainBlockInterval == 0 {
+		return fmt.Errorf("Block interval cannot be zero")
+	}
+
 	return nil
+}
+
+func (pp *IconProviderConfig) BlockInterval() uint64 {
+	return pp.ChainBlockInterval
 }
 
 // NewProvider should provide a new Icon provider
@@ -569,9 +579,9 @@ func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayer
 	return nil, fmt.Errorf("Not implemented for Icon")
 }
 
-func (cc *IconProvider) FirstRetryBlockAfter() uint64 {
-	if cc.PCfg.FirstRetryBlockAfter != 0 {
-		return cc.PCfg.FirstRetryBlockAfter
+func (icp *IconProvider) FirstRetryBlockAfter() uint64 {
+	if icp.PCfg.FirstRetryBlockAfter != 0 {
+		return icp.PCfg.FirstRetryBlockAfter
 	}
 	return 8
 }

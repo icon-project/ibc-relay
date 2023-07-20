@@ -6,4 +6,5 @@ var (
 	ArchwayModule         = "archway"
 	TendermintLightClient = "tendermint"
 	IconLightClient       = "iconclient"
+	ONE_HOUR              = 60 * 60
 )

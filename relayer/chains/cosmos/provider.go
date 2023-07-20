@@ -70,6 +70,10 @@ func (pc CosmosProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pc.Broadcast
 }
 
+func (pc CosmosProviderConfig) BlockInterval() uint64 {
+	panic("Not implemented for Cosmos")
+}
+
 // NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
 func (pc CosmosProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 	if err := pc.Validate(); err != nil {
