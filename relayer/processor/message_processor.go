@@ -83,6 +83,7 @@ func (mp *messageProcessor) processMessages(
 	src, dst *pathEndRuntime,
 ) error {
 
+	fmt.Println("inside process Messages")
 	// 2/3 rule enough_time_pass && context change in case of BTPBlock
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
@@ -107,7 +108,6 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	var err error
 	// handle if dst is IconLightClient
 	if ClientIsIcon(dst.clientState) {
-
 		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
 		if !found {
 			header, err = src.chainProvider.QueryIBCHeader(ctx, int64(src.latestBlock.Height))
@@ -121,7 +121,6 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		if header.ShouldUpdateWithZeroMessage() {
 			return true, nil
 		}
-
 		return false, nil
 	}
 
