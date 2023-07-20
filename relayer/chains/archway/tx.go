@@ -132,6 +132,7 @@ func (ap *ArchwayProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 		}
 	}
 
+	// CHECK : RESON FOR TXN COST 1
 	if ap.PCfg.MinGasAmount != 0 {
 		txf = txf.WithGas(ap.PCfg.MinGasAmount)
 	}
@@ -164,6 +165,7 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 	}, nil
 }
 
+// TODO: DELETE
 func (ap *ArchwayProvider) NewClientStateMock(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
 
 	btpHeader := dstIBCHeader.(*iconchain.IconIBCHeader)
@@ -241,6 +243,7 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 	return nil
 }
 
+// TODO MOVE TO QUERY
 func (ap *ArchwayProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetCommitmentResponse, err := ap.QueryPacketCommitment(
 		ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence,
@@ -348,6 +351,7 @@ func (ap *ArchwayProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, pr
 	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Archway module")
 }
 
+// panic
 func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
 	return nil, nil
 }
@@ -1033,6 +1037,7 @@ func (ap *ArchwayProvider) BroadcastTx(
 // BroadcastTx attempts to generate, sign and broadcast a transaction with the
 // given set of messages. It will also simulate gas requirements if necessary.
 // It will return an error upon failure.
+// UNUSED: PANIC
 func (ap *ArchwayProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted

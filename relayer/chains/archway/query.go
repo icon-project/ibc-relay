@@ -95,6 +95,7 @@ func (ap *ArchwayProvider) QueryTxs(ctx context.Context, page, limit int, events
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
+// TODO: Comet check needed?
 func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
@@ -190,6 +191,7 @@ func DefaultPageRequest() *querytypes.PageRequest {
 
 // staking
 func (ap *ArchwayProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
+	// move to provider, panic
 	return 0, nil
 }
 
@@ -207,6 +209,7 @@ func (ap *ArchwayProvider) QueryClientState(ctx context.Context, height int64, c
 	return clientStateExported, nil
 }
 
+// TODO: Check revision number
 func (ap *ArchwayProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 
 	clS, err := ap.QueryClientStateContract(ctx, srcClientId)
@@ -330,6 +333,7 @@ func (ap *ArchwayProvider) QueryIBCHandlerContractProcessed(ctx context.Context,
 	return ProcessContractResponse(res)
 }
 
+// TODO: Panic for unused functions
 func (ap *ArchwayProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
 	return nil, fmt.Errorf("Not implemented for Archway")
 }
@@ -534,6 +538,7 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		}
 
 		// Only return open conenctions
+		// TODO: Use ENUM
 		if conn.State == 3 {
 			identifiedConn := conntypes.IdentifiedConnection{
 				Id:           connectionId,
@@ -653,6 +658,7 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 			}
 
 			// check if the channel is open
+			// TODO: Use enum
 			if channel.State == 3 {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
@@ -670,6 +676,8 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 
 	return channels, nil
 }
+
+// TODO: panic or implement
 func (ap *ArchwayProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	return nil, fmt.Errorf("Not implemented for Archway")
 }

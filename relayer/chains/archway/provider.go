@@ -188,6 +188,8 @@ func (pp *ArchwayProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
+	// TODO: Valid address for that chain
+	// Check: COSMOS
 	if pp.IbcHandlerAddress == "" {
 		return fmt.Errorf("Ibc handler contract cannot be empty")
 	}
@@ -351,7 +353,9 @@ func (ap *ArchwayProvider) Address() (string, error) {
 	return out, err
 }
 
+// TODO: CHECK AGAIN
 func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	panic("Archway: Not Implemented")
 	// res, err := cc.QueryStakingParams(ctx)
 
 	// TODO: check and rewrite
@@ -403,6 +407,7 @@ func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatu
 
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
+	panic("Archway: Not implemented")
 	// var initial int64
 	// h, err := cc.RPCClient.Status(ctx)
 	// if err != nil {
@@ -427,7 +432,6 @@ func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	// 		return ctx.Err()
 	// 	}
 	// }
-	return nil
 }
 
 func (ac *ArchwayProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
@@ -452,8 +456,8 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 	}
 }
 
-func (app *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Icon")
+func (ap *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	return nil, fmt.Errorf("Not implemented for Archway")
 }
 
 func (cc *ArchwayProvider) FirstRetryBlockAfter() uint64 {
