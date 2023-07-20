@@ -73,7 +73,8 @@ func (ap *WasmProvider) TxFactory() tx.Factory {
 		WithGasAdjustment(ap.PCfg.GasAdjustment).
 		WithGasPrices(ap.PCfg.GasPrices).
 		WithKeybase(ap.Keybase).
-		WithSignMode(ap.PCfg.SignMode())
+		WithSignMode(ap.PCfg.SignMode()).
+		WithSimulateAndExecute(true)
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
@@ -775,8 +776,9 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		ap.updateNextAccountSequence(sequence + 1)
 	}
 
-	//TODO: comment this on production
-	SaveMsgToFile(WasmDebugMessagePath, msgs)
+	//uncomment for saving msg
+	// SaveMsgToFile(WasmDebugMessagePath, msgs)
+
 	return nil
 
 }

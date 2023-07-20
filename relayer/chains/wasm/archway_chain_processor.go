@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cometbft/cometbft/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -53,6 +55,12 @@ type WasmChainProcessor struct {
 
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
+
+	verifier *Verifier
+}
+
+type Verifier struct {
+	Header *types.LightBlock
 }
 
 func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *processor.PrometheusMetrics) *WasmChainProcessor {
@@ -74,6 +82,7 @@ const (
 	latestHeightQueryRetryDelay = 1 * time.Second
 	latestHeightQueryRetries    = 5
 
+	// TODO: review transfer to providerConfig
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
@@ -214,7 +223,6 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 			continue
 		}
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 		break
 	}
 
@@ -227,6 +235,19 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	persistence.latestQueriedBlock = latestQueriedBlock
 
+	_, lightBlock, err := ccp.chainProvider.QueryLightBlock(ctx, persistence.latestQueriedBlock)
+	if err != nil {
+		ccp.log.Error("Failed to get ibcHeader",
+			zap.Int64("height", persistence.latestQueriedBlock),
+			zap.Any("error", err),
+		)
+		return err
+	}
+
+	ccp.verifier = &Verifier{
+		Header: lightBlock,
+	}
+
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return ccp.initializeConnectionState(ctx)
@@ -238,7 +259,7 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 		return err
 	}
 
-	ccp.log.Debug("Entering main query loop")
+	ccp.log.Debug("Entering Archway main query loop")
 
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
@@ -344,21 +365,19 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	}
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
-
 	ibcHeaderCache := make(processor.IBCHeaderCache)
 
 	ppChanged := false
 
-	var latestHeader WasmIBCHeader
-
 	newLatestQueriedBlock := persistence.latestQueriedBlock
-
 	chainID := ccp.chainProvider.ChainId()
+	var latestHeader provider.IBCHeader
 
+	// TODO review: max block sync
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
-		var ibcHeader provider.IBCHeader
+		var lightBlock *types.LightBlock
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
@@ -370,7 +389,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			ibcHeader, err = ccp.chainProvider.QueryIBCHeader(queryCtx, i)
+			latestHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -379,13 +398,18 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			break
 		}
 
-		latestHeader = ibcHeader.(WasmIBCHeader)
+		if err := ccp.Verify(ctx, lightBlock); err != nil {
+			ccp.log.Error("failed to Verify Archway Header", zap.Int64("Height", blockRes.Height))
+			return err
+		}
+
+		ccp.log.Debug("Verified block ",
+			zap.Int64("height", lightBlock.Header.Height))
 
 		heightUint64 := uint64(i)
 
 		ccp.latestBlock = provider.LatestBlock{
 			Height: heightUint64,
-			// Time:   latestHeader.SignedHeader.Header.Time,
 		}
 
 		ibcHeaderCache[heightUint64] = latestHeader
@@ -463,6 +487,87 @@ func (ccp *WasmChainProcessor) CollectMetrics(ctx context.Context, persistence *
 
 func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
+}
+
+func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
+
+	if untrusted.Height != ccp.verifier.Header.Height+1 {
+		return errors.New("headers must be adjacent in height")
+	}
+
+	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
+		untrusted.ValidatorSet,
+		ccp.verifier.Header.SignedHeader,
+		time.Now(), 0); err != nil {
+		return fmt.Errorf("Failed to verify Header: %v", err)
+	}
+
+	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
+		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
+			ccp.verifier.Header.NextValidatorsHash,
+			untrusted.Header.ValidatorsHash,
+		)
+		return err
+	}
+
+	if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
+		err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
+			ccp.verifier.Header.NextValidatorsHash,
+			untrusted.Header.ValidatorsHash,
+		)
+		return err
+	}
+
+	// Ensure that +2/3 of new validators signed correctly.
+	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
+		untrusted.Header.Height, untrusted.Commit); err != nil {
+		return fmt.Errorf("invalid header: %v", err)
+	}
+
+	ccp.verifier.Header = untrusted
+	return nil
+
+}
+
+func verifyNewHeaderAndVals(
+	untrustedHeader *types.SignedHeader,
+	untrustedVals *types.ValidatorSet,
+	trustedHeader *types.SignedHeader,
+	now time.Time,
+	maxClockDrift time.Duration) error {
+
+	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
+		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
+	}
+
+	if untrustedHeader.Height <= trustedHeader.Height {
+		return fmt.Errorf("expected new header height %d to be greater than one of old header %d",
+			untrustedHeader.Height,
+			trustedHeader.Height)
+	}
+
+	if !untrustedHeader.Time.After(trustedHeader.Time) {
+		return fmt.Errorf("expected new header time %v to be after old header time %v",
+			untrustedHeader.Time,
+			trustedHeader.Time)
+	}
+
+	if !untrustedHeader.Time.Before(now.Add(maxClockDrift)) {
+		return fmt.Errorf("new header has a time from the future %v (now: %v; max clock drift: %v)",
+			untrustedHeader.Time,
+			now,
+			maxClockDrift)
+	}
+
+	if !bytes.Equal(untrustedHeader.ValidatorsHash, untrustedVals.Hash()) {
+		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
+			untrustedHeader.ValidatorsHash,
+			untrustedVals.Hash(),
+			untrustedHeader.Height,
+		)
+	}
+
+	return nil
 }
 
 // func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {

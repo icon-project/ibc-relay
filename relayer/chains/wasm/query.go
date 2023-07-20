@@ -135,6 +135,18 @@ func (ap *WasmProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.I
 	return NewWasmIBCHeaderFromLightBlock(lightBlock), nil
 }
 
+func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.IBCHeader, *tmtypes.LightBlock, error) {
+	if h == 0 {
+		return nil, nil, fmt.Errorf("No header at height 0")
+	}
+	lightBlock, err := ap.LightProvider.LightBlock(ctx, h)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return NewWasmIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
+}
+
 // query packet info for sequence
 func (ap *WasmProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Wasm")
