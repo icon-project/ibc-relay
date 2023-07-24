@@ -4,6 +4,8 @@ var (
 	EventTimeoutRequest   = "TimeoutRequest(bytes)"
 	IconModule            = "icon"
 	ArchwayModule         = "archway"
-	TendermintLightClient = "tendermint"
+	TendermintLightClient = "07-tendermint"
 	IconLightClient       = "iconclient"
+	ConnectionKey         = "connection"
+	ChannelKey            = "channel"
 )
