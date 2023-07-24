@@ -6,4 +6,6 @@ var (
 	WasmModule            = "wasm"
 	TendermintLightClient = "tendermint"
 	IconLightClient       = "iconclient"
+
+	NanosecondRatio = 1000_000
 )
