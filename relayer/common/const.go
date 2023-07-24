@@ -8,4 +8,6 @@ var (
 	IconLightClient       = "iconclient"
 	ConnectionKey         = "connection"
 	ChannelKey            = "channel"
+
+	NanosecondRatio = 1000_000
 )

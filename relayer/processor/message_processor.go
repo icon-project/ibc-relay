@@ -117,7 +117,6 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 				return false, nil
 			}
 		}
-
 		if header.ShouldUpdateWithZeroMessage() {
 			return true, nil
 		}
