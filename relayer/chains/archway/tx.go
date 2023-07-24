@@ -744,7 +744,7 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 
 	for _, msg := range msgs {
 		if msg == nil {
-			ap.log.Debug("One of the message of archway")
+			ap.log.Debug("One of the message of archway is nil")
 			continue
 		}
 
@@ -1025,8 +1025,7 @@ func (ap *ArchwayProvider) BroadcastTx(
 	)
 
 	if shouldWait {
-		ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
-		return nil
+		return ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	}
 	go ap.waitForTx(asyncCtx, hexTx, msgs, asyncTimeout, asyncCallback)
 	return nil
@@ -1054,14 +1053,14 @@ func (ap *ArchwayProvider) waitForTx(
 	msgs []provider.RelayerMessage, // used for logging only
 	waitTimeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
-) {
+) error {
 	res, err := ap.waitForTxResult(ctx, txHash, waitTimeout)
 	if err != nil {
 		ap.log.Error("Failed to wait for block inclusion", zap.Error(err))
 		if callback != nil {
 			callback(nil, err)
 		}
-		return
+		return err
 	}
 
 	rlyResp := &provider.RelayerTxResponse{
@@ -1087,13 +1086,14 @@ func (ap *ArchwayProvider) waitForTx(
 			callback(nil, err)
 		}
 		ap.LogFailedTx(rlyResp, nil, msgs)
-		return
+		return err
 	}
 
 	if callback != nil {
 		callback(rlyResp, nil)
 	}
 	ap.LogSuccessTx(res, msgs)
+	return nil
 }
 
 func (ap *ArchwayProvider) waitForTxResult(
