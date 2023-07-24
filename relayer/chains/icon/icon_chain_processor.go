@@ -330,7 +330,7 @@ loop:
 				icp.log.Info("Queried Latest height: ",
 					zap.String("chain id ", icp.chainProvider.ChainId()),
 					zap.Int64("height", br.Height))
-				err = icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache)
+				err = icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache.Clone())
 				if err != nil {
 					reconnect()
 					icp.log.Warn("Reconnect: error occured during handle block response  ",
@@ -343,7 +343,7 @@ loop:
 				// if icp.firstTime {
 				// 	time.Sleep(4000 * time.Millisecond)
 				// } else {
-				// 	time.Sleep(100 * time.Millisecond)
+				time.Sleep(10 * time.Millisecond)
 				// }
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {

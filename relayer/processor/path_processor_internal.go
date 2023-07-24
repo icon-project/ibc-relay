@@ -1000,28 +1000,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	pathEnd2ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
 
 	for i, pair := range channelPairs {
-		// Append acks into recv packet info if present
-		// pathEnd1DstMsgRecvPacket :=
-		// for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
-		// 	if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
-		// 		recvPacketInfo.Ack = ackInfo.Ack
-		// 		pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
-		// 		continue
-		// 	}
-		// 	pathEnd1DstMsgRecvPacket[seq] = ackInfo
-
-		// }
-
-		// pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
-		// for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
-		// 	if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
-		// 		recvPacketInfo.Ack = ackInfo.Ack
-		// 		pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
-		// 		continue
-		// 	}
-
-		// 	pathEnd2DstMsgRecvPacket[seq] = ackInfo
-		// }
 
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                              pp.pathEnd1,

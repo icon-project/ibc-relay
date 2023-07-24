@@ -321,6 +321,12 @@ func (ccp *ArchwayChainProcessor) initializeChannelState(ctx context.Context) er
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
 		}] = ch.State == chantypes.OPEN
+		ccp.log.Info("Found channel",
+			zap.String("channelID", ch.ChannelId),
+			zap.String("Port id ", ch.PortId))
+		zap.String("Counterparty Channel Id ", ch.Counterparty.ChannelId)
+		zap.String("Counterparty Port Id", ch.Counterparty.PortId)
+
 	}
 	return nil
 }
