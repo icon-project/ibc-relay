@@ -662,7 +662,7 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 			ClientState:          clientState,
 			ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
 			ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
-			IBCHeaderCache:       ibcHeaderCache,
+			IBCHeaderCache:       ibcHeaderCache.Clone(),
 			IsGenesis:            icp.firstTime,
 		})
 	}
