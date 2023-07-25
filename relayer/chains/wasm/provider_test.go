@@ -52,6 +52,7 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 		SignModeStr:       "direct",
 		MinGasAmount:      1000_000,
 		IbcHandlerAddress: handlerAddr,
+		BlockInterval:     6000,
 	}
 	if !local {
 		config.RPCAddr = "https://rpc.constantine.archway.tech:443"
