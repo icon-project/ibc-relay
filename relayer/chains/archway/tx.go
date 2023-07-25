@@ -163,7 +163,6 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 	}, nil
 }
 
-
 func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
@@ -190,11 +189,11 @@ func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, 
 }
 
 func (ap *ArchwayProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
@@ -227,7 +226,6 @@ func (ap *ArchwayProvider) ValidatePacket(msgTransfer provider.PacketInfo, lates
 	return nil
 }
 
-// TODO MOVE TO QUERY
 func (ap *ArchwayProvider) PacketCommitment(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetCommitmentResponse, err := ap.QueryPacketCommitment(
 		ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence,
@@ -278,6 +276,7 @@ func (ap *ArchwayProvider) NextSeqRecv(ctx context.Context, msgTransfer provider
 }
 
 func (ap *ArchwayProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, fmt.Errorf("Not implemented for Archway")
 }
 
@@ -332,11 +331,13 @@ func (ap *ArchwayProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof pro
 }
 
 func (ap *ArchwayProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Archway module")
 }
 
 // panic
 func (ap *ArchwayProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, nil
 }
 
@@ -640,19 +641,19 @@ func (ap *ArchwayProvider) MsgUpdateClient(clientID string, dstHeader ibcexporte
 }
 
 func (ap *ArchwayProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
-	return provider.ICQProof{}, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) RelayPacketFromSequence(ctx context.Context, src provider.ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	return nil, nil, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (provider.RelayerMessage, error) {
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -1032,7 +1033,7 @@ func (ap *ArchwayProvider) broadcastTx(
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
-	return nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *ArchwayProvider) waitForTx(
@@ -1270,7 +1271,6 @@ func (cc *ArchwayProvider) handleAccountSequenceMismatchError(err error) {
 		return
 	}
 
-	fmt.Printf("the next sequence is %d \n", seq)
 	cc.nextAccountSeq = seq
 }
 
