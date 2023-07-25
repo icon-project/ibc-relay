@@ -268,7 +268,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	// processedheight := int64(icp.chainProvider.lastBTPBlockHeight)
 	// if processedheight == 0 {
 	processedheight := int64(icp.StartFromHeight(ctx))
-	if processedheight < 0 {
+	if processedheight <= 0 {
 		processedheight, err = icp.chainProvider.QueryLatestHeight(ctx)
 		if err != nil {
 			fmt.Println("Error fetching latest block")
@@ -287,7 +287,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	icp.firstTime = true
 
 	blockReq := &types.BlockRequest{
-		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.BTPHeight)),
+		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.StartHeight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
 
