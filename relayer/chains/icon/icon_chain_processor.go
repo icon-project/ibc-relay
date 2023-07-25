@@ -243,7 +243,6 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 	return icp.latestBlock.Height
 }
 
-// TODO: review add verifier
 func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *queryCyclePersistence) error {
 
 	errCh := make(chan error)                                            // error channel
@@ -360,13 +359,7 @@ loop:
 					)
 					break
 				}
-
-				// TODO: this is temporary adjustment
-				// if icp.firstTime {
-				// 	time.Sleep(4000 * time.Millisecond)
-				// } else {
-				// 	time.Sleep(100 * time.Millisecond)
-				// }
+				time.Sleep(10 * time.Millisecond)
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
