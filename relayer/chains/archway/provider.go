@@ -355,11 +355,11 @@ func (ap *ArchwayProvider) Address() (string, error) {
 
 // TODO: CHECK AGAIN
 func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
-	panic("Archway: Not Implemented")
+	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// res, err := cc.QueryStakingParams(ctx)
 
 	// TODO: check and rewrite
-	var unbondingTime time.Duration
+	// var unbondingTime time.Duration
 	// if err != nil {
 	// 	// Attempt ICS query
 	// 	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
@@ -378,15 +378,15 @@ func (cc *ArchwayProvider) TrustingPeriod(ctx context.Context) (time.Duration, e
 	// // by converting int64 to float64.
 	// // Use integer math the whole time, first reducing by a factor of 100
 	// // and then re-growing by 85x.
-	tp := unbondingTime / 100 * 85
+	// tp := unbondingTime / 100 * 85
 
 	// // And we only want the trusting period to be whole hours.
 	// // But avoid rounding if the time is less than 1 hour
 	// //  (otherwise the trusting period will go to 0)
-	if tp > time.Hour {
-		tp = tp.Truncate(time.Hour)
-	}
-	return tp, nil
+	// if tp > time.Hour {
+	// 	tp = tp.Truncate(time.Hour)
+	// }
+	// return tp, nil
 }
 
 func (cc *ArchwayProvider) Sprint(toPrint proto.Message) (string, error) {
@@ -407,7 +407,7 @@ func (cc *ArchwayProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatu
 
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *ArchwayProvider) WaitForNBlocks(ctx context.Context, n int64) error {
-	panic("Archway: Not implemented")
+	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// var initial int64
 	// h, err := cc.RPCClient.Status(ctx)
 	// if err != nil {
@@ -457,7 +457,7 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 }
 
 func (ap *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Archway")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (cc *ArchwayProvider) FirstRetryBlockAfter() uint64 {

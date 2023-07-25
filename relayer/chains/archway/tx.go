@@ -131,7 +131,6 @@ func (ap *ArchwayProvider) PrepareFactory(txf tx.Factory) (tx.Factory, error) {
 		}
 	}
 
-	// CHECK : RESON FOR TXN COST 1
 	if ap.PCfg.MinGasAmount != 0 {
 		txf = txf.WithGas(ap.PCfg.MinGasAmount)
 	}
