@@ -552,8 +552,7 @@ func (ap *ArchwayProvider) QueryConnections(ctx context.Context) (conns []*connt
 		}
 
 		// Only return open conenctions
-		// TODO: Use ENUM
-		if conn.State == 3 {
+		if conn.State == conntypes.OPEN {
 			identifiedConn := conntypes.IdentifiedConnection{
 				Id:           connectionId,
 				ClientId:     conn.ClientId,
@@ -673,7 +672,7 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 
 			// check if the channel is open
 			// TODO: Use enum
-			if channel.State == 3 {
+			if channel.State == chantypes.OPEN {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
 					Ordering:       channel.Ordering,
@@ -691,7 +690,6 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 	return channels, nil
 }
 
-// TODO: panic or implement
 func (ap *ArchwayProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }

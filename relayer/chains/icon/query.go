@@ -413,7 +413,7 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 			continue
 		}
 		// Only return open conenctions
-		if conn.State == 3 {
+		if conn.State == conntypes.OPEN {
 			identifiedConn := conntypes.IdentifiedConnection{
 				Id:           connectionId,
 				ClientId:     conn.ClientId,
@@ -623,7 +623,7 @@ func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identi
 			}
 
 			// check if the channel is open
-			if channel.State == 3 {
+			if channel.State == chantypes.OPEN {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
 					Ordering:       channel.Ordering,
