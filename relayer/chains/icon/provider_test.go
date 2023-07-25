@@ -24,10 +24,10 @@ const (
 )
 
 func TestAddr(t *testing.T) {
-	b := isValidIconAddress(testCA)
+	b := isValidIconContractAddress(testCA)
 	assert.True(t, b)
 
-	assert.False(t, isValidIconAddress(testCA[1:]))
+	assert.False(t, isValidIconContractAddress(testCA[1:]))
 }
 
 func TestConnectionDecode(t *testing.T) {

@@ -199,7 +199,7 @@ func newEthAddressFromPubKey(pubKey []byte) ([]byte, error) {
 	return digest[len(digest)-ethAddressLen:], nil
 }
 
-func isValidIconAddress(addr string) bool {
+func isValidIconContractAddress(addr string) bool {
 	if !strings.HasPrefix(addr, "cx") {
 		return false
 	}
