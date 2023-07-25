@@ -66,7 +66,7 @@ type ArchwayProviderConfig struct {
 	IbcHandlerAddress    string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
-	ChainBlockInterval   uint64                  `json:"block-interval" yaml:"block-interval"`
+	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
 }
 
 type ArchwayIBCHeader struct {
@@ -194,7 +194,7 @@ func (pp *ArchwayProviderConfig) Validate() error {
 		return fmt.Errorf("Ibc handler contract cannot be empty")
 	}
 
-	if pp.ChainBlockInterval == 0 {
+	if pp.BlockInterval == 0 {
 		return fmt.Errorf("Block interval cannot be zero")
 	}
 
@@ -210,7 +210,7 @@ func (pp *ArchwayProviderConfig) BroadcastMode() provider.BroadcastMode {
 }
 
 func (pp *ArchwayProviderConfig) GetBlockInterval() uint64 {
-	return pp.ChainBlockInterval
+	return pp.BlockInterval
 }
 
 func (pp *ArchwayProviderConfig) GetFirstRetryBlockAfter() uint64 {

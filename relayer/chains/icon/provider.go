@@ -62,7 +62,7 @@ type IconProviderConfig struct {
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	StartHeight          uint64 `json:"start-height" yaml:"start-height"`
-	ChainBlockInterval   uint64 `json:"block-interval" yaml:"block-interval"`
+	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -74,7 +74,7 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
-	if pp.ChainBlockInterval == 0 {
+	if pp.BlockInterval == 0 {
 		return fmt.Errorf("Block interval cannot be zero")
 	}
 
@@ -82,7 +82,7 @@ func (pp *IconProviderConfig) Validate() error {
 }
 
 func (pp *IconProviderConfig) GetBlockInterval() uint64 {
-	return pp.ChainBlockInterval
+	return pp.BlockInterval
 }
 
 func (pp *IconProviderConfig) GetFirstRetryBlockAfter() uint64 {
