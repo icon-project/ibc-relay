@@ -14,7 +14,6 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -23,6 +22,7 @@ import (
 	prov "github.com/cometbft/cometbft/light/provider/http"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
@@ -184,15 +184,34 @@ func (a ArchwayIBCHeader) ShouldUpdateWithZeroMessage() bool {
 	return false
 }
 
+func (pp *ArchwayProviderConfig) ValidateContractAddress(addr string) bool {
+	prefix, _, err := bech32.DecodeAndConvert(addr)
+	if err != nil {
+		return false
+	}
+	if pp.AccountPrefix != prefix {
+		return false
+	}
+
+	// TODO: Is this needed?
+	// Confirmed working for neutron, archway, osmosis
+	prefixLen := len(pp.AccountPrefix)
+	if len(addr) != prefixLen+59 {
+		return false
+	}
+
+	return true
+}
+
 func (pp *ArchwayProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
-	_, err := sdk.ValAddressFromBech32(pp.IbcHandlerAddress)
-	if err != nil {
-		return err
+	if !pp.ValidateContractAddress(pp.IbcHandlerAddress) {
+		return fmt.Errorf("Invalid contract address")
 	}
+
 	return nil
 }
 

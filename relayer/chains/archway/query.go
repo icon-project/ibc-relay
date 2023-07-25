@@ -671,7 +671,6 @@ func (ap *ArchwayProvider) QueryChannels(ctx context.Context) ([]*chantypes.Iden
 			}
 
 			// check if the channel is open
-			// TODO: Use enum
 			if channel.State == chantypes.OPEN {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
