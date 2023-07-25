@@ -14,6 +14,7 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
@@ -188,10 +189,9 @@ func (pp *ArchwayProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
-	// TODO: Valid address for that chain
-	// Check: COSMOS
-	if pp.IbcHandlerAddress == "" {
-		return fmt.Errorf("Ibc handler contract cannot be empty")
+	_, err := sdk.ValAddressFromBech32(pp.IbcHandlerAddress)
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -69,7 +69,7 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
-	if pp.IbcHandlerAddress == "" {
+	if !isValidIconAddress(pp.IbcHandlerAddress) {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
