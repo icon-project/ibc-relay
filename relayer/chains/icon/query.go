@@ -650,17 +650,14 @@ func (icp *IconProvider) QueryPacketAcknowledgements(ctx context.Context, height
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// legacy
 func (icp *IconProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// legacy
 func (icp *IconProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// legacy
 func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	callParam := icp.prepareCallParams(MethodGetNextSequenceReceive, map[string]interface{}{
 		"portId":    portid,
@@ -670,7 +667,6 @@ func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, cha
 	if err := icp.client.Call(callParam, &nextSeqRecv); err != nil {
 		return nil, err
 	}
-	// TODO: Get proof and proofheight
 	key := common.GetNextSequenceRecvCommitmentKey(portid, channelid)
 	keyHash := common.Sha3keccak256(key, []byte(types.NewHexInt(int64(nextSeqRecv))))
 
