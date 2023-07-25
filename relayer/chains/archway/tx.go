@@ -34,9 +34,7 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	iconchain "github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -165,20 +163,6 @@ func (ap *ArchwayProvider) NewClientState(dstChainID string, dstIBCHeader provid
 	}, nil
 }
 
-// TODO: DELETE
-func (ap *ArchwayProvider) NewClientStateMock(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-
-	btpHeader := dstIBCHeader.(*iconchain.IconIBCHeader)
-
-	return &icon.ClientState{
-		TrustingPeriod:     uint64(dstTrustingPeriod),
-		FrozenHeight:       0,
-		MaxClockDrift:      20 * 60,
-		LatestHeight:       dstIBCHeader.Height(),
-		NetworkSectionHash: btpHeader.Header.PrevNetworkSectionHash,
-		Validators:         btpHeader.Validators,
-	}, nil
-}
 
 func (ap *ArchwayProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
