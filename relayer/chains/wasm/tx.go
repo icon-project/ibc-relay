@@ -35,7 +35,6 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -164,18 +163,6 @@ func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.
 	}, nil
 }
 
-func (ap *WasmProvider) NewClientStateMock(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-
-	// btpHeader := dstIBCHeader.(*iconchain.IconIBCHeader)
-
-	return &icon.ClientState{
-		TrustingPeriod: uint64(dstTrustingPeriod),
-		FrozenHeight:   0,
-		MaxClockDrift:  20 * 60,
-		LatestHeight:   dstIBCHeader.Height(),
-	}, nil
-}
-
 func (ap *WasmProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := ap.Address()
 	if err != nil {
@@ -202,11 +189,11 @@ func (ap *WasmProvider) MsgCreateClient(clientState ibcexported.ClientState, con
 }
 
 func (ap *WasmProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) ValidatePacket(msgTransfer provider.PacketInfo, latest provider.LatestBlock) error {
@@ -289,6 +276,7 @@ func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.Pa
 }
 
 func (ap *WasmProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, fmt.Errorf("Not implemented for Wasm")
 }
 
@@ -343,10 +331,13 @@ func (ap *WasmProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provid
 }
 
 func (ap *WasmProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Wasm module")
 }
 
+// panic
 func (ap *WasmProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 	return nil, nil
 }
 
@@ -650,19 +641,19 @@ func (ap *WasmProvider) MsgUpdateClient(clientID string, dstHeader ibcexported.C
 }
 
 func (ap *WasmProvider) QueryICQWithProof(ctx context.Context, msgType string, request []byte, height uint64) (provider.ICQProof, error) {
-	return provider.ICQProof{}, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) MsgSubmitQueryResponse(chainID string, queryID provider.ClientICQQueryID, proof provider.ICQProof) (provider.RelayerMessage, error) {
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) RelayPacketFromSequence(ctx context.Context, src provider.ChainProvider, srch, dsth, seq uint64, srcChanID, srcPortID string, order chantypes.Order) (provider.RelayerMessage, provider.RelayerMessage, error) {
-	return nil, nil, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) AcknowledgementFromSequence(ctx context.Context, dst provider.ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (provider.RelayerMessage, error) {
-	return nil, nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
@@ -1032,6 +1023,7 @@ func (ap *WasmProvider) BroadcastTx(
 // BroadcastTx attempts to generate, sign and broadcast a transaction with the
 // given set of messages. It will also simulate gas requirements if necessary.
 // It will return an error upon failure.
+// UNUSED: PANIC
 func (ap *WasmProvider) broadcastTx(
 	ctx context.Context, // context for tx broadcast
 	tx []byte, // raw tx to be broadcasted
@@ -1042,7 +1034,7 @@ func (ap *WasmProvider) broadcastTx(
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
-	return nil
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) waitForTx(
@@ -1280,7 +1272,6 @@ func (cc *WasmProvider) handleAccountSequenceMismatchError(err error) {
 		return
 	}
 
-	fmt.Printf("the next sequence is %d \n", seq)
 	cc.nextAccountSeq = seq
 }
 

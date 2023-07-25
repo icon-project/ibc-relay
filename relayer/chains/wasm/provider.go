@@ -22,6 +22,7 @@ import (
 	prov "github.com/cometbft/cometbft/light/provider/http"
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
@@ -65,6 +66,8 @@ type WasmProviderConfig struct {
 	Broadcast            provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 	IbcHandlerAddress    string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
+	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
+	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
 }
 
 type WasmIBCHeader struct {
@@ -183,14 +186,38 @@ func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
 	return false
 }
 
+func (pp *WasmProviderConfig) ValidateContractAddress(addr string) bool {
+	prefix, _, err := bech32.DecodeAndConvert(addr)
+	if err != nil {
+		return false
+	}
+	if pp.AccountPrefix != prefix {
+		return false
+	}
+
+	// TODO: Is this needed?
+	// Confirmed working for neutron, archway, osmosis
+	prefixLen := len(pp.AccountPrefix)
+	if len(addr) != prefixLen+ContractAddressSizeMinusPrefix {
+		return false
+	}
+
+	return true
+}
+
 func (pp *WasmProviderConfig) Validate() error {
 	if _, err := time.ParseDuration(pp.Timeout); err != nil {
 		return fmt.Errorf("invalid Timeout: %w", err)
 	}
 
-	if pp.IbcHandlerAddress == "" {
-		return fmt.Errorf("Ibc handler contract cannot be empty")
+	if !pp.ValidateContractAddress(pp.IbcHandlerAddress) {
+		return fmt.Errorf("Invalid contract address")
 	}
+
+	if pp.BlockInterval == 0 {
+		return fmt.Errorf("Block interval cannot be zero")
+	}
+
 	return nil
 }
 
@@ -200,6 +227,17 @@ func (pp *WasmProviderConfig) getRPCAddr() string {
 
 func (pp *WasmProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pp.Broadcast
+}
+
+func (pp *WasmProviderConfig) GetBlockInterval() uint64 {
+	return pp.BlockInterval
+}
+
+func (pp *WasmProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	if pp.FirstRetryBlockAfter != 0 {
+		return pp.FirstRetryBlockAfter
+	}
+	return 3
 }
 
 func (pc *WasmProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
@@ -351,11 +389,13 @@ func (ap *WasmProvider) Address() (string, error) {
 	return out, err
 }
 
+// TODO: CHECK AGAIN
 func (cc *WasmProvider) TrustingPeriod(ctx context.Context) (time.Duration, error) {
+	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// res, err := cc.QueryStakingParams(ctx)
 
 	// TODO: check and rewrite
-	var unbondingTime time.Duration
+	// var unbondingTime time.Duration
 	// if err != nil {
 	// 	// Attempt ICS query
 	// 	consumerUnbondingPeriod, consumerErr := cc.queryConsumerUnbondingPeriod(ctx)
@@ -374,15 +414,15 @@ func (cc *WasmProvider) TrustingPeriod(ctx context.Context) (time.Duration, erro
 	// // by converting int64 to float64.
 	// // Use integer math the whole time, first reducing by a factor of 100
 	// // and then re-growing by 85x.
-	tp := unbondingTime / 100 * 85
+	// tp := unbondingTime / 100 * 85
 
 	// // And we only want the trusting period to be whole hours.
 	// // But avoid rounding if the time is less than 1 hour
 	// //  (otherwise the trusting period will go to 0)
-	if tp > time.Hour {
-		tp = tp.Truncate(time.Hour)
-	}
-	return tp, nil
+	// if tp > time.Hour {
+	// 	tp = tp.Truncate(time.Hour)
+	// }
+	// return tp, nil
 }
 
 func (cc *WasmProvider) Sprint(toPrint proto.Message) (string, error) {
@@ -403,6 +443,7 @@ func (cc *WasmProvider) QueryStatus(ctx context.Context) (*ctypes.ResultStatus, 
 
 // WaitForNBlocks blocks until the next block on a given chain
 func (cc *WasmProvider) WaitForNBlocks(ctx context.Context, n int64) error {
+	panic(fmt.Sprintf("%s%s", cc.ChainName(), NOT_IMPLEMENTED))
 	// var initial int64
 	// h, err := cc.RPCClient.Status(ctx)
 	// if err != nil {
@@ -427,7 +468,6 @@ func (cc *WasmProvider) WaitForNBlocks(ctx context.Context, n int64) error {
 	// 		return ctx.Err()
 	// 	}
 	// }
-	return nil
 }
 
 func (ac *WasmProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
@@ -452,15 +492,8 @@ func (ap *WasmProvider) updateNextAccountSequence(seq uint64) {
 	}
 }
 
-func (app *WasmProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented for Icon")
-}
-
-func (cc *WasmProvider) FirstRetryBlockAfter() uint64 {
-	if cc.PCfg.FirstRetryBlockAfter != 0 {
-		return cc.PCfg.FirstRetryBlockAfter
-	}
-	return 3
+func (ap *WasmProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

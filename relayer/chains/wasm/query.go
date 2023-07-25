@@ -34,7 +34,10 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 )
 
-const PaginationDelay = 10 * time.Millisecond
+const (
+	PaginationDelay = 10 * time.Millisecond
+	NOT_IMPLEMENTED = " :: Not implemented for WASM"
+)
 
 func (ap *WasmProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
 	hash, err := hex.DecodeString(hashHex)
@@ -95,6 +98,7 @@ func (ap *WasmProvider) QueryTxs(ctx context.Context, page, limit int, events []
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
+// TODO: Comet check needed?
 func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
@@ -202,6 +206,7 @@ func DefaultPageRequest() *querytypes.PageRequest {
 
 // staking
 func (ap *WasmProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
+	// move to provider, panic
 	return 0, nil
 }
 
@@ -219,6 +224,7 @@ func (ap *WasmProvider) QueryClientState(ctx context.Context, height int64, clie
 	return clientStateExported, nil
 }
 
+// TODO: Check revision number
 func (ap *WasmProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
 
 	clS, err := ap.QueryClientStateContract(ctx, srcClientId)
@@ -343,11 +349,11 @@ func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, pa
 }
 
 func (ap *WasmProvider) QueryUpgradedClient(ctx context.Context, height int64) (*clienttypes.QueryClientStateResponse, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryUpgradedConsState(ctx context.Context, height int64) (*clienttypes.QueryConsensusStateResponse, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
@@ -546,7 +552,7 @@ func (ap *WasmProvider) QueryConnections(ctx context.Context) (conns []*conntype
 		}
 
 		// Only return open conenctions
-		if conn.State == 3 {
+		if conn.State == conntypes.OPEN {
 			identifiedConn := conntypes.IdentifiedConnection{
 				Id:           connectionId,
 				ClientId:     conn.ClientId,
@@ -563,7 +569,7 @@ func (ap *WasmProvider) QueryConnections(ctx context.Context) (conns []*conntype
 }
 
 func (ap *WasmProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
@@ -624,7 +630,7 @@ func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channeli
 }
 
 func (ap *WasmProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryConnectionChannels(ctx context.Context, height int64, connectionid string) ([]*chantypes.IdentifiedChannel, error) {
@@ -665,7 +671,7 @@ func (ap *WasmProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identif
 			}
 
 			// check if the channel is open
-			if channel.State == 3 {
+			if channel.State == chantypes.OPEN {
 				identifiedChannel := chantypes.IdentifiedChannel{
 					State:          channel.State,
 					Ordering:       channel.Ordering,
@@ -682,20 +688,21 @@ func (ap *WasmProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identif
 
 	return channels, nil
 }
+
 func (ap *WasmProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
 func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
@@ -800,8 +807,8 @@ func (ap *WasmProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]
 
 // ics 20 - transfer
 func (ap *WasmProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
-	return nil, fmt.Errorf("Not implemented for Wasm")
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
