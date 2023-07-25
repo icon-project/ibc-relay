@@ -81,8 +81,15 @@ func (pp *IconProviderConfig) Validate() error {
 	return nil
 }
 
-func (pp *IconProviderConfig) BlockInterval() uint64 {
+func (pp *IconProviderConfig) GetBlockInterval() uint64 {
 	return pp.ChainBlockInterval
+}
+
+func (pp *IconProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	if pp.FirstRetryBlockAfter != 0 {
+		return pp.FirstRetryBlockAfter
+	}
+	return 8
 }
 
 // NewProvider should provide a new Icon provider
@@ -577,11 +584,4 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 
 func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented for Icon")
-}
-
-func (icp *IconProvider) FirstRetryBlockAfter() uint64 {
-	if icp.PCfg.FirstRetryBlockAfter != 0 {
-		return icp.PCfg.FirstRetryBlockAfter
-	}
-	return 8
 }

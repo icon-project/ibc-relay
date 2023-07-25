@@ -464,10 +464,10 @@ loop:
 
 func (icp *IconChainProcessor) SnapshotHeight(height int) {
 
-	blockInterval := icp.Provider().ProviderConfig().BlockInterval()
+	blockInterval := icp.Provider().ProviderConfig().GetBlockInterval()
 	snapshotThreshold := rlycommon.ONE_HOUR / int(blockInterval)
 
-	retryAfter := icp.Provider().FirstRetryBlockAfter()
+	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
 	snapshotHeight := height - int(retryAfter)
 
 	if snapshotHeight%snapshotThreshold == 0 {

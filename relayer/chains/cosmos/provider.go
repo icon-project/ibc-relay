@@ -70,8 +70,12 @@ func (pc CosmosProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pc.Broadcast
 }
 
-func (pc CosmosProviderConfig) BlockInterval() uint64 {
+func (pc CosmosProviderConfig) GetBlockInterval() uint64 {
 	panic("Not implemented for Cosmos")
+}
+
+func (pc CosmosProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	return 1
 }
 
 // NewProvider validates the CosmosProviderConfig, instantiates a ChainClient and then instantiates a CosmosProvider
@@ -312,10 +316,6 @@ func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
-}
-
-func (cc *CosmosProvider) FirstRetryBlockAfter() uint64 {
-	return 1
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

@@ -394,7 +394,7 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 	var latestHeader provider.IBCHeader
 
 	ccp.SnapshotHeight(int(persistence.latestHeight))
-  
+
 	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
@@ -498,10 +498,10 @@ func (ccp *ArchwayChainProcessor) queryCycle(ctx context.Context, persistence *q
 
 func (ccp *ArchwayChainProcessor) SnapshotHeight(height int) {
 
-	blockInterval := ccp.Provider().ProviderConfig().BlockInterval()
+	blockInterval := ccp.Provider().ProviderConfig().GetBlockInterval()
 	snapshotThreshold := common.ONE_HOUR / int(blockInterval)
 
-	retryAfter := ccp.Provider().FirstRetryBlockAfter()
+	retryAfter := ccp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
 	snapshotHeight := height - int(retryAfter)
 
 	if snapshotHeight%snapshotThreshold == 0 {
@@ -511,7 +511,6 @@ func (ccp *ArchwayChainProcessor) SnapshotHeight(height int) {
 		}
 	}
 }
-// TODO: review add verifier
 
 func (ccp *ArchwayChainProcessor) CollectMetrics(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.CurrentBlockHeight(ctx, persistence)

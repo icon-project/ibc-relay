@@ -201,16 +201,23 @@ func (pp *ArchwayProviderConfig) Validate() error {
 	return nil
 }
 
-func (pc *ArchwayProviderConfig) BlockInterval() uint64 {
-	return pc.ChainBlockInterval
-}
-
 func (pp *ArchwayProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }
 
 func (pp *ArchwayProviderConfig) BroadcastMode() provider.BroadcastMode {
 	return pp.Broadcast
+}
+
+func (pp *ArchwayProviderConfig) GetBlockInterval() uint64 {
+	return pp.ChainBlockInterval
+}
+
+func (pp *ArchwayProviderConfig) GetFirstRetryBlockAfter() uint64 {
+	if pp.FirstRetryBlockAfter != 0 {
+		return pp.FirstRetryBlockAfter
+	}
+	return 3
 }
 
 func (pc *ArchwayProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
@@ -465,13 +472,6 @@ func (ap *ArchwayProvider) updateNextAccountSequence(seq uint64) {
 
 func (app *ArchwayProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	return nil, fmt.Errorf("Not implemented for Icon")
-}
-
-func (cc *ArchwayProvider) FirstRetryBlockAfter() uint64 {
-	if cc.PCfg.FirstRetryBlockAfter != 0 {
-		return cc.PCfg.FirstRetryBlockAfter
-	}
-	return 3
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.
