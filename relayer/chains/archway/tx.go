@@ -71,7 +71,8 @@ func (ap *ArchwayProvider) TxFactory() tx.Factory {
 		WithGasAdjustment(ap.PCfg.GasAdjustment).
 		WithGasPrices(ap.PCfg.GasPrices).
 		WithKeybase(ap.Keybase).
-		WithSignMode(ap.PCfg.SignMode())
+		WithSignMode(ap.PCfg.SignMode()).
+		WithSimulateAndExecute(true)
 }
 
 // PrepareFactory mutates the tx factory with the appropriate account number, sequence number, and min gas settings.
@@ -764,8 +765,9 @@ func (ap *ArchwayProvider) SendMessagesToMempool(
 		ap.updateNextAccountSequence(sequence + 1)
 	}
 
-	//TODO: comment this on production
-	SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+	//uncomment for saving msg
+	// SaveMsgToFile(ArchwayDebugMessagePath, msgs)
+
 	return nil
 
 }
