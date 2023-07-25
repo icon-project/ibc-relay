@@ -196,7 +196,7 @@ func (pp *ArchwayProviderConfig) ValidateContractAddress(addr string) bool {
 	// TODO: Is this needed?
 	// Confirmed working for neutron, archway, osmosis
 	prefixLen := len(pp.AccountPrefix)
-	if len(addr) != prefixLen+59 {
+	if len(addr) != prefixLen+ContractAddressSizeMinusPrefix {
 		return false
 	}
 
