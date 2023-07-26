@@ -143,7 +143,7 @@ func (icp *IconProvider) QueryBalance(ctx context.Context, keyName string) (sdk.
 
 // implementing is not required
 func (icp *IconProvider) QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error) {
-	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (icp *IconProvider) QueryUnbondingPeriod(context.Context) (time.Duration, error) {
