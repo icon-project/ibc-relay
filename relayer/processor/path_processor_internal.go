@@ -209,18 +209,9 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 	for seq, info := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
+		toDeleteDst[chantypes.EventTypeRecvPacket] = append(toDeleteDst[chantypes.EventTypeRecvPacket], seq)
+
 	}
-	// 	if len(info.Ack) == 0 {
-	// 		// have recv_packet but not write_acknowledgement yet. skip for now.
-	// 		continue
-	// 	}
-	// 	// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
-	// 	ackMsg := packetIBCMessage{
-	// 		eventType: chantypes.EventTypeAcknowledgePacket,
-	// 		info:      info,
-	// 	}
-	// 	msgs = append(msgs, ackMsg)
-	// }
 
 	processRemovals()
 
@@ -1049,6 +1040,9 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	}
 	pathEnd1ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd1ChannelCloseMessages)
 	pathEnd2ChannelCloseRes := pp.unrelayedChannelCloseMessages(pathEnd2ChannelCloseMessages)
+
+	fmt.Println("pp.pathEnd1.messageCache.PacketFlow", pp.pathEnd1.messageCache.PacketFlow)
+	fmt.Println("pp.pathEnd2.messageCache.PacketFlow", pp.pathEnd2.messageCache.PacketFlow)
 
 	// concatenate applicable messages for pathend
 	pathEnd1ConnectionMessages, pathEnd2ConnectionMessages := pp.connectionMessagesToSend(pathEnd1ConnectionHandshakeRes, pathEnd2ConnectionHandshakeRes)
