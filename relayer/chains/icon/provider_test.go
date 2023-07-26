@@ -23,6 +23,13 @@ const (
 	testCA = "cx58bca8a4110e96b50e1bd9eeb5e429eed5ba94b4"
 )
 
+func TestAddr(t *testing.T) {
+	b := isValidIconContractAddress(testCA)
+	assert.True(t, b)
+
+	assert.False(t, isValidIconContractAddress(testCA[1:]))
+}
+
 func TestConnectionDecode(t *testing.T) {
 
 	input := types.HexBytes("0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f524445524544180322200a0f30372d74656e6465726d696e742d30120d636f6e6e656374696f6e2d3533")
@@ -49,7 +56,8 @@ func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
 		IbcHandlerAddress: contractAddress,
 		RPCAddr:           "http://localhost:9082/api/v3",
 		// RPCAddr: "https://berlin.net.solidwallet.io/api/v3",
-		Timeout: "20s",
+		Timeout:       "20s",
+		BlockInterval: 2000,
 	}
 	log, _ := zap.NewProduction()
 	p, _ := pcfg.NewProvider(log, "", false, "icon")

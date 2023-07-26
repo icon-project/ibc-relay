@@ -1,4 +1,4 @@
-package archway
+package wasm
 
 const (
 	// External methods
@@ -23,4 +23,14 @@ const (
 	MethodGetNextClientSequence     = "get_next_client_sequence"
 	MethodGetNextChannelSequence    = "get_next_channel_sequence"
 	MethodGetNextConnectionSequence = "get_next_connection_sequence"
+)
+
+const (
+	ClientPrefix     = "iconclient"
+	ConnectionPrefix = "connection"
+	ChannelPrefix    = "channel"
+)
+
+const (
+	ContractAddressSizeMinusPrefix = 59
 )

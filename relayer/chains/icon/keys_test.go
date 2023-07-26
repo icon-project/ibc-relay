@@ -44,7 +44,8 @@ func TestRestoreIconKeyStore(t *testing.T) {
 		Timeout:           "20s",
 		ChainName:         "icon",
 		StartHeight:       10,
-		IbcHandlerAddress: "aa",
+		IbcHandlerAddress: "cxb6b5791be0b5ef67063b3c10b840fb81514db2fd",
+		BlockInterval:     2000,
 	}
 	p, err := pcfg.NewProvider(zap.NewNop(), "not_correct", false, "icon")
 	require.NoError(t, err)
