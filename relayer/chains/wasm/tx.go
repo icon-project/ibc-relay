@@ -332,13 +332,11 @@ func (ap *WasmProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provid
 
 func (ap *WasmProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("MsgTimeoutRequest Not implemented for Wasm module")
 }
 
 // panic
 func (ap *WasmProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, nil
 }
 
 func (ap *WasmProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
