@@ -283,18 +283,9 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 	for seq, info := range pathEndPacketFlowMessages.DstMsgRecvPacket {
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
+		toDeleteDst[chantypes.EventTypeRecvPacket] = append(toDeleteDst[chantypes.EventTypeRecvPacket], seq)
+
 	}
-	// 	if len(info.Ack) == 0 {
-	// 		// have recv_packet but not write_acknowledgement yet. skip for now.
-	// 		continue
-	// 	}
-	// 	// msg is received by dst chain, but no ack yet. Need to relay ack from dst to src!
-	// 	ackMsg := packetIBCMessage{
-	// 		eventType: chantypes.EventTypeAcknowledgePacket,
-	// 		info:      info,
-	// 	}
-	// 	msgs = append(msgs, ackMsg)
-	// }
 
 	processRemovals()
 
@@ -308,7 +299,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 
 	for seq, msgTimeoutRequest := range pathEndPacketFlowMessages.DstMsgRequestTimeout {
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
-		toDeleteDst[common.EventTimeoutRequest] = append(toDeleteDst[common.EventTimeoutRequest], seq)
 		timeoutMsg := packetIBCMessage{
 			eventType: chantypes.EventTypeTimeoutPacket,
 			info:      msgTimeoutRequest,
