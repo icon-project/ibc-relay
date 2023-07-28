@@ -277,7 +277,6 @@ func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.Pa
 
 func (ap *WasmProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("Not implemented for Wasm")
 }
 
 func (ap *WasmProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -953,10 +952,12 @@ func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, 
 		}
 	}
 
+	done := ap.SetSDKContext()
 	err = tx.Sign(txf, clientCtx.GetFromName(), txn, true)
 	if err != nil {
 		return nil, 0, err
 	}
+	done()
 
 	res, err := clientCtx.TxConfig.TxEncoder()(txn.GetTx())
 	return res, sequence, nil

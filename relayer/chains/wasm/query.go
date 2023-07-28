@@ -333,7 +333,8 @@ func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeig
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (*wasmtypes.QuerySmartContractStateResponse, error) {
-
+	done := ap.SetSDKContext()
+	defer done()
 	return ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
 		Address:   ap.PCfg.IbcHandlerAddress,
 		QueryData: param,
