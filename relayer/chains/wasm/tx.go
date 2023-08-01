@@ -277,7 +277,6 @@ func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.Pa
 
 func (ap *WasmProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
-	return nil, fmt.Errorf("Not implemented for Wasm")
 }
 
 func (ap *WasmProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
@@ -922,7 +921,7 @@ func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, 
 		}
 
 		txf = txf.WithGas(adjusted)
-		_, _ = fmt.Fprintf(os.Stderr, "%s\n", tx.GasEstimateResponse{GasEstimate: txf.Gas()})
+		// _, _ = fmt.Fprintf(os.Stderr, "%s\n", tx.GasEstimateResponse{GasEstimate: txf.Gas()})
 	}
 
 	if clientCtx.Simulate {
@@ -1005,9 +1004,8 @@ func (ap *WasmProvider) BroadcastTx(
 
 	ap.log.Info("Submitted transaction",
 		zap.String("chain_id", ap.PCfg.ChainID),
-		zap.String("txHash", res.TxHash),
-		zap.Int64("Height", res.Height),
-		zap.Any("Methods called", msgTypesField(msgs)),
+		zap.String("tx_hash", res.TxHash),
+		msgTypesField(msgs),
 	)
 
 	if shouldWait {
