@@ -3,7 +3,7 @@ name: "Release"
 on:
   push:
     tags:
-      - '*' # Run release on any tag. Will be marked as draft by default anyway.
+      - 'v*.*.*-alpha.*' # Run release on any tag. Will be marked as draft by default anyway.
 
 jobs:
   goreleaser:
