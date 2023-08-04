@@ -66,6 +66,8 @@ type IconChainProcessor struct {
 	metrics *processor.PrometheusMetrics
 
 	verifier *Verifier
+
+	heightSnapshotChan chan struct{}
 }
 
 type Verifier struct {
@@ -74,7 +76,7 @@ type Verifier struct {
 	prevNetworkSectionHash []byte
 }
 
-func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
+func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics, heightSnapshot chan struct{}) *IconChainProcessor {
 	return &IconChainProcessor{
 		log:                  log.With(zap.String("chain_name", "Icon")),
 		chainProvider:        provider,
@@ -84,6 +86,7 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
+		heightSnapshotChan:   heightSnapshot,
 	}
 }
 
@@ -298,6 +301,9 @@ loop:
 		case err := <-errCh:
 			return err
 
+		case <-icp.heightSnapshotChan:
+			icp.SnapshotHeight(icp.getHeightToSave(int64(icp.latestBlock.Height)))
+
 		case <-reconnectCh:
 			cancelMonitorBlock()
 			ctxMonitorBlock, cancelMonitorBlock = context.WithCancel(ctx)
@@ -313,7 +319,11 @@ loop:
 				}, func(conn *websocket.Conn) {
 				}, func(conn *websocket.Conn, err error) {})
 				if err != nil {
-					icp.SnapshotHeight(int(processedheight) - 5)
+					// TODO: Save height for persistence when websocket disconnect ?
+					// ht := icp.getHeightToSave(processedheight)
+					// if ht != icp.getLastSavedHeight() {
+					// 	icp.SnapshotHeight(ht)
+					// }
 					if errors.Is(err, context.Canceled) {
 						return
 					}
@@ -364,7 +374,10 @@ loop:
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}
-				icp.SnapshotHeight(int(icp.latestBlock.Height) - 5)
+				// ht, takeSnapshot := icp.shouldSnapshot(int(icp.latestBlock.Height))
+				// if takeSnapshot {
+				// 	icp.SnapshotHeight(ht)
+				// }
 			}
 			// remove unprocessed blockResponses
 			for len(btpBlockRespCh) > 0 {
