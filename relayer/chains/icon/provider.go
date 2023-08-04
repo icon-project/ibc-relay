@@ -266,7 +266,7 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 
 func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
 
-	connState, err := icp.QueryConnection(ctx, int64(height), msgOpenAck.ConnID)
+	connState, err := icp.QueryConnection(ctx, int64(msgOpenAck.Height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
 	}

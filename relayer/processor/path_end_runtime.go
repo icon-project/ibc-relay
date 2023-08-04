@@ -2,14 +2,15 @@ package processor
 
 import (
 	"context"
-	"strings"
 	"sync"
 	"time"
 
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+
 	"go.uber.org/zap"
 )
 
@@ -451,7 +452,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEndForHeight = pathEnd
 	}
 
-	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	if message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
@@ -461,6 +462,22 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		)
 		return false
 	}
+
+	// allow to send only counterparty chain has consensusState
+	if ClientIsIcon(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
+			int64(pathEnd.latestBlock.Height),
+			pathEnd.clientState.ClientID,
+			clienttypes.NewHeight(0, message.info.Height))
+		if err != nil {
+			pathEnd.log.Debug("Waiting to relay packet message until clientState is updated",
+				zap.Inline(message),
+				zap.String("event_type", eventType),
+			)
+			return false
+		}
+	}
+
 	if !pathEnd.channelStateCache[k] {
 		// channel is not open, do not send
 		pathEnd.log.Warn("Refusing to relay packet message because channel is not open",
@@ -564,12 +581,27 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 		k = k.Counterparty()
 	}
 
-	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= counterparty.latestBlock.Height {
+	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay connection message until counterparty height has incremented",
 			zap.Inline(k),
 			zap.String("event_type", eventType),
 		)
 		return false
+	}
+
+	// allow to send only counterparty chain has consensusState
+	if ClientIsIcon(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
+			int64(pathEnd.latestBlock.Height),
+			pathEnd.clientState.ClientID,
+			clienttypes.NewHeight(0, message.info.Height))
+		if err != nil {
+			pathEnd.log.Debug("Waiting to relay connection message until clientState is updated",
+				zap.Inline(k),
+				zap.String("event_type", eventType),
+			)
+			return false
+		}
 	}
 
 	msgProcessCache, ok := pathEnd.connProcessing[eventType]
@@ -645,13 +677,29 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 		channelKey = channelKey.Counterparty()
 	}
 
-	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= counterparty.latestBlock.Height {
+	if message.info.Height >= counterparty.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
 			zap.String("event_type", eventType),
 		)
 		return false
 	}
+
+	// allow to send only counterparty chain has consensusState
+	if ClientIsIcon(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
+			int64(pathEnd.latestBlock.Height),
+			pathEnd.clientState.ClientID,
+			clienttypes.NewHeight(0, message.info.Height))
+		if err != nil {
+			pathEnd.log.Debug("Waiting to relay connection message until clientState is updated",
+				zap.Inline(channelKey),
+				zap.String("event_type", eventType),
+			)
+			return false
+		}
+	}
+
 	msgProcessCache, ok := pathEnd.channelProcessing[eventType]
 	if !ok {
 		// in progress cache does not exist for this eventType, so can send.
