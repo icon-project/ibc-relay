@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
@@ -28,13 +27,14 @@ type pathEndRuntime struct {
 	latestBlock   provider.LatestBlock
 	latestBlockMu sync.Mutex
 
-	messageCache         IBCMessagesCache
-	clientState          provider.ClientState
-	clientTrustedState   provider.ClientTrustedState
-	connectionStateCache ConnectionStateCache
-	channelStateCache    ChannelStateCache
-	latestHeader         provider.IBCHeader
-	ibcHeaderCache       IBCHeaderCache
+	messageCache          IBCMessagesCache
+	clientState           provider.ClientState
+	clientConsensusStates provider.ClienConsensusState
+	clientTrustedState    provider.ClientTrustedState
+	connectionStateCache  ConnectionStateCache
+	channelStateCache     ChannelStateCache
+	latestHeader          provider.IBCHeader
+	ibcHeaderCache        IBCHeaderCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData
@@ -465,11 +465,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 
 	// allow to send only counterparty chain has consensusState
 	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
-		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
-			int64(pathEnd.latestBlock.Height),
-			pathEnd.clientState.ClientID,
-			clienttypes.NewHeight(0, message.info.Height))
-		if err != nil {
+		if pathEnd.clientState.ConsensusHeight.RevisionHeight < message.info.Height {
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is updated",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
@@ -591,13 +587,9 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 
 	// allow to send only counterparty chain has consensusState
 	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
-		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
-			int64(pathEnd.latestBlock.Height),
-			pathEnd.clientState.ClientID,
-			clienttypes.NewHeight(0, message.info.Height))
-		if err != nil {
+		if pathEnd.clientState.ConsensusHeight.RevisionHeight < message.info.Height {
 			pathEnd.log.Debug("Waiting to relay connection message until clientState is updated",
-				zap.Inline(k),
+				zap.Inline(message),
 				zap.String("event_type", eventType),
 			)
 			return false
@@ -687,13 +679,9 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 	// allow to send only counterparty chain has consensusState
 	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
-		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
-			int64(pathEnd.latestBlock.Height),
-			pathEnd.clientState.ClientID,
-			clienttypes.NewHeight(0, message.info.Height))
-		if err != nil {
-			pathEnd.log.Debug("Waiting to relay connection message until clientState is updated",
-				zap.Inline(channelKey),
+		if pathEnd.clientState.ConsensusHeight.RevisionHeight < message.info.Height {
+			pathEnd.log.Debug("Waiting to relay channel message until clientState is updated",
+				zap.Inline(message),
 				zap.String("event_type", eventType),
 			)
 			return false
