@@ -750,15 +750,13 @@ func (ap *WasmProvider) SendMessagesToMempool(
 					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 						ap.handleAccountSequenceMismatchError(err)
 					}
-					return fmt.Errorf("Wasm: failed during updateClient %v", err)
 				}
-				ap.updateNextAccountSequence(sequence + 1)
 				return err
-			}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr); err != nil {
+			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
 				ap.log.Error("Failed to update client", zap.Any("Message", msg))
 				return err
 			}
-
+			continue
 		}
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
