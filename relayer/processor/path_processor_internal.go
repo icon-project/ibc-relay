@@ -673,7 +673,7 @@ func (pp *PathProcessor) updateClientTrustedState(src *pathEndRuntime, dst *path
 		return
 	}
 
-	if ClientIsIcon(src.clientState) {
+	if IsBTPLightClient(src.clientState) {
 		ibcheader, ok := nextIconIBCHeader(dst.ibcHeaderCache.Clone(), src.clientState.ConsensusHeight.RevisionHeight)
 		if !ok {
 			pp.log.Debug("No cached IBC header found for client next trusted height",

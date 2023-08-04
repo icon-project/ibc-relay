@@ -106,7 +106,13 @@ func (mp *messageProcessor) processMessages(
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
 	var err error
 	// handle if dst is IconLightClient
-	if ClientIsIcon(dst.clientState) {
+	if IsBTPLightClient(dst.clientState) {
+
+		// if the latestblock is less than clientState height
+		if dst.clientState.ConsensusHeight.RevisionHeight >= src.latestBlock.Height {
+			return false, nil
+		}
+
 		header, found := src.ibcHeaderCache[src.latestBlock.Height]
 		if !found {
 			header, err = src.chainProvider.QueryIBCHeader(ctx, int64(src.latestBlock.Height))
@@ -228,7 +234,7 @@ func (mp *messageProcessor) assembleMessage(
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
-	if ClientIsIcon(dst.clientState) {
+	if IsBTPLightClient(dst.clientState) {
 		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst, shouldUpdate)
 		return err
 	}
@@ -343,7 +349,7 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 
 func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
 	clientConsensusHeight := dst.clientState.ConsensusHeight
-	if ClientIsIcon(dst.clientState) {
+	if IsBTPLightClient(dst.clientState) {
 		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
 		if !found {
 			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)
@@ -438,7 +444,7 @@ func (mp *messageProcessor) sendBatchMessages(
 	msgs := make([]provider.RelayerMessage, 0, 1+len(batch))
 
 	// shouldn't send update incase of icon
-	if !ClientIsIcon(dst.clientState) {
+	if !IsBTPLightClient(dst.clientState) {
 		msgs = append(msgs, mp.msgUpdateClient)
 	}
 
@@ -499,7 +505,7 @@ func (mp *messageProcessor) sendSingleMessage(
 ) {
 
 	msgs := make([]provider.RelayerMessage, 0, 2)
-	if !ClientIsIcon(dst.clientState) {
+	if !IsBTPLightClient(dst.clientState) {
 		msgs = append(msgs, mp.msgUpdateClient)
 	}
 	msgs = append(msgs, tracker.assembledMsg())

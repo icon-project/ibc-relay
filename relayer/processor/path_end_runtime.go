@@ -464,7 +464,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	// allow to send only counterparty chain has consensusState
-	if ClientIsIcon(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
 		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
 			int64(pathEnd.latestBlock.Height),
 			pathEnd.clientState.ClientID,
@@ -590,7 +590,7 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 	}
 
 	// allow to send only counterparty chain has consensusState
-	if ClientIsIcon(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
 		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
 			int64(pathEnd.latestBlock.Height),
 			pathEnd.clientState.ClientID,
@@ -686,7 +686,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 	}
 
 	// allow to send only counterparty chain has consensusState
-	if ClientIsIcon(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
 		_, err := pathEnd.chainProvider.QueryClientConsensusState(context.Background(),
 			int64(pathEnd.latestBlock.Height),
 			pathEnd.clientState.ClientID,

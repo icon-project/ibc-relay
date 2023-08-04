@@ -277,18 +277,16 @@ func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provide
 }
 
 func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
+
 	channelResult, err := icp.QueryChannel(ctx, int64(msg.Height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, nil
 	}
 	return provider.ChannelProof{
-		Proof: channelResult.Proof,
-		ProofHeight: clienttypes.Height{
-			RevisionNumber: 0,
-			RevisionHeight: height,
-		},
-		Ordering: chantypes.Order(channelResult.Channel.GetOrdering()),
-		Version:  channelResult.Channel.Version,
+		Proof:       channelResult.Proof,
+		ProofHeight: channelResult.ProofHeight,
+		Ordering:    chantypes.Order(channelResult.Channel.GetOrdering()),
+		Version:     channelResult.Channel.Version,
 	}, nil
 }
 
@@ -338,7 +336,7 @@ func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacke
 	}
 	return provider.PacketProof{
 		Proof:       packetAckResponse.Proof,
-		ProofHeight: packetAckResponse.GetProofHeight(),
+		ProofHeight: packetAckResponse.ProofHeight,
 	}, nil
 
 }
