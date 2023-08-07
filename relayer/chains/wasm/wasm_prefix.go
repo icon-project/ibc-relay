@@ -1,6 +1,7 @@
 package wasm
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/CosmWasm/wasmd/app"
@@ -17,11 +18,16 @@ var sdkConfigMutex sync.Mutex
 // Don't use this unless you know what you're doing.
 // TODO: :dagger: :knife: :chainsaw: remove this function
 func (ap *WasmProvider) SetSDKContext() func() {
-	sdkConfigMutex.Lock()
+
 	cfg := sdk.GetConfig()
-	cfg.SetBech32PrefixForAccount(ap.PCfg.AccountPrefix, app.Bech32PrefixAccPub)
-	cfg.SetBech32PrefixForValidator(ap.PCfg.AccountPrefix, app.Bech32PrefixValPub)
-	cfg.SetBech32PrefixForConsensusNode(app.Bech32PrefixConsAddr, app.Bech32PrefixConsPub)
-	cfg.SetAddressVerifier(wasmtypes.VerifyAddressLen())
+	if strings.Contains(cfg.GetBech32AccountAddrPrefix(), ap.PCfg.AccountPrefix) {
+		return func() {}
+	}
+	sdkConfigMutex.Lock()
+	cfg_update := sdk.GetConfig()
+	cfg_update.SetBech32PrefixForAccount(ap.PCfg.AccountPrefix, app.Bech32PrefixAccPub)
+	cfg_update.SetBech32PrefixForValidator(ap.PCfg.AccountPrefix, app.Bech32PrefixValPub)
+	cfg_update.SetBech32PrefixForConsensusNode(app.Bech32PrefixConsAddr, app.Bech32PrefixConsPub)
+	cfg_update.SetAddressVerifier(wasmtypes.VerifyAddressLen())
 	return sdkConfigMutex.Unlock
 }
