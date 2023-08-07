@@ -468,19 +468,20 @@ loop:
 	}
 }
 
+func (icp *IconChainProcessor) getHeightToSave(height int64) int {
+	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
+	ht := int(height - int64(retryAfter))
+	if ht < 0 {
+		return 0
+	}
+	return ht
+}
+
 func (icp *IconChainProcessor) SnapshotHeight(height int) {
 
-	blockInterval := icp.Provider().ProviderConfig().GetBlockInterval()
-	snapshotThreshold := rlycommon.ONE_HOUR / int(blockInterval)
-
-	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
-	snapshotHeight := height - int(retryAfter)
-
-	if snapshotHeight%snapshotThreshold == 0 {
-		err := rlycommon.SnapshotHeight(icp.Provider().ChainId(), height)
-		if err != nil {
-			icp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
-		}
+	err := rlycommon.SnapshotHeight(icp.Provider().ChainId(), height)
+	if err != nil {
+		icp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
 	}
 }
 

@@ -507,19 +507,19 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	return nil
 }
 
-func (ccp *WasmChainProcessor) SnapshotHeight(height int) {
-
-	blockInterval := ccp.Provider().ProviderConfig().GetBlockInterval()
-	snapshotThreshold := common.ONE_HOUR / int(blockInterval)
-
+func (ccp *WasmChainProcessor) getHeightToSave(height int64) int {
 	retryAfter := ccp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
-	snapshotHeight := height - int(retryAfter)
+	ht := int(height - int64(retryAfter))
+	if ht < 0 {
+		return 0
+	}
+	return ht
+}
 
-	if snapshotHeight%snapshotThreshold == 0 {
-		err := common.SnapshotHeight(ccp.Provider().ChainId(), height)
-		if err != nil {
-			ccp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
-		}
+func (ccp *WasmChainProcessor) SnapshotHeight(height int) {
+	err := common.SnapshotHeight(ccp.Provider().ChainId(), height)
+	if err != nil {
+		ccp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
 	}
 }
 
