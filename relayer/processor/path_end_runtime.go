@@ -27,14 +27,13 @@ type pathEndRuntime struct {
 	latestBlock   provider.LatestBlock
 	latestBlockMu sync.Mutex
 
-	messageCache          IBCMessagesCache
-	clientState           provider.ClientState
-	clientConsensusStates provider.ClienConsensusState
-	clientTrustedState    provider.ClientTrustedState
-	connectionStateCache  ConnectionStateCache
-	channelStateCache     ChannelStateCache
-	latestHeader          provider.IBCHeader
-	ibcHeaderCache        IBCHeaderCache
+	messageCache         IBCMessagesCache
+	clientState          provider.ClientState
+	clientTrustedState   provider.ClientTrustedState
+	connectionStateCache ConnectionStateCache
+	channelStateCache    ChannelStateCache
+	latestHeader         provider.IBCHeader
+	ibcHeaderCache       IBCHeaderCache
 
 	// New messages and other data arriving from the handleNewMessagesForPathEnd method.
 	incomingCacheData chan ChainProcessorCacheData

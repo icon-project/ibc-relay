@@ -52,7 +52,7 @@ func (pp *PathProcessor) getMessagesToSend(
 
 			if e == chantypes.EventTypeRecvPacket {
 				dstChan, dstPort := m[0].info.DestChannel, m[0].info.DestPort
-				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, dstChan, dstPort)
+				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, int64(dst.latestBlock.Height), dstChan, dstPort)
 				if err != nil {
 					dst.log.Error("Failed to query next sequence recv",
 						zap.String("channel_id", dstChan),
