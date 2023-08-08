@@ -726,6 +726,9 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		return err
 	}
 
+	// uncomment for saving msg
+	// SaveMsgToFile(WasmDebugMessagePath, msgs)
+
 	for _, msg := range msgs {
 		if msg == nil {
 			ap.log.Debug("One of the message of is nil ")
@@ -763,9 +766,6 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		}
 		ap.updateNextAccountSequence(sequence + 1)
 	}
-
-	//uncomment for saving msg
-	// SaveMsgToFile(WasmDebugMessagePath, msgs)
 
 	return nil
 
