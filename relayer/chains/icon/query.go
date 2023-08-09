@@ -792,6 +792,39 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	}, nil
 }
 
+func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) ([]types.HexInt, error) {
+
+	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
+		"portId":    portId,
+		"channelId": channelId,
+		"startSeq":  types.NewHexInt(int64(startSeq)),
+		"endSeq":    types.NewHexInt(int64(endSeq)),
+	}, callParamsWithHeight(types.NewHexInt(height)))
+
+	var missingReceipts []types.HexInt
+	if err := icp.client.Call(callParam, &missingReceipts); err != nil {
+		return nil, err
+	}
+
+	return missingReceipts, nil
+}
+
+func (icp *IconProvider) QueryPacketHeights(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) (map[types.HexInt]types.HexInt, error) {
+
+	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
+		"portId":    portId,
+		"channelId": channelId,
+		"startSeq":  types.NewHexInt(int64(startSeq)),
+		"endSeq":    types.NewHexInt(int64(endSeq)),
+	}, callParamsWithHeight(types.NewHexInt(height)))
+
+	var missingReceipts map[types.HexInt]types.HexInt
+	if err := icp.client.Call(callParam, &missingReceipts); err != nil {
+		return nil, err
+	}
+	return missingReceipts, nil
+}
+
 // ics 20 - transfer
 // not required for icon
 func (icp *IconProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {

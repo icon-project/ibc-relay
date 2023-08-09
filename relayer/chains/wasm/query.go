@@ -17,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 
@@ -27,7 +28,6 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
@@ -878,4 +878,45 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 		return nil, fmt.Errorf("consensus state of client %s before %d", clientId, clientHeight)
 	}
 	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
+}
+
+func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) ([]int64, error) {
+
+	callParams := types.NewPacketMissingReceiptParams(channelId, portId, startSeq, endSeq)
+	callParamsByte, err := json.Marshal(callParams)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := ap.QueryIBCHandlerContract(ctx, callParamsByte)
+	if err != nil {
+		return nil, err
+	}
+
+	var receipts []int64
+	if err := json.Unmarshal(result.Data.Bytes(), &receipts); err != nil {
+		return nil, err
+	}
+
+	return receipts, nil
+}
+
+func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) (map[int64]int64, error) {
+
+	callParams := types.NewPacketHeightParams(channelId, portId, startSeq, endSeq)
+	callParamsBytes, err := json.Marshal(callParams)
+	if err != nil {
+		return nil, err
+	}
+	result, err := ap.QueryIBCHandlerContract(ctx, callParamsBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	var packetHeights map[int64]int64
+	if err := json.Unmarshal(result.Data.Bytes(), &packetHeights); err != nil {
+		return nil, err
+	}
+
+	return packetHeights, nil
 }

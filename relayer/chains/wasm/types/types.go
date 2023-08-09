@@ -369,3 +369,39 @@ func NewPrevConsensusStateHeight(clientId string, height uint64) *GetPrevConsens
 		},
 	}
 }
+
+type RangeParams struct {
+	ChannelId     string `json:"channel_id"`
+	PortId        string `json:"port_id"`
+	StartSequence int64  `json:"start_sequence"`
+	EndSequence   int64  `json:"end_sequence"`
+}
+
+func NewRangeParams(channelId, portId string, startSequence, endSequence int64) RangeParams {
+	return RangeParams{
+		ChannelId:     channelId,
+		PortId:        portId,
+		StartSequence: startSequence,
+		EndSequence:   endSequence,
+	}
+}
+
+type PacketMissingReceiptsParams struct {
+	GetMissingPacketReceipts RangeParams `json:"get_missing_packet_receipts"`
+}
+
+func NewPacketMissingReceiptParams(channelId, portId string, startSequence, endSequence int64) PacketMissingReceiptsParams {
+	return PacketMissingReceiptsParams{
+		GetMissingPacketReceipts: NewRangeParams(channelId, portId, startSequence, endSequence),
+	}
+}
+
+type PacketHeightsParams struct {
+	GetPacketHeights RangeParams `json:"get_packet_heights"`
+}
+
+func NewPacketHeightParams(channelId, portId string, startSequence, endSequence int64) PacketHeightsParams {
+	return PacketHeightsParams{
+		GetPacketHeights: NewRangeParams(channelId, portId, startSequence, endSequence),
+	}
+}

@@ -42,5 +42,7 @@ const (
 	MethodRequestTimeout = "requestTimeout"
 	MethodTimeoutPacket  = "timeoutPacket"
 
-	MethodGetAllPorts = "getAllPorts"
+	MethodGetAllPorts              = "getAllPorts"
+	MethodGetMissingPacketReceipts = "getMissingPacketReceipts"
+	MethodGetPacketHeights         = "getpacketHeights"
 )
