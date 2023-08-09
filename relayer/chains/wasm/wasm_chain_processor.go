@@ -221,7 +221,7 @@ func (ccp *WasmChainProcessor) StartFromHeight(ctx context.Context) int {
 func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration:      defaultMinQueryLoopDuration,
+		minQueryLoopDuration:      time.Duration(ccp.chainProvider.PCfg.BlockInterval * uint64(common.NanosecondRatio)),
 		lastBalanceUpdate:         time.Unix(0, 0),
 		balanceUpdateWaitDuration: defaultBalanceUpdateWaitDuration,
 	}
@@ -317,6 +317,11 @@ func (ccp *WasmChainProcessor) initializeConnectionState(ctx context.Context) er
 			CounterpartyConnID:   c.Counterparty.ConnectionId,
 			CounterpartyClientID: c.Counterparty.ClientId,
 		}] = c.State == conntypes.OPEN
+
+		ccp.log.Debug("Found open connection",
+			zap.String("client-id ", c.ClientId),
+			zap.String("connection-id ", c.Id),
+		)
 	}
 	return nil
 }
@@ -345,12 +350,11 @@ func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
 		}] = ch.State == chantypes.OPEN
-		ccp.log.Info("Found channel",
-			zap.String("channelID", ch.ChannelId),
-			zap.String("Port id ", ch.PortId))
-		zap.String("Counterparty Channel Id ", ch.Counterparty.ChannelId)
-		zap.String("Counterparty Port Id", ch.Counterparty.PortId)
-
+		ccp.log.Debug("Found open channel",
+			zap.String("channel-id", ch.ChannelId),
+			zap.String("port-id ", ch.PortId),
+			zap.String("counterparty-channel-id", ch.Counterparty.ChannelId),
+			zap.String("counterparty-port-id", ch.Counterparty.PortId))
 	}
 	return nil
 }
@@ -373,7 +377,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Info("Queried latest height",
+	ccp.log.Debug("Queried latest height",
 		zap.Int64("latest_height", persistence.latestHeight),
 	)
 
@@ -414,7 +418,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			// fmt.Println("the lastqueried Block", i)
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
 			return err
 		})
@@ -431,7 +434,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		}
 
 		if err := ccp.Verify(ctx, lightBlock); err != nil {
-			ccp.log.Error("failed to Verify Wasm Header", zap.Int64("Height", blockRes.Height))
+			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
 			return err
 		}
 
@@ -457,7 +460,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
 
 			for _, m := range messages {
-				ccp.log.Info("Detected Eventlog", zap.String("Eventlog", m.eventType))
+				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType))
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 		}
@@ -517,6 +520,7 @@ func (ccp *WasmChainProcessor) getHeightToSave(height int64) int {
 }
 
 func (ccp *WasmChainProcessor) SnapshotHeight(height int) {
+	ccp.log.Info("Save height for snapshot", zap.Int("height", height))
 	err := common.SnapshotHeight(ccp.Provider().ChainId(), height)
 	if err != nil {
 		ccp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
