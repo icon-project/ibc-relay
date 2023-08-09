@@ -380,10 +380,6 @@ loop:
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
 				}
-				ht, takeSnapshot := icp.shouldSnapshot(int(icp.latestBlock.Height))
-				if takeSnapshot {
-					icp.SnapshotHeight(ht)
-				}
 			}
 			// remove unprocessed blockResponses
 			for len(btpBlockRespCh) > 0 {
