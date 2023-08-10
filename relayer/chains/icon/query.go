@@ -105,7 +105,7 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 	if block != nil {
 		return block.Height, nil
 	}
-	return 0, fmt.Errorf("failed to query Block")
+	return 0, fmt.Errorf("failed to query latest block")
 }
 
 // legacy
@@ -673,20 +673,24 @@ func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, cha
 		"portId":    portid,
 		"channelId": channelid,
 	}, callParamsWithHeight(types.NewHexInt(height)))
-	var nextSeqRecv uint64
+	var nextSeqRecv types.HexInt
 	if err := icp.client.Call(callParam, &nextSeqRecv); err != nil {
 		return nil, err
 	}
 	key := common.GetNextSequenceRecvCommitmentKey(portid, channelid)
-	keyHash := common.Sha3keccak256(key, []byte(types.NewHexInt(int64(nextSeqRecv))))
+	keyHash := common.Sha3keccak256(key, []byte(nextSeqRecv))
 
 	proof, err := icp.QueryIconProof(ctx, height, keyHash)
 	if err != nil {
 		return nil, err
 	}
 
+	nextSeq, err := nextSeqRecv.Value()
+	if err != nil {
+		return nil, err
+	}
 	return &chantypes.QueryNextSequenceReceiveResponse{
-		NextSequenceReceive: nextSeqRecv,
+		NextSequenceReceive: uint64(nextSeq),
 		Proof:               proof,
 		ProofHeight:         clienttypes.NewHeight(0, uint64(height)),
 	}, nil
