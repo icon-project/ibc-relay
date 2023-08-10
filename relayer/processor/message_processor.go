@@ -83,13 +83,13 @@ func (mp *messageProcessor) processMessages(
 	src, dst *pathEndRuntime,
 ) error {
 
-	// 2/3 rule enough_time_pass && context change in case of BTPBlock
+	// 2/3 rule enough_time_pass && Valid BTP Block
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
 		return err
 	}
 
-	if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+	if err := mp.assembleMsgUpdateClient(ctx, src, dst, needsClientUpdate); err != nil {
 		return err
 	}
 
@@ -106,18 +106,21 @@ func (mp *messageProcessor) processMessages(
 func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst *pathEndRuntime) (bool, error) {
 	var err error
 	// handle if dst is IconLightClient
-	if ClientIsIcon(dst.clientState) {
-		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
+	if IsBTPLightClient(dst.clientState) {
+
+		// if the latestblock is less than clientState height
+		if dst.clientState.ConsensusHeight.RevisionHeight >= src.latestBlock.Height {
+			return false, nil
+		}
+
+		header, found := src.ibcHeaderCache[src.latestBlock.Height]
 		if !found {
 			header, err = src.chainProvider.QueryIBCHeader(ctx, int64(src.latestBlock.Height))
 			if err != nil {
 				return false, err
 			}
-			if !header.IsCompleteBlock() {
-				return false, nil
-			}
 		}
-		if header.ShouldUpdateWithZeroMessage() {
+		if header.IsCompleteBlock() {
 			return true, nil
 		}
 		return false, nil
@@ -229,10 +232,10 @@ func (mp *messageProcessor) assembleMessage(
 
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
-func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime) error {
+func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
-	if ClientIsIcon(dst.clientState) {
-		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst)
+	if IsBTPLightClient(dst.clientState) {
+		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst, shouldUpdate)
 		return err
 	}
 
@@ -305,22 +308,24 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	return nil
 }
 
-func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime) error {
+func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
 	clientID := dst.info.ClientID
 	latestConsensusHeight := dst.clientState.ConsensusHeight
 
-	if !src.latestHeader.IsCompleteBlock() {
-		mp.log.Debug("Src latest IbcHeader is not complete Block",
-			zap.Int64("Height", int64(src.latestHeader.Height())))
+	if !shouldUpdate {
 		return nil
+	}
+
+	if !src.latestHeader.IsCompleteBlock() {
+		return fmt.Errorf("Should Update is true  but the Header is incomplete")
 	}
 
 	if src.latestHeader.Height() <= latestConsensusHeight.RevisionHeight {
 		mp.log.Debug("Src latest header is less then latest client State",
-			zap.String("Chainid ", src.info.ChainID),
-			zap.Int64("LatestHeader height", int64(src.latestHeader.Height())),
-			zap.Int64("Client State height", int64(latestConsensusHeight.RevisionHeight)))
+			zap.String("chain-id", src.info.ChainID),
+			zap.Int64("latest-header-height", int64(src.latestHeader.Height())),
+			zap.Int64("client-state-height", int64(latestConsensusHeight.RevisionHeight)))
 
 		return nil
 	}
@@ -340,13 +345,12 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 	}
 
 	mp.msgUpdateClient = msgUpdateClient
-
 	return nil
 }
 
 func (mp *messageProcessor) findNextIBCHeader(ctx context.Context, src, dst *pathEndRuntime) (provider.IBCHeader, error) {
 	clientConsensusHeight := dst.clientState.ConsensusHeight
-	if ClientIsIcon(dst.clientState) {
+	if IsBTPLightClient(dst.clientState) {
 		header, found := nextIconIBCHeader(src.ibcHeaderCache.Clone(), dst.lastClientUpdateHeight)
 		if !found {
 			return nil, fmt.Errorf("unable to find Icon IBC header for Next height of %d ", clientConsensusHeight.RevisionHeight)
@@ -376,6 +380,7 @@ func (mp *messageProcessor) trackAndSendMessages(
 			batch = append(batch, t)
 			continue
 		}
+
 		go mp.sendSingleMessage(ctx, src, dst, t)
 	}
 
@@ -437,11 +442,16 @@ func (mp *messageProcessor) sendBatchMessages(
 	defer cancel()
 
 	// messages are batch with appended MsgUpdateClient
-	msgs := make([]provider.RelayerMessage, 1+len(batch))
-	msgs[0] = mp.msgUpdateClient
+	msgs := make([]provider.RelayerMessage, 0, 1+len(batch))
+
+	// shouldn't send update incase of icon
+	if !IsBTPLightClient(dst.clientState) {
+		msgs = append(msgs, mp.msgUpdateClient)
+	}
+
 	fields := []zapcore.Field{}
 	for i, t := range batch {
-		msgs[i+1] = t.assembledMsg()
+		msgs = append(msgs, t.assembledMsg())
 		fields = append(fields, zap.Object(fmt.Sprintf("msg_%d", i), t))
 	}
 
@@ -495,14 +505,18 @@ func (mp *messageProcessor) sendSingleMessage(
 	tracker messageToTrack,
 ) {
 
-	msgs := []provider.RelayerMessage{mp.msgUpdateClient, tracker.assembledMsg()}
+	msgs := make([]provider.RelayerMessage, 0, 2)
+	if !IsBTPLightClient(dst.clientState) {
+		msgs = append(msgs, mp.msgUpdateClient)
+	}
+	msgs = append(msgs, tracker.assembledMsg())
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)
 	defer cancel()
 
 	msgType := tracker.msgType()
 
-	dst.log.Debug(fmt.Sprintf("Will broadcast %s message", msgType), zap.Object("msg", tracker))
+	// dst.log.Debug(fmt.Sprintf("Will broadcast %s message", msgType), zap.Object("msg", tracker))
 
 	// Set callback for packet messages so that we increment prometheus metrics on successful relays.
 	var callback func(rtr *provider.RelayerTxResponse, err error)

@@ -241,7 +241,7 @@ func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provid
 }
 
 func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
-	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.SourceChannel, msgRecvPacket.SourcePort, msgRecvPacket.Sequence)
+	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
 		return provider.PacketProof{}, nil
 	}
@@ -253,7 +253,7 @@ func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket
 
 func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 
-	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence)
+	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
 
 	if err != nil {
 		return provider.PacketProof{}, nil
@@ -286,8 +286,7 @@ func (ap *WasmProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pro
 	}
 
 	params := &chantypes.MsgRecvPacket{
-		Packet: msgTransfer.Packet(),
-		// Packet:          chantypes.Packet{}, //TODO: just to check packet timeout
+		Packet:          msgTransfer.Packet(),
 		ProofCommitment: proof.Proof,
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
@@ -727,6 +726,9 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		return err
 	}
 
+	// uncomment for saving msg
+	// SaveMsgToFile(WasmDebugMessagePath, msgs)
+
 	for _, msg := range msgs {
 		if msg == nil {
 			ap.log.Debug("One of the message of is nil ")
@@ -744,13 +746,17 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		}
 
 		if msg.Type() == MethodUpdateClient {
-			if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
-				if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-					ap.handleAccountSequenceMismatchError(err)
+			if err := retry.Do(func() error {
+				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+						ap.handleAccountSequenceMismatchError(err)
+					}
 				}
-				return fmt.Errorf("Wasm: failed during updateClient %v", err)
+				return err
+			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
+				ap.log.Error("Failed to update client", zap.Any("Message", msg))
+				return err
 			}
-			ap.updateNextAccountSequence(sequence + 1)
 			continue
 		}
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
@@ -760,9 +766,6 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		}
 		ap.updateNextAccountSequence(sequence + 1)
 	}
-
-	//uncomment for saving msg
-	// SaveMsgToFile(WasmDebugMessagePath, msgs)
 
 	return nil
 
@@ -921,7 +924,7 @@ func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, 
 		}
 
 		txf = txf.WithGas(adjusted)
-		_, _ = fmt.Fprintf(os.Stderr, "%s\n", tx.GasEstimateResponse{GasEstimate: txf.Gas()})
+		// _, _ = fmt.Fprintf(os.Stderr, "%s\n", tx.GasEstimateResponse{GasEstimate: txf.Gas()})
 	}
 
 	if clientCtx.Simulate {
@@ -1006,9 +1009,8 @@ func (ap *WasmProvider) BroadcastTx(
 
 	ap.log.Info("Submitted transaction",
 		zap.String("chain_id", ap.PCfg.ChainID),
-		zap.String("txHash", res.TxHash),
-		zap.Int64("Height", res.Height),
-		zap.Any("Methods called", msgTypesField(msgs)),
+		zap.String("tx_hash", res.TxHash),
+		msgTypesField(msgs),
 	)
 
 	if shouldWait {
