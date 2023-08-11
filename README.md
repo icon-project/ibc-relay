@@ -141,8 +141,8 @@ The easiest way would be to follow the guide in [this repo](https://github.com/i
    You can query the balance of each configured key by running:  
 
    ```shell
-   $ rly q balance icon keyName
-   $ rly q balance archway keyName
+   $ rly q balance icon [key-name]
+   $ rly q balance archway [key-name]
    ```
 
 7. **Configure path meta-data in config file.**
@@ -154,7 +154,7 @@ The easiest way would be to follow the guide in [this repo](https://github.com/i
    <br>
 
    ```shell
-     $ rly paths add <chain-id-1> <chain-id-2> <path-name> --file _path_to/ibc-relay/examples/demo/configs/paths/icon-archway.json 
+     $ rly paths add [chain-id-1] [chain-id-2] [path-name] --file _path_to/ibc-relay/examples/demo/configs/paths/icon-archway.json 
    ```
 
 8. #### **Configure the channel filter [Optional]**
