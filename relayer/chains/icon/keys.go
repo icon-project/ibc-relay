@@ -72,12 +72,13 @@ func (cp *IconProvider) DeleteKey(name string) error {
 
 	dirPath := path.Join(cp.PCfg.KeyDirectory, cp.ChainId(), fmt.Sprintf("%s.json", name))
 	_, err := os.Stat(dirPath)
-	if err != nil {
+	if err == nil {
 		if err := os.Remove(dirPath); err != nil {
 			return err
 		}
+		return nil
 	}
-	return fmt.Errorf("wallet failed to deleted")
+	return fmt.Errorf("fail to delete wallet")
 }
 
 func (cp *IconProvider) KeyExists(name string) bool {
