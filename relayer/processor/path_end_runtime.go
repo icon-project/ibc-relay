@@ -454,7 +454,11 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEndForHeight = pathEnd
 	}
 
-	if strings.Contains(pathEnd.chainProvider.Type(), common.IconModule) && message.info.Height >= pathEndForHeight.latestBlock.Height {
+	if eventType == chantypes.EventTypeTimeoutPacket && IsBTPLightClient(pathEnd.clientState) {
+		pathEndForHeight = counterparty
+	}
+
+	if message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay packet message until counterparty height has incremented",
 			zap.String("event_type", eventType),
 			zap.Uint64("sequence", sequence),
@@ -466,7 +470,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	// allow to send only counterparty chain has consensusState
-	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[message.eventType] == true {
+	if IsBTPLightClient(pathEnd.clientState) && common.EventRequiresClientUpdate[eventType] {
 		if pathEnd.clientState.ConsensusHeight.RevisionHeight < message.info.Height {
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is updated",
 				zap.Inline(message),
