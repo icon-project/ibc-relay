@@ -28,7 +28,6 @@ func (cp *IconProvider) AddKey(name string, coinType uint32, signingAlgorithm st
 	if err != nil {
 		return nil, err
 	}
-	// cp.AddWallet(w)
 	return &provider.KeyOutput{
 		Address:  w.Address().String(),
 		Mnemonic: "",
@@ -70,9 +69,15 @@ func (cp *IconProvider) DeleteKey(name string) error {
 	if !ok {
 		return fmt.Errorf("wallet does not exist")
 	}
-	// TODO:  ask for confirmation and delete keystore file too?
-	cp.wallet = nil
-	return nil
+
+	dirPath := path.Join(cp.PCfg.KeyDirectory, cp.ChainId(), fmt.Sprintf("%s.json", name))
+	_, err := os.Stat(dirPath)
+	if err != nil {
+		if err := os.Remove(dirPath); err != nil {
+			return err
+		}
+	}
+	return fmt.Errorf("wallet failed to deleted")
 }
 
 func (cp *IconProvider) KeyExists(name string) bool {
@@ -100,7 +105,6 @@ func (cp *IconProvider) RestoreIconKeyStore(name string, password []byte) (modul
 	if err != nil {
 		return nil, err
 	}
-	// cp.AddWallet(w)
 	return w, nil
 }
 
@@ -114,16 +118,7 @@ func (cp *IconProvider) RestoreFromPrivateKey(name string, pk []byte) (module.Wa
 	if err != nil {
 		return nil, err
 	}
-	// cp.AddWallet(w)
 	return w, nil
-}
-
-func (cp *IconProvider) ShowAddressIcon() (address string, err error) {
-	exists := cp.wallet != nil
-	if !exists {
-		return "", fmt.Errorf("Wallet does not exist")
-	}
-	return cp.wallet.Address().String(), nil
 }
 
 func (cp *IconProvider) generateKeystoreWithPassword(name string, password string) (module.Wallet, error) {

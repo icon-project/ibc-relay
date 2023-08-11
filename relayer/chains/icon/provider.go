@@ -114,10 +114,6 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	}, nil
 }
 
-func (icp *IconProvider) AddWallet(w module.Wallet) {
-	icp.wallet = w
-}
-
 func (pp IconProviderConfig) getRPCAddr() string {
 	return pp.RPCAddr
 }
@@ -131,7 +127,6 @@ type IconProvider struct {
 	PCfg        *IconProviderConfig
 	txMu        sync.Mutex
 	client      *Client
-	wallet      module.Wallet
 	metrics     *processor.PrometheusMetrics
 	codec       Codec
 	StartHeight uint64
@@ -440,11 +435,15 @@ func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 }
 
 func (icp *IconProvider) Key() string {
-	return ""
+	return icp.PCfg.Keystore
+}
+
+func (icp *IconProvider) Wallet() (module.Wallet, error) {
+	return icp.RestoreIconKeyStore(icp.PCfg.Keystore, []byte(icp.PCfg.Password))
 }
 
 func (icp *IconProvider) Address() (string, error) {
-	return icp.wallet.Address().String(), nil
+	return icp.ShowAddress(icp.PCfg.Keystore)
 }
 
 func (icp *IconProvider) Timeout() string {
