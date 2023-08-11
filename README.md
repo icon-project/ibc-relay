@@ -114,24 +114,35 @@ The easiest way would be to follow the guide in [this repo](https://github.com/i
       $ rly keys restore archway [key-name] "mnemonic words here"
       ```
    - For Icon chain
-      To generate a new wallet for icon, you can use `add` subcommmand with password flag.
+      To generate a new wallet for icon, you can use `add` subcommmand with password flag. If you do not supply `--password` flag, the default password is `x`
       ```shell
       $ rly keys add icon [key-name] --password "password"
       ```
 
 
 5. **Edit the relayer's `key` values in the config file to match the `key-name`'s chosen above.**
-
-   >This step is necessary if you chose a `key-name` other than "default"
+   - *For Archway*
+      >This step is necessary if you chose a `key-name` other than "default"
    
-   Example:
+      Example:
+
       ```yaml
-      - type: cosmos
-         value:
-         key: YOUR-KEY-NAME-HERE
-         chain-id: cosmoshub-4
-         rpc-addr: http://localhost:26657
+         - type: wasm
+            value:
+               key: YOUR-KEY-NAME-HERE
+               chain-id: localnet
+               rpc-addr: http://localhost:26657
       ```
+   - *For Icon*
+
+      ```yaml
+         - type: icon
+            value:
+               keystore: YOUR-KEY-NAME-HERE
+               password: YOUR-KEY-PASSWORD-HERE
+               chain-id: ibc-icon
+      ```
+
 
 6. **Ensure the keys associated with the configured chains are funded.**
 
