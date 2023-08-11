@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
 
 	"go.uber.org/zap"
@@ -48,8 +46,12 @@ var (
 	NOT_IMPLEMENTED = " :: Not implemented for ICON"
 )
 
+/*
+ * The provider assumes the key is in
+ * KeyDirectory/Keystore.json
+ */
 type IconProviderConfig struct {
-	Key                  string `json:"key" yaml:"key"`
+	KeyDirectory         string `json:"key-directory" yaml:"key-directory"`
 	ChainName            string `json:"-" yaml:"-"`
 	ChainID              string `json:"chain-id" yaml:"chain-id"`
 	RPCAddr              string `json:"rpc-addr" yaml:"rpc-addr"`
@@ -96,21 +98,8 @@ func (pp *IconProviderConfig) GetFirstRetryBlockAfter() uint64 {
 func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
 
 	pp.ChainName = chainName
-	if _, err := os.Stat(pp.Keystore); err != nil {
-		return nil, err
-	}
 
 	if err := pp.Validate(); err != nil {
-		return nil, err
-	}
-
-	ksByte, err := os.ReadFile(pp.Keystore)
-	if err != nil {
-		return nil, err
-	}
-
-	wallet, err := wallet.NewFromKeyStore(ksByte, []byte(pp.Password))
-	if err != nil {
 		return nil, err
 	}
 
@@ -120,7 +109,6 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 		log:         log.With(zap.String("chain_id", pp.ChainID)),
 		client:      NewClient(pp.getRPCAddr(), log),
 		PCfg:        pp,
-		wallet:      wallet,
 		StartHeight: uint64(pp.StartHeight),
 		codec:       codec,
 	}, nil
@@ -208,6 +196,20 @@ func (h IconIBCHeader) ShouldUpdateWithZeroMessage() bool {
 //ChainProvider Methods
 
 func (icp *IconProvider) Init(ctx context.Context) error {
+	// if _, err := os.Stat(icp.PCfg.Keystore); err != nil {
+	// 	return err
+	// }
+
+	// ksByte, err := os.ReadFile(icp.PCfg.Keystore)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// wallet, err := wallet.NewFromKeyStore(ksByte, []byte(icp.PCfg.Password))
+	// if err != nil {
+	// 	return err
+	// }
+	// icp.AddWallet(wallet)
 	return nil
 }
 
