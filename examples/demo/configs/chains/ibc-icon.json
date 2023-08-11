@@ -1,11 +1,12 @@
 {
     "type": "icon",
     "value": {
+      "key-directory": "/home/.relayer/keys",
       "chain-id": "ibc-icon",
       "rpc-addr": "http://localhost:9082/api/v3/",
       "timeout": "30s",
-      "keystore":"/Users/viveksharmapoudel/keystore/godWallet.json",
-      "password":"gochain",
+      "keystore": "relayerWallet",
+      "password": "gochain",
       "btp-network-id":2,
       "icon-network-id":3,
       "start-height":0,
