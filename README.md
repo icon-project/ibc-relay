@@ -33,8 +33,8 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 ---
 
 ## Demo
-The easiest way would be to follow the guide in [this repo](https://github.com/izyak/icon-ibc/tree/master) to setup relay for icon ibc integration. It has all the relevant scripts setup, and you can start the relay using a single command.
-
+- The easiest way would be to follow the guide in [this repo](https://github.com/izyak/icon-ibc/tree/master) to setup relay for icon ibc integration. It has all the relevant scripts setup, and you can start the relay using a single command.
+- There is E2E tests demo for icon ibc integration [here](https://github.com/icon-project/IBC-Integration/blob/main/docs/e2e_test_setup.md)
 ---
 
 ## Table Of Contents
@@ -87,6 +87,7 @@ The easiest way would be to follow the guide in [this repo](https://github.com/i
    To omit the memo entirely, including the default value of `rly(VERSION)`, use `-` for the memo.
 
 3. **Configure the chains you want to relay between.**
+   <br>
    In out example, we will configure the relayer to operate between ICON and Archway.
    <br>
    
@@ -167,8 +168,30 @@ The easiest way would be to follow the guide in [this repo](https://github.com/i
    ```shell
      $ rly paths add [chain-id-1] [chain-id-2] [path-name] --file _path_to/ibc-relay/examples/demo/configs/paths/icon-archway.json 
    ```
+8. **Client Creation and Handshaking [Optional]**
+   <br/>
+   If you want to create your own client, channels and connection to relay between chains, run the following command:
+   <br>
 
-8. #### **Configure the channel filter [Optional]**
+   To create clients between chains
+   > Ensure that [btp-height] is a valid bto block height. This height will be used to create client for icon's counterparty chain .
+   ```shell
+   rly tx clients [path-name] --client-tp "10000000m" --btp-block-height [btp-height]
+   ```
+
+   To create connection
+   ```shell
+   rly tx conn [path-name]
+   ```
+
+   To create channels
+   ```sh
+   rly tx chan [path-name] --src-port=[src-port] --dst-port=[dst-port]
+   ```
+
+   This step can entirely be skipped if connection and channel exists between 2 chains you want to relay. Ensure that client-id and connection-id are provided in the paths for this. 
+
+9. #### **Configure the channel filter [Optional]**
    
    By default, the relayer will relay packets over all channels on a given connection.  
    <br>
