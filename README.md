@@ -42,7 +42,7 @@ Additional information on how IBC works can be found [here](https://ibc.cosmos.n
 - [New Chain Implementation](./docs/chain_implementation.md)
 - [Recommended Pruning Settings](./docs/node_pruning.md)
 - [Demo/Dev-Environmnet](./examples/README.md)
-- [Running Relayer Locally](./docs/running_relayer.md)
+- [Running Relayer Locally](https://github.com/izyak/icon-ibc/blob/master/README.md)
 
 ---
 ## Basic Usage - Relaying Packets Across Chains
