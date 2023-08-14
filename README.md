@@ -250,7 +250,7 @@ docker build -t .
 ## Security Notice
 
 If you would like to report a security critical bug related to the relayer repo,
-please reach out @jackzampolin or @Ethereal0ne on telegram.
+please reach out @applexxx or @astra#2705 on telegram.
 
 ## Code of Conduct
 
