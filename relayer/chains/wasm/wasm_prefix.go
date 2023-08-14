@@ -1,7 +1,6 @@
 package wasm
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/CosmWasm/wasmd/app"
@@ -19,10 +18,6 @@ var sdkConfigMutex sync.Mutex
 // TODO: :dagger: :knife: :chainsaw: remove this function
 func (ap *WasmProvider) SetSDKContext() func() {
 
-	cfg := sdk.GetConfig()
-	if strings.Contains(cfg.GetBech32AccountAddrPrefix(), ap.PCfg.AccountPrefix) {
-		return func() {}
-	}
 	sdkConfigMutex.Lock()
 	cfg_update := sdk.GetConfig()
 	cfg_update.SetBech32PrefixForAccount(ap.PCfg.AccountPrefix, app.Bech32PrefixAccPub)

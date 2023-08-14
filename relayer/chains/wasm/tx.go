@@ -807,6 +807,8 @@ func (ap *WasmProvider) LogFailedTx(res *provider.RelayerTxResponse, err error, 
 func (ap *WasmProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.RelayerMessage) {
 	// Include the chain_id
 	fields := []zapcore.Field{zap.String("chain_id", ap.ChainId())}
+	done := ap.SetSDKContext()
+	defer done()
 
 	// Include the gas used
 	fields = append(fields, zap.Int64("gas_used", res.GasUsed))
@@ -879,6 +881,9 @@ func (ap *WasmProvider) sdkError(codespace string, code uint32) error {
 }
 
 func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, uint64, error) {
+	done := ap.SetSDKContext()
+	defer done()
+
 	for _, msg := range msgs {
 		if err := msg.ValidateBasic(); err != nil {
 			return nil, 0, err
@@ -954,12 +959,10 @@ func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, 
 		}
 	}
 
-	done := ap.SetSDKContext()
 	err = tx.Sign(txf, clientCtx.GetFromName(), txn, true)
 	if err != nil {
 		return nil, 0, err
 	}
-	done()
 
 	res, err := clientCtx.TxConfig.TxEncoder()(txn.GetTx())
 	return res, sequence, nil
