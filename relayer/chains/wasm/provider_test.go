@@ -78,7 +78,8 @@ func TestGetAddress(t *testing.T) {
 	assert.NoError(t, err)
 	pArch := p.(*WasmProvider)
 	assert.NoError(t, err)
-	a := "archway1jpdcgkwv7wmwaqc6lyvd82dwhkxxfvplp6u8gw"
+	// prefix will be setup when querying a contract or doing a txn, not when provider is initialized
+	a := "cosmos1jpdcgkwv7wmwaqc6lyvd82dwhkxxfvpl53qrze"
 	addr, err := pArch.GetKeyAddress()
 	assert.NoError(t, err)
 	assert.Equal(t, a, addr.String())
