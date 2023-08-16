@@ -381,10 +381,10 @@ func TestSerializeAny(t *testing.T) {
 
 func GetIconProvider(network_id int) *icon.IconProvider {
 
-	absPath, _ := filepath.Abs("../../../env/godWallet.json")
-
 	pcfg := icon.IconProviderConfig{
-		Keystore:          absPath,
+		Keystore:          "godWallet",
+		KeyDirectory:      "../../../env",
+		ChainID:           "ibc-icon",
 		Password:          "gochain",
 		ICONNetworkID:     3,
 		BTPNetworkID:      int64(network_id),
