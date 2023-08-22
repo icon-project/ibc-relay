@@ -296,7 +296,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	icp.firstTime = true
 
 	blockReq := &types.BlockRequest{
-		Height:       types.NewHexInt(int64(icp.StartFromHeight(ctx))),
+		Height:       types.NewHexInt(int64(processedheight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
 
