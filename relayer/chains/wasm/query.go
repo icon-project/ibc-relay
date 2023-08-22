@@ -334,12 +334,12 @@ func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeig
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (*wasmtypes.QuerySmartContractStateResponse, error) {
-	done := ap.SetSDKContext()
-	defer done()
+		done := ap.SetSDKContext()
+		defer done()
 	return ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
-		Address:   ap.PCfg.IbcHandlerAddress,
-		QueryData: param,
-	})
+			Address:   ap.PCfg.IbcHandlerAddress,
+			QueryData: param,
+		})
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
@@ -492,6 +492,8 @@ func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, conne
 }
 
 func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, height int64) ([]byte, error) {
+	done := ap.SetSDKContext()
+	done()
 	ibcAddr, err := sdk.AccAddressFromBech32(ap.PCfg.IbcHandlerAddress)
 	if err != nil {
 		return nil, err
