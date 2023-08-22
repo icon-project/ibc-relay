@@ -507,7 +507,7 @@ func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, conne
 
 func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, height int64) ([]byte, error) {
 	done := ap.SetSDKContext()
-	done()
+	defer done()
 	ibcAddr, err := sdk.AccAddressFromBech32(ap.PCfg.IbcHandlerAddress)
 	if err != nil {
 		return nil, err
