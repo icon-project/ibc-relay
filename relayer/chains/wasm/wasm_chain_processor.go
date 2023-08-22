@@ -176,7 +176,7 @@ func (ccp *WasmChainProcessor) nodeStatusWithRetry(ctx context.Context) (status 
 // clientState will return the most recent client state if client messages
 // have already been observed for the clientID, otherwise it will query for it.
 func (ccp *WasmChainProcessor) clientState(ctx context.Context, clientID string) (provider.ClientState, error) {
-	if state, ok := ccp.latestClientState[clientID]; ok && state.TrustingPeriod > 0 {
+	if state, ok := ccp.latestClientState[clientID]; ok {
 		return state, nil
 	}
 	cs, err := ccp.chainProvider.QueryClientState(ctx, int64(ccp.latestBlock.Height), clientID)
