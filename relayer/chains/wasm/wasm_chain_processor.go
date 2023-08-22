@@ -90,6 +90,7 @@ const (
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
+	MaxBlockFetch                    = 100
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -221,7 +222,7 @@ func (ccp *WasmChainProcessor) StartFromHeight(ctx context.Context) int {
 func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
 	// this will be used for persistence across query cycle loop executions
 	persistence := queryCyclePersistence{
-		minQueryLoopDuration:      time.Duration(ccp.chainProvider.PCfg.BlockInterval * uint64(common.NanosecondRatio)),
+		minQueryLoopDuration:      time.Duration(ccp.chainProvider.PCfg.BlockInterval * uint64(common.NanoToMilliRatio)),
 		lastBalanceUpdate:         time.Unix(0, 0),
 		balanceUpdateWaitDuration: defaultBalanceUpdateWaitDuration,
 	}
@@ -410,7 +411,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	chainID := ccp.chainProvider.ChainId()
 	var latestHeader provider.IBCHeader
 
-	for i := persistence.latestQueriedBlock + 1; i <= persistence.latestHeight; i++ {
+	syncUpHeight := func() int64 {
+		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
+			return persistence.latestQueriedBlock + MaxBlockFetch
+		}
+		return persistence.latestHeight
+	}
+
+	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var lightBlock *types.LightBlock
