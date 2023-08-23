@@ -3,6 +3,7 @@ package processor
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
@@ -596,10 +597,12 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 type BlockInfoHeight struct {
 	Height       int64
 	IsProcessing bool
+	RetryCount   int64
 }
 
 type Queue[T any] struct {
-	items []T
+	items  []T
+	itemMu *sync.Mutex
 }
 
 func (q *Queue[T]) Enqueue(item T) {
@@ -608,20 +611,36 @@ func (q *Queue[T]) Enqueue(item T) {
 
 func (q *Queue[T]) MustGetQueue() T {
 	if q.Size() == 0 {
-		var element T
-		return element
+		panic("the size of queue is zero")
 	}
 	item := q.items[0]
 	return item
 }
 
+func (q *Queue[T]) GetQueue() (T, error) {
+
+	if q.Size() == 0 {
+		var element T
+		return element, fmt.Errorf("The queue is of empty length")
+	}
+	item := q.items[0]
+	return item, nil
+
+}
+
+var (
+	zeroIndex = 0
+)
+
 func (q *Queue[T]) ReplaceQueue(index int, element T) {
+
 	if q.Size() > index {
 		q.items[index] = element
 	}
 }
 
 func (q *Queue[T]) Dequeue() (T, error) {
+
 	if q.Size() == 0 {
 		var element T
 		return element, fmt.Errorf("all element dequed")
@@ -636,5 +655,8 @@ func (q *Queue[T]) Size() int {
 }
 
 func NewBlockInfoHeightQueue() *Queue[BlockInfoHeight] {
-	return &Queue[BlockInfoHeight]{}
+	return &Queue[BlockInfoHeight]{
+		items:  make([]BlockInfoHeight, 0),
+		itemMu: &sync.Mutex{},
+	}
 }

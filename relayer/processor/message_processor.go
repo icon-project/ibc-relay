@@ -109,8 +109,10 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		if src.BTPHeightQueue.Size() == 0 {
 			return false, nil
 		}
-
-		btpHeightInfo := src.BTPHeightQueue.MustGetQueue()
+		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+		if err != nil {
+			return false, nil
+		}
 
 		if btpHeightInfo.IsProcessing {
 			return false, nil
@@ -308,7 +310,10 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 	if src.BTPHeightQueue.Size() == 0 {
 		return nil
 	}
-	btpHeightInfo := src.BTPHeightQueue.MustGetQueue()
+	btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+	if err != nil {
+		return nil
+	}
 
 	if !shouldUpdate {
 		return nil
@@ -401,12 +406,24 @@ func (mp *messageProcessor) sendClientUpdate(
 
 	dst.log.Debug("Will relay client update")
 
-	dst.lastClientUpdateHeightMu.Lock()
-	dst.lastClientUpdateHeight = dst.latestBlock.Height
-	dst.lastClientUpdateHeightMu.Unlock()
 	if IsBTPLightClient(dst.clientState) {
+		blockInfoHeight, err := src.BTPHeightQueue.GetQueue()
+		if err != nil {
+			mp.log.Debug("No  message in the queue", zap.Error(err))
+			return
+		}
 		dst.lastClientUpdateHeightMu.Lock()
-		dst.lastClientUpdateHeight = uint64(dst.BTPHeightQueue.MustGetQueue().Height)
+		dst.lastClientUpdateHeight = uint64(blockInfoHeight.Height)
+		dst.lastClientUpdateHeightMu.Unlock()
+		src.BTPHeightQueue.ReplaceQueue(zeroIndex, BlockInfoHeight{
+			Height:       int64(blockInfoHeight.Height),
+			IsProcessing: true,
+			RetryCount:   blockInfoHeight.RetryCount + 1,
+		})
+
+	} else {
+		dst.lastClientUpdateHeightMu.Lock()
+		dst.lastClientUpdateHeight = dst.latestBlock.Height
 		dst.lastClientUpdateHeightMu.Unlock()
 	}
 
@@ -414,11 +431,19 @@ func (mp *messageProcessor) sendClientUpdate(
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
 
+		mp.log.Debug("Executing callback of sendClientUpdate ",
+			zap.Any("Transaction Status", rtr.Code),
+			zap.Any("Response", rtr),
+			zap.Any("LastClientUpdateHeight", dst.lastClientUpdateHeight))
+
 		if IsBTPLightClient(dst.clientState) {
-			if dst.BTPHeightQueue.Size() == 0 {
+			if src.BTPHeightQueue.Size() == 0 {
 				return
 			}
-			blockHeightInfo := dst.BTPHeightQueue.MustGetQueue()
+			blockHeightInfo, err := src.BTPHeightQueue.GetQueue()
+			if err != nil {
+				return
+			}
 			if rtr.Code == 0 {
 				if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
 					src.BTPHeightQueue.Dequeue()
@@ -427,7 +452,18 @@ func (mp *messageProcessor) sendClientUpdate(
 			}
 			// this would represent a failure case in that case isProcessing should be false
 			if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
-				src.BTPHeightQueue.ReplaceQueue(0, BlockInfoHeight{Height: int64(dst.lastClientUpdateHeight), IsProcessing: false})
+				if blockHeightInfo.RetryCount >= 5 {
+					// removing btpBLock update
+					src.BTPHeightQueue.Dequeue()
+					return
+				}
+
+				src.BTPHeightQueue.ReplaceQueue(zeroIndex, BlockInfoHeight{
+					Height:       int64(dst.lastClientUpdateHeight),
+					IsProcessing: false,
+					RetryCount:   blockHeightInfo.RetryCount + 1,
+				})
+
 			}
 		}
 	}

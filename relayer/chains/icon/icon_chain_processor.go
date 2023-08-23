@@ -378,9 +378,6 @@ loop:
 					break
 				}
 				time.Sleep(10 * time.Millisecond)
-				if icp.firstTime {
-					time.Sleep(4000 * time.Millisecond)
-				}
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh

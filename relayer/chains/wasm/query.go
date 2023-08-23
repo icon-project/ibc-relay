@@ -11,7 +11,6 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmtypes "github.com/cometbft/cometbft/types"
@@ -20,7 +19,6 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
-	"go.uber.org/zap"
 
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -336,23 +334,24 @@ func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeig
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (op *wasmtypes.QuerySmartContractStateResponse, err error) {
-	return op, retry.Do(func() error {
-		done := ap.SetSDKContext()
-		defer done()
-		op, err = ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
-			Address:   ap.PCfg.IbcHandlerAddress,
-			QueryData: param,
-		})
-		return err
-	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(50*time.Millisecond), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
-		ap.log.Error(
-			"Failed to query",
-			zap.Uint("attempt", n+1),
-			zap.Uint("max_attempts", latestHeightQueryRetries),
-			zap.Any("Param", param),
-			zap.Error(err),
-		)
-	}))
+	done := ap.SetSDKContext()
+	defer done()
+	return ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+		Address:   ap.PCfg.IbcHandlerAddress,
+		QueryData: param,
+	})
+	// return op, retry.Do(func() error {
+	// 	op, err =
+	// 	return err
+	// }, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(50*time.Millisecond), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+	// 	ap.log.Error(
+	// 		"Failed to query",
+	// 		zap.Uint("attempt", n+1),
+	// 		zap.Uint("max_attempts", latestHeightQueryRetries),
+	// 		zap.Any("Param", param),
+	// 		zap.Error(err),
+	// 	)
+	// }))
 
 }
 

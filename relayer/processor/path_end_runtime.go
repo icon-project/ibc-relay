@@ -451,6 +451,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 		pathEndForHeight = pathEnd
 	}
 
+	// should be setCounterparty because of this message is generated in response to TimeoutRequest packet
 	if eventType == chantypes.EventTypeTimeoutPacket && IsBTPLightClient(pathEnd.clientState) {
 		pathEndForHeight = counterparty
 	}

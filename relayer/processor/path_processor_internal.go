@@ -1552,8 +1552,6 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 	srcIsIcon := src.chainProvider.Type() == common.IconModule
 	dstIsBtpClient := IsBTPLightClient(dst.clientState)
 
-	fmt.Println(dst.clientState.ConsensusHeight.RevisionHeight)
-
 	if !srcIsIcon && !dstIsBtpClient {
 		return
 	}
@@ -1569,7 +1567,8 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 	if src.BTPHeightQueue.Size() == 0 {
 		return
 	}
-	for src.BTPHeightQueue.Size() > 0 {
+	size := src.BTPHeightQueue.Size()
+	for i := 0; i < size; i++ {
 		btpHeightInfo := src.BTPHeightQueue.MustGetQueue()
 
 		if dst.clientState.ConsensusHeight.RevisionHeight < uint64(btpHeightInfo.Height) {
