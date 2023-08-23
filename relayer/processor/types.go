@@ -11,6 +11,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+var (
+	zeroIndex = 0
+)
+
 // MessageLifecycle is used to send an initial IBC message to a chain
 // once the chains are in sync for the PathProcessor.
 // It also allows setting a stop condition for the PathProcessor.
@@ -594,22 +598,33 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 	}
 }
 
+// binaryTree
+
+type Queue[T any] interface {
+	Enqueue(item T)
+	Dequeue() (T, error)
+	MustGetQueue() T
+	GetQueue() (T, error)
+	ReplaceQueue(index int, item T)
+	Size() int
+}
+
 type BlockInfoHeight struct {
 	Height       int64
 	IsProcessing bool
 	RetryCount   int64
 }
 
-type Queue[T any] struct {
+type ArrayQueue[T any] struct {
 	items  []T
 	itemMu *sync.Mutex
 }
 
-func (q *Queue[T]) Enqueue(item T) {
+func (q *ArrayQueue[T]) Enqueue(item T) {
 	q.items = append(q.items, item)
 }
 
-func (q *Queue[T]) MustGetQueue() T {
+func (q *ArrayQueue[T]) MustGetQueue() T {
 	if q.Size() == 0 {
 		panic("the size of queue is zero")
 	}
@@ -617,7 +632,7 @@ func (q *Queue[T]) MustGetQueue() T {
 	return item
 }
 
-func (q *Queue[T]) GetQueue() (T, error) {
+func (q *ArrayQueue[T]) GetQueue() (T, error) {
 
 	if q.Size() == 0 {
 		var element T
@@ -628,18 +643,13 @@ func (q *Queue[T]) GetQueue() (T, error) {
 
 }
 
-var (
-	zeroIndex = 0
-)
-
-func (q *Queue[T]) ReplaceQueue(index int, element T) {
-
+func (q *ArrayQueue[T]) ReplaceQueue(index int, element T) {
 	if q.Size() > index {
 		q.items[index] = element
 	}
 }
 
-func (q *Queue[T]) Dequeue() (T, error) {
+func (q *ArrayQueue[T]) Dequeue() (T, error) {
 
 	if q.Size() == 0 {
 		var element T
@@ -650,12 +660,12 @@ func (q *Queue[T]) Dequeue() (T, error) {
 	return item, nil
 }
 
-func (q *Queue[T]) Size() int {
+func (q *ArrayQueue[T]) Size() int {
 	return len(q.items)
 }
 
-func NewBlockInfoHeightQueue() *Queue[BlockInfoHeight] {
-	return &Queue[BlockInfoHeight]{
+func NewBlockInfoHeightQueue() *ArrayQueue[BlockInfoHeight] {
+	return &ArrayQueue[BlockInfoHeight]{
 		items:  make([]BlockInfoHeight, 0),
 		itemMu: &sync.Mutex{},
 	}

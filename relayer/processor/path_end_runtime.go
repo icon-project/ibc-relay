@@ -55,7 +55,7 @@ type pathEndRuntime struct {
 	lastClientUpdateHeightMu sync.Mutex
 
 	metrics        *PrometheusMetrics
-	BTPHeightQueue *Queue[BlockInfoHeight]
+	BTPHeightQueue Queue[BlockInfoHeight]
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -476,6 +476,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			)
 			return false
 		}
+
 	}
 
 	if !pathEnd.channelStateCache[k] {
