@@ -415,12 +415,17 @@ func (mp *messageProcessor) sendClientUpdate(
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
 
 		if IsBTPLightClient(dst.clientState) {
-			if rtr.Code == 0 {
-				src.BTPHeightQueue.Dequeue()
+			if dst.BTPHeightQueue.Size() == 0 {
 				return
 			}
-
-			blockHeightInfo := NewBlockInfoHeightQueue().MustGetQueue()
+			blockHeightInfo := dst.BTPHeightQueue.MustGetQueue()
+			if rtr.Code == 0 {
+				if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
+					src.BTPHeightQueue.Dequeue()
+				}
+				return
+			}
+			// this would represent a failure case in that case isProcessing should be false
 			if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
 				src.BTPHeightQueue.ReplaceQueue(0, BlockInfoHeight{Height: int64(dst.lastClientUpdateHeight), IsProcessing: false})
 			}
