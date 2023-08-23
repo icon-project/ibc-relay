@@ -404,11 +404,11 @@ func (mp *messageProcessor) sendClientUpdate(
 	dst.lastClientUpdateHeightMu.Lock()
 	dst.lastClientUpdateHeight = dst.latestBlock.Height
 	dst.lastClientUpdateHeightMu.Unlock()
-	// if IsBTPLightClient(dst.clientState) {
-	// 	dst.lastClientUpdateHeightMu.Lock()
-	// 	dst.lastClientUpdateHeight = uint64(dst.BTPHeightQueue.MustGetQueue().Height)
-	// 	dst.lastClientUpdateHeightMu.Unlock()
-	// }
+	if IsBTPLightClient(dst.clientState) {
+		dst.lastClientUpdateHeightMu.Lock()
+		dst.lastClientUpdateHeight = uint64(dst.BTPHeightQueue.MustGetQueue().Height)
+		dst.lastClientUpdateHeightMu.Unlock()
+	}
 
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
 
@@ -419,8 +419,11 @@ func (mp *messageProcessor) sendClientUpdate(
 				src.BTPHeightQueue.Dequeue()
 				return
 			}
-			NewBlockInfoHeightQueue().MustGetQueue()
-			src.BTPHeightQueue.ReplaceQueue(0, BlockInfoHeight{Height: int64(dst.lastClientUpdateHeight), IsProcessing: false})
+
+			blockHeightInfo := NewBlockInfoHeightQueue().MustGetQueue()
+			if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
+				src.BTPHeightQueue.ReplaceQueue(0, BlockInfoHeight{Height: int64(dst.lastClientUpdateHeight), IsProcessing: false})
+			}
 		}
 	}
 
