@@ -598,15 +598,18 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 	}
 }
 
-// binaryTree
-
 type Queue[T any] interface {
 	Enqueue(item T)
 	Dequeue() (T, error)
 	MustGetQueue() T
 	GetQueue() (T, error)
+	ItemExist(interface{}) bool
 	ReplaceQueue(index int, item T)
 	Size() int
+}
+
+type ExistenceChecker interface {
+	Exists(target interface{}) bool
 }
 
 type BlockInfoHeight struct {
@@ -615,25 +618,49 @@ type BlockInfoHeight struct {
 	RetryCount   int64
 }
 
-type ArrayQueue[T any] struct {
-	items  []T
-	itemMu *sync.Mutex
+func (bi BlockInfoHeight) Exists(target interface{}) bool {
+	if height, ok := target.(int64); ok {
+		return bi.Height == height
+	}
+	return false
+}
+
+type ArrayQueue[T ExistenceChecker] struct {
+	items []T
+	mu    *sync.Mutex
 }
 
 func (q *ArrayQueue[T]) Enqueue(item T) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	q.items = append(q.items, item)
 }
 
 func (q *ArrayQueue[T]) MustGetQueue() T {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	if q.Size() == 0 {
 		panic("the size of queue is zero")
 	}
+
 	item := q.items[0]
 	return item
 }
 
-func (q *ArrayQueue[T]) GetQueue() (T, error) {
+func (q *ArrayQueue[T]) ItemExist(target interface{}) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	for _, item := range q.items {
+		if item.Exists(target) {
+			return true
+		}
+	}
+	return false
+}
 
+func (q *ArrayQueue[T]) GetQueue() (T, error) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	if q.Size() == 0 {
 		var element T
 		return element, fmt.Errorf("The queue is of empty length")
@@ -644,13 +671,16 @@ func (q *ArrayQueue[T]) GetQueue() (T, error) {
 }
 
 func (q *ArrayQueue[T]) ReplaceQueue(index int, element T) {
-	if q.Size() > index {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if index >= 0 && index < len(q.items) {
 		q.items[index] = element
 	}
 }
 
 func (q *ArrayQueue[T]) Dequeue() (T, error) {
-
+	q.mu.Lock()
+	defer q.mu.Unlock()
 	if q.Size() == 0 {
 		var element T
 		return element, fmt.Errorf("all element dequed")
@@ -664,9 +694,9 @@ func (q *ArrayQueue[T]) Size() int {
 	return len(q.items)
 }
 
-func NewBlockInfoHeightQueue() *ArrayQueue[BlockInfoHeight] {
-	return &ArrayQueue[BlockInfoHeight]{
-		items:  make([]BlockInfoHeight, 0),
-		itemMu: &sync.Mutex{},
+func NewBlockInfoHeightQueue[T ExistenceChecker]() *ArrayQueue[T] {
+	return &ArrayQueue[T]{
+		items: make([]T, 0),
+		mu:    &sync.Mutex{},
 	}
 }

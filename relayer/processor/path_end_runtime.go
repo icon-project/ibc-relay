@@ -77,7 +77,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		clientICQProcessing:  make(clientICQProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
-		BTPHeightQueue:       NewBlockInfoHeightQueue(),
+		BTPHeightQueue:       NewBlockInfoHeightQueue[BlockInfoHeight](),
 	}
 }
 
@@ -477,6 +477,13 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			return false
 		}
 
+		if counterparty.BTPHeightQueue.ItemExist(message.info.Height) {
+			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue",
+				zap.Inline(message),
+				zap.String("event_type", eventType),
+			)
+			return false
+		}
 	}
 
 	if !pathEnd.channelStateCache[k] {
