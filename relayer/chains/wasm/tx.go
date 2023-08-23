@@ -1262,8 +1262,6 @@ func (cc *WasmProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (a
 func (cc *WasmProvider) handleAccountSequenceMismatchError(err error) {
 
 	clientCtx := cc.ClientContext()
-	fmt.Println("client context is ", clientCtx.GetFromAddress())
-
 	_, seq, err := cc.ClientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, clientCtx.GetFromAddress())
 
 	// sequences := numRegex.FindAllString(err.Error(), -1)

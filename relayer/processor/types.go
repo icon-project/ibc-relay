@@ -592,3 +592,49 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 		CounterpartyConnID:   info.CounterpartyConnID,
 	}
 }
+
+type BlockInfoHeight struct {
+	Height       int64
+	IsProcessing bool
+}
+
+type Queue[T any] struct {
+	items []T
+}
+
+func (q *Queue[T]) Enqueue(item T) {
+	q.items = append(q.items, item)
+}
+
+func (q *Queue[T]) MustGetQueue() T {
+	if q.Size() == 0 {
+		var element T
+		return element
+	}
+	item := q.items[0]
+	return item
+}
+
+func (q *Queue[T]) ReplaceQueue(index int, element T) {
+	if q.Size() > index {
+		q.items[index] = element
+	}
+}
+
+func (q *Queue[T]) Dequeue() (T, error) {
+	if q.Size() == 0 {
+		var element T
+		return element, fmt.Errorf("all element dequed")
+	}
+	item := q.items[0]
+	q.items = q.items[1:]
+	return item, nil
+}
+
+func (q *Queue[T]) Size() int {
+	return len(q.items)
+}
+
+func NewBlockInfoHeightQueue() *Queue[BlockInfoHeight] {
+	return &Queue[BlockInfoHeight]{}
+}

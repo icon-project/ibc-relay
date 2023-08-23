@@ -54,7 +54,8 @@ type pathEndRuntime struct {
 	lastClientUpdateHeight   uint64
 	lastClientUpdateHeightMu sync.Mutex
 
-	metrics *PrometheusMetrics
+	metrics        *PrometheusMetrics
+	BTPHeightQueue *Queue[BlockInfoHeight]
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -76,6 +77,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		clientICQProcessing:  make(clientICQProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
+		BTPHeightQueue:       NewBlockInfoHeightQueue(),
 	}
 }
 
@@ -385,14 +387,13 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestBlock = d.LatestBlock
 	pathEnd.latestBlockMu.Unlock()
 
-	if d.IsGenesis {
-		pathEnd.lastClientUpdateHeightMu.Lock()
-		pathEnd.lastClientUpdateHeight = d.LatestBlock.Height
-		pathEnd.lastClientUpdateHeightMu.Unlock()
-	}
 	pathEnd.inSync = d.InSync
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
+
+	if pathEnd.chainProvider.Type() == common.IconModule && d.LatestHeader.IsCompleteBlock() {
+		pathEnd.BTPHeightQueue.Enqueue(BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false})
+	}
 
 	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
 	if err != nil {
