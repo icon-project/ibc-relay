@@ -1569,8 +1569,10 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 	}
 	size := src.BTPHeightQueue.Size()
 	for i := 0; i < size; i++ {
-		btpHeightInfo := src.BTPHeightQueue.MustGetQueue()
-
+		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+		if err != nil {
+			continue
+		}
 		if dst.clientState.ConsensusHeight.RevisionHeight < uint64(btpHeightInfo.Height) {
 			break
 		}

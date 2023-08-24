@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
@@ -229,7 +230,7 @@ func (mp *messageProcessor) assembleMessage(
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
 	if IsBTPLightClient(dst.clientState) {
-		err := mp.handleMsgUpdateClientForIcon(ctx, src, dst, shouldUpdate)
+		err := mp.handleMsgUpdateClientForBTPClient(ctx, src, dst, shouldUpdate)
 		return err
 	}
 
@@ -302,7 +303,7 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 	return nil
 }
 
-func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
+func (mp *messageProcessor) handleMsgUpdateClientForBTPClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
 
 	clientID := dst.info.ClientID
 	latestConsensusHeight := dst.clientState.ConsensusHeight
@@ -332,15 +333,23 @@ func (mp *messageProcessor) handleMsgUpdateClientForIcon(ctx context.Context, sr
 		mp.log.Debug("Src latest header is less then latest client State",
 			zap.String("chain-id", src.info.ChainID),
 			zap.Int64("latest-header-height", int64(src.latestHeader.Height())),
+			zap.Int64("message processing btp-height", int64(src.latestHeader.Height())),
 			zap.Int64("client-state-height", int64(latestConsensusHeight.RevisionHeight)))
 
-		return nil
+		height, err := dst.chainProvider.QueryClientPrevConsensusStateHeight(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, int64(header.Height()))
+		if err != nil {
+			return fmt.Errorf("Failed to query prevClientConsensusState")
+		}
+		latestConsensusHeight = types.Height{
+			RevisionNumber: height.GetRevisionNumber(),
+			RevisionHeight: height.GetRevisionHeight(),
+		}
 	}
 
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		header,
 		latestConsensusHeight,
-		dst.clientTrustedState.IBCHeader,
+		nil,
 	)
 	if err != nil {
 		return fmt.Errorf("error assembling new client header: %w", err)

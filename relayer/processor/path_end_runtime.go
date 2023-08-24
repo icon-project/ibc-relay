@@ -476,8 +476,8 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			)
 			return false
 		}
+		if counterparty.BTPHeightQueue.ItemExist(int64(message.info.Height)) {
 
-		if counterparty.BTPHeightQueue.ItemExist(message.info.Height) {
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
