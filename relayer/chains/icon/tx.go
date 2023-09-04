@@ -728,14 +728,13 @@ func (icp *IconProvider) SendIconTransaction(
 	stepLimit := types.NewHexInt(defaultStepLimit)
 	step, err := icp.client.EstimateStep(txParamEst)
 	if err != nil {
-		icp.log.Warn("Failed estimating step. Use default step limit")
-	} else {
-		stepVal, err := step.Int()
-		if err != nil {
-			return err
-		}
-		stepLimit = types.NewHexInt(int64(stepVal + 200_000))
+		return fmt.Errorf("Failed estimating step: %w", err)
 	}
+	stepVal, err := step.Int()
+	if err != nil {
+		return err
+	}
+	stepLimit = types.NewHexInt(int64(stepVal + 200_000))
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
