@@ -250,9 +250,6 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	latestQueriedBlock := ccp.StartFromHeight(ctx)
 	if latestQueriedBlock <= 0 || latestQueriedBlock > persistence.latestHeight {
 		latestQueriedBlock = persistence.latestHeight
-		if latestQueriedBlock < 0 {
-			latestQueriedBlock = 0
-		}
 	}
 
 	persistence.latestQueriedBlock = int64(latestQueriedBlock)
