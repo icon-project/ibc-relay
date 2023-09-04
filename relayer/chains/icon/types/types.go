@@ -30,8 +30,8 @@ import (
 	"github.com/icon-project/goloop/common/codec"
 
 	relayer_common "github.com/cosmos/relayer/v2/relayer/common"
+	"github.com/icon-project/goloop/server/jsonrpc"
 	"github.com/icon-project/icon-bridge/common/intconv"
-	"github.com/icon-project/icon-bridge/common/jsonrpc"
 )
 
 const (
@@ -113,6 +113,17 @@ type TransactionResult struct {
 	TxHash       HexBytes `json:"txHash" validate:"required,t_int"`
 }
 
+type TransactionParamForEstimate struct {
+	Version     HexInt   `json:"version" validate:"required,t_int"`
+	FromAddress Address  `json:"from" validate:"required,t_addr_eoa"`
+	ToAddress   Address  `json:"to" validate:"required,t_addr"`
+	Value       HexInt   `json:"value,omitempty" validate:"optional,t_int"`
+	Timestamp   HexInt   `json:"timestamp" validate:"required,t_int"`
+	NetworkID   HexInt   `json:"nid" validate:"required,t_int"`
+	Nonce       HexInt   `json:"nonce,omitempty" validate:"optional,t_int"`
+	DataType    string   `json:"dataType,omitempty" validate:"optional,call|deploy|message|deposit"`
+	Data        CallData `json:"data,omitempty"`
+}
 type TransactionParam struct {
 	Version     HexInt   `json:"version" validate:"required,t_int"`
 	FromAddress Address  `json:"from" validate:"required,t_addr_eoa"`
