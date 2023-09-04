@@ -292,7 +292,6 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	if processedheight <= 0 {
 		processedheight = latestHeight
 	}
-	// }
 
 	icp.log.Info("Start to query from height", zap.Int64("height", processedheight))
 	// subscribe to monitor block
@@ -304,7 +303,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	icp.firstTime = true
 
 	blockReq := &types.BlockRequest{
-		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.StartHeight)),
+		Height:       types.NewHexInt(int64(processedheight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
 
@@ -386,6 +385,9 @@ loop:
 					break
 				}
 				time.Sleep(10 * time.Millisecond)
+				if icp.firstTime {
+					time.Sleep(4000 * time.Millisecond)
+				}
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
@@ -407,7 +409,7 @@ loop:
 					if err != nil {
 						return err
 					} else if height != processedheight+i {
-						icp.log.Warn("Reconnect: missing block notification ",
+						icp.log.Warn("Reconnect: missing block notification",
 							zap.Int64("got", height),
 							zap.Int64("expected", processedheight+i),
 						)
@@ -662,7 +664,6 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 	}
 	request.response.Header = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
 	request.response.IsProcessed = processed
-
 }
 
 func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
@@ -704,6 +705,7 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	if state, ok := icp.latestClientState[clientID]; ok {
 		return state, nil
 	}
+
 	cs, err := icp.chainProvider.QueryClientStateWithoutProof(ctx, int64(icp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err

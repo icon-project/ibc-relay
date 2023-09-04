@@ -11,6 +11,7 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	tmtypes "github.com/cometbft/cometbft/types"
@@ -19,6 +20,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"go.uber.org/zap"
 
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -27,6 +29,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
@@ -333,13 +336,24 @@ func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeig
 	return clienttypes.NewQueryConsensusStateResponse(anyConsensusState, nil, clienttypes.NewHeight(0, uint64(chainHeight))), nil
 }
 
-func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (*wasmtypes.QuerySmartContractStateResponse, error) {
-	done := ap.SetSDKContext()
-	defer done()
-	return ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
-		Address:   ap.PCfg.IbcHandlerAddress,
-		QueryData: param,
-	})
+func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (op *wasmtypes.QuerySmartContractStateResponse, err error) {
+	return op, retry.Do(func() error {
+		done := ap.SetSDKContext()
+		defer done()
+		op, err = ap.QueryClient.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+			Address:   ap.PCfg.IbcHandlerAddress,
+			QueryData: param,
+		})
+		return err
+	}, retry.Context(ctx), retry.Attempts(latestHeightQueryRetries), retry.Delay(50*time.Millisecond), retry.LastErrorOnly(true), retry.OnRetry(func(n uint, err error) {
+		ap.log.Error(
+			"Failed to query",
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", latestHeightQueryRetries),
+			zap.Any("Param", param),
+			zap.Error(err),
+		)
+	}))
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
@@ -492,6 +506,8 @@ func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, conne
 }
 
 func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, height int64) ([]byte, error) {
+	done := ap.SetSDKContext()
+	defer done()
 	ibcAddr, err := sdk.AccAddressFromBech32(ap.PCfg.IbcHandlerAddress)
 	if err != nil {
 		return nil, err
@@ -842,4 +858,24 @@ func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint
 		p.Key = next
 	}
 	return transfers, nil
+}
+
+func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
+	param, err := types.NewPrevConsensusStateHeight(clientId, uint64(clientHeight)).Bytes()
+	res, err := ap.QueryIBCHandlerContract(ctx, param)
+	if err != nil {
+		return nil, err
+	}
+
+	var heights []int64
+	err = json.Unmarshal(res.Data.Bytes(), &heights)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(heights) == 0 {
+		return nil, fmt.Errorf("consensus state of client %s before %d", clientId, clientHeight)
+	}
+	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
 }
