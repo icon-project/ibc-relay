@@ -31,6 +31,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -1282,4 +1283,9 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 		Proof:          proofBz,
 		ProofHeight:    proofHeight,
 	}, nil
+}
+
+func (ap *CosmosProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
+	panic("QueryClientPrevConsensusStateHeight not implemented")
+
 }
