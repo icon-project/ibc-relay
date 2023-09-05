@@ -279,13 +279,13 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	processedheight := icp.StartFromHeight(ctx)
 	latestHeight, err := icp.chainProvider.QueryLatestHeight(ctx)
 	if err != nil {
-		fmt.Println("Error fetching latest block")
+		icp.log.Error("Error fetching block", zap.Error(err))
 		return err
 	}
 	if processedheight > latestHeight {
 		icp.log.Warn("Start height set is greater than latest height",
-			zap.Int64("Start height", processedheight),
-			zap.Int64("Latest Height", latestHeight),
+			zap.Int64("start height", processedheight),
+			zap.Int64("latest Height", latestHeight),
 		)
 		processedheight = latestHeight
 	}
@@ -352,7 +352,7 @@ loop:
 				err := icp.verifyBlock(ctx, br.Header)
 				if err != nil {
 					reconnect()
-					icp.log.Warn("Failed to verify BTP Block",
+					icp.log.Warn("Failed to verify BTP block",
 						zap.Int64("height", br.Height),
 						zap.Error(err),
 					)
