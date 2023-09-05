@@ -825,7 +825,7 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		}
 		hashIndex := merkleHashTree.Hashes.FindIndex(keyHash)
 		if hashIndex == -1 {
-			return nil, errors.New("Btp message for this hash not found")
+			return nil, errors.New(fmt.Sprintf("Btp message at height %d for hash: %x not found", height, string(keyHash)))
 		}
 
 		proof := merkleHashTree.MerkleProof(hashIndex)
