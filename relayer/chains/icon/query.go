@@ -748,7 +748,7 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 		return nil, fmt.Errorf("Invalid packet bytes")
 	}
 
-	key := common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(height))
+	key := common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq)))
 	keyhash := common.Sha3keccak256(key, packetAckBytes)
 
 	proof, err := icp.QueryIconProof(ctx, height, keyhash)
