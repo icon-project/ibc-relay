@@ -9,7 +9,6 @@ var (
 	EventTimeoutRequest   = "TimeoutRequest(bytes)"
 	IconModule            = "icon"
 	WasmModule            = "wasm"
-	ArchwayModule         = "archway"
 	TendermintLightClient = "07-tendermint"
 	IconLightClient       = "iconclient"
 	ConnectionKey         = "connection"

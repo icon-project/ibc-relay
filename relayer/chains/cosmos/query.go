@@ -1173,5 +1173,17 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 
 func (ap *CosmosProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
 	panic("QueryClientPrevConsensusStateHeight not implemented")
+}
 
+func (ap *CosmosProvider) QuerySendPacketByHeight(ctx context.Context, dstChanID, dstPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+	panic("QuerySendPacketByHeight not implemented")
+}
+func (ap *CosmosProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights provider.PacketHeights, err error) {
+	panic("QueryPacketHeights not implemented")
+}
+func (ap *CosmosProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error) {
+	panic("QueryMissingPacketReceipts not implemented")
+}
+func (ap *CosmosProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
+	panic("QueryNextSeqSend not implemented")
 }
