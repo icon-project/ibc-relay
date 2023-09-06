@@ -880,7 +880,7 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
 }
 
-func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) ([]int64, error) {
+func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error) {
 
 	callParams := types.NewPacketMissingReceiptParams(channelId, portId, startSeq, endSeq)
 	callParamsByte, err := json.Marshal(callParams)
@@ -893,7 +893,7 @@ func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, height i
 		return nil, err
 	}
 
-	var receipts []int64
+	var receipts []uint64
 	if err := json.Unmarshal(result.Data.Bytes(), &receipts); err != nil {
 		return nil, err
 	}
@@ -901,7 +901,7 @@ func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, height i
 	return receipts, nil
 }
 
-func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) (map[int64]int64, error) {
+func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.PacketHeights, error) {
 
 	callParams := types.NewPacketHeightParams(channelId, portId, startSeq, endSeq)
 	callParamsBytes, err := json.Marshal(callParams)
@@ -913,10 +913,18 @@ func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, height int64, ch
 		return nil, err
 	}
 
-	var packetHeights map[int64]int64
+	var packetHeights provider.PacketHeights
 	if err := json.Unmarshal(result.Data.Bytes(), &packetHeights); err != nil {
 		return nil, err
 	}
 
 	return packetHeights, nil
+}
+
+func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, dstChanID, dstPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+	panic("QuerySendPacketByHeight not implemented")
+}
+
+func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
+	panic("QueryNextSeqSend not implemented")
 }

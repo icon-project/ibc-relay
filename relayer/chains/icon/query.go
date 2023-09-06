@@ -792,37 +792,68 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	}, nil
 }
 
-func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) ([]types.HexInt, error) {
+func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) ([]uint64, error) {
 
 	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
 		"portId":    portId,
 		"channelId": channelId,
 		"startSeq":  types.NewHexInt(int64(startSeq)),
 		"endSeq":    types.NewHexInt(int64(endSeq)),
-	}, callParamsWithHeight(types.NewHexInt(height)))
+	}, callParamsWithHeight(types.NewHexInt(latestHeight)))
 
 	var missingReceipts []types.HexInt
 	if err := icp.client.Call(callParam, &missingReceipts); err != nil {
 		return nil, err
 	}
 
-	return missingReceipts, nil
+	var receipts []uint64
+	for _, h := range missingReceipts {
+		val, err := h.Value()
+		if err != nil {
+			return nil, err
+		}
+		receipts = append(receipts, uint64(val))
+	}
+
+	return receipts, nil
 }
 
-func (icp *IconProvider) QueryPacketHeights(ctx context.Context, height int64, channelId string, portId string, startSeq int64, endSeq int64) (map[types.HexInt]types.HexInt, error) {
+func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.PacketHeights, error) {
 
 	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
 		"portId":    portId,
 		"channelId": channelId,
 		"startSeq":  types.NewHexInt(int64(startSeq)),
 		"endSeq":    types.NewHexInt(int64(endSeq)),
-	}, callParamsWithHeight(types.NewHexInt(height)))
+	}, callParamsWithHeight(types.NewHexInt(latestHeight)))
 
 	var missingReceipts map[types.HexInt]types.HexInt
 	if err := icp.client.Call(callParam, &missingReceipts); err != nil {
 		return nil, err
 	}
-	return missingReceipts, nil
+
+	var packetHeights provider.PacketHeights
+	for seq, h := range missingReceipts {
+		seqInt, err := seq.Value()
+		if err != nil {
+			return nil, err
+		}
+		heightInt, err := h.Value()
+		if err != nil {
+			return nil, err
+		}
+
+		packetHeights[uint64(seqInt)] = uint64(heightInt)
+	}
+	return packetHeights, nil
+}
+
+func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, dstChanID, dstPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+	panic("QuerySendPacketByHeight not implemented")
+}
+
+func (ap *IconProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
+	panic("QueryNextSeqSend not implemented")
 }
 
 // ics 20 - transfer
