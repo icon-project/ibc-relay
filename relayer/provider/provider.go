@@ -69,11 +69,12 @@ type IBCHeader interface {
 
 // ClientState holds the current state of a client from a single chain's perspective
 type ClientState struct {
-	ClientID        string
-	ConsensusHeight clienttypes.Height
-	TrustingPeriod  time.Duration // trustring period wont be there in ICON client state
-	ConsensusTime   time.Time     // consensus time wont be there in ICON light client State
-	Header          []byte        //
+	ClientID            string
+	ConsensusHeight     clienttypes.Height
+	TrustingPeriod      time.Duration // trustring period wont be there in ICON client state
+	ConsensusTime       time.Time     // consensus time wont be there in ICON light client State
+	Header              []byte        //
+	TrustingPeriodBlock int64
 }
 
 // ClientTrustedState holds the current state of a client from the perspective of both involved chains,
@@ -215,6 +216,14 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("data", r.Data)
 	enc.AddArray("events", loggableEvents(r.Events))
 	return nil
+}
+
+type PacketHeights map[uint64]uint64
+
+type PacketHeightsInfo struct {
+	PacketHeights PacketHeights
+	StartSeq      uint64
+	EndSeq        uint64
 }
 
 type KeyProvider interface {
@@ -429,6 +438,7 @@ type QueryProvider interface {
 	// query packet info for sequence
 	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)
 	QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (PacketInfo, error)
+	QuerySendPacketByHeight(ctx context.Context, dstChanID, dstPortID string, sequence uint64, seqHeight uint64) (PacketInfo, error)
 
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
@@ -467,6 +477,9 @@ type QueryProvider interface {
 	QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error)
 	QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error)
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
+	QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights PacketHeights, err error)
+	QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error)
+	QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error)
 
 	// ics 20 - transfer
 	QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error)
