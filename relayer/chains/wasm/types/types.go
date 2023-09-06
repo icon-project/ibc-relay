@@ -19,10 +19,6 @@ func NewHexBytes(b []byte) HexBytes {
 	return HexBytes("0x" + hex.EncodeToString(b))
 }
 
-// / IBC Handler Contract Methods and Parameters
-
-// / EXTERNAL METHODS
-
 type ContractCall struct {
 	Msg HexBytes `json:"msg"`
 }
@@ -50,30 +46,28 @@ func GenerateTxnParams(methodName string, value HexBytes) ([]byte, error) {
 	return json.Marshal(m)
 }
 
+type ClientState struct {
+	ClientId string `json:"client_id"`
+}
+
 // / READONLY METHODS
 type GetClientState struct {
-	ClientState struct {
-		ClientId string `json:"client_id"`
-	} `json:"get_client_state"`
+	ClientState `json:"get_client_state"`
 }
 
 func (x *GetClientState) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewClientState(clientId string) *GetClientState {
+func NewClientState(ClientId string) *GetClientState {
 	return &GetClientState{
-		struct {
-			ClientId string `json:"client_id"`
-		}{
-			ClientId: clientId,
-		},
+		ClientState{ClientId},
 	}
 }
 
 type ConsensusStateByHeight struct {
-	ClientId string "json:\"client_id\""
-	Height   uint64 "json:\"height\""
+	ClientId string `json:"client_id"`
+	Height   uint64 `json:"height"`
 }
 
 type GetConsensusStateByHeight struct {
@@ -93,10 +87,12 @@ func NewConsensusStateByHeight(clientId string, height uint64) *GetConsensusStat
 	}
 }
 
+type Connection struct {
+	ConnectionId string `json:"connection_id"`
+}
+
 type GetConnection struct {
-	Connection struct {
-		ConnectionId string `json:"connection_id"`
-	} `json:"get_connection"`
+	Connection `json:"get_connection"`
 }
 
 func (x *GetConnection) Bytes() ([]byte, error) {
@@ -105,181 +101,118 @@ func (x *GetConnection) Bytes() ([]byte, error) {
 
 func NewConnection(connId string) *GetConnection {
 	return &GetConnection{
-		Connection: struct {
-			ConnectionId string "json:\"connection_id\""
-		}{
+		Connection: Connection{
 			ConnectionId: connId,
 		},
 	}
 }
 
+type Capability struct {
+	PortId    string `json:"port_id"`
+	ChannelId string `json:"channel_id"`
+}
+
+type PacketIdentity struct {
+	PortId    string `json:"port_id"`
+	ChannelId string `json:"channel_id"`
+	Sequence  uint64 `json:"sequence"`
+}
+
 type GetChannel struct {
-	Channel struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-	} `json:"get_channel"`
+	Channel Capability `json:"get_channel"`
 }
 
 func (x *GetChannel) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewChannel(portId, channelId string) *GetChannel {
+func NewChannel(PortId, ChannelId string) *GetChannel {
 	return &GetChannel{
-		Channel: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-		},
+		Channel: Capability{PortId, ChannelId},
 	}
 }
 
 type GetPacketCommitment struct {
-	PacketCommitment struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-		Sequence  uint64 `json:"sequence"`
-	} `json:"get_packet_commitment"`
+	PacketCommitment PacketIdentity `json:"get_packet_commitment"`
 }
 
 func (x *GetPacketCommitment) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewPacketCommitment(portId, channelId string, sequence uint64) *GetPacketCommitment {
+func NewPacketCommitment(PortId, ChannelId string, Sequence uint64) *GetPacketCommitment {
 	return &GetPacketCommitment{
-		PacketCommitment: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-			Sequence  uint64 "json:\"sequence\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-			Sequence:  sequence,
-		},
+		PacketCommitment: PacketIdentity{PortId, ChannelId, Sequence},
 	}
 }
 
 type GetPacketAcknowledgementCommitment struct {
-	PacketCommitment struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-		Sequence  uint64 `json:"sequence"`
-	} `json:"get_packet_acknowledgement_commitment"`
+	PacketCommitment PacketIdentity `json:"get_packet_acknowledgement_commitment"`
 }
 
 func (x *GetPacketAcknowledgementCommitment) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewPacketAcknowledgementCommitment(portId, channelId string, sequence uint64) *GetPacketAcknowledgementCommitment {
+func NewPacketAcknowledgementCommitment(PortId, ChannelId string, Sequence uint64) *GetPacketAcknowledgementCommitment {
 	return &GetPacketAcknowledgementCommitment{
-		PacketCommitment: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-			Sequence  uint64 "json:\"sequence\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-			Sequence:  sequence,
-		},
+		PacketCommitment: PacketIdentity{PortId, ChannelId, Sequence},
 	}
 }
 
 type GetNextSequenceSend struct {
-	NextSequenceSend struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-	} `json:"get_next_sequence_send"`
+	NextSequenceSend Capability `json:"get_next_sequence_send"`
 }
 
 func (x *GetNextSequenceSend) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewNextSequenceSend(portId, channelId string) *GetNextSequenceSend {
+func NewNextSequenceSend(PortId, ChannelId string) *GetNextSequenceSend {
 	return &GetNextSequenceSend{
-		NextSequenceSend: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-		},
+		NextSequenceSend: Capability{PortId, ChannelId},
 	}
 }
 
 type GetNextSequenceReceive struct {
-	NextSequenceReceive struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-	} `json:"get_next_sequence_receive"`
+	NextSequenceReceive Capability `json:"get_next_sequence_receive"`
 }
 
 func (x *GetNextSequenceReceive) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewNextSequenceReceive(portId, channelId string) *GetNextSequenceReceive {
+func NewNextSequenceReceive(PortId, ChannelId string) *GetNextSequenceReceive {
 	return &GetNextSequenceReceive{
-		NextSequenceReceive: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-		},
+		NextSequenceReceive: Capability{PortId, ChannelId},
 	}
 }
 
 type GetNextSequenceAcknowledgement struct {
-	NextSequenceAck struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-	} `json:"get_next_sequence_acknowledgement"`
+	NextSequenceAck Capability `json:"get_next_sequence_acknowledgement"`
 }
 
 func (x *GetNextSequenceAcknowledgement) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewNextSequenceAcknowledgement(portId, channelId string) *GetNextSequenceAcknowledgement {
+func NewNextSequenceAcknowledgement(PortId, ChannelId string) *GetNextSequenceAcknowledgement {
 	return &GetNextSequenceAcknowledgement{
-		NextSequenceAck: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-		},
+		NextSequenceAck: Capability{PortId, ChannelId},
 	}
 }
 
 type GetPacketReceipt struct {
-	PacketReceipt struct {
-		PortId    string `json:"port_id"`
-		ChannelId string `json:"channel_id"`
-		Sequence  uint64 `json:"sequence"`
-	} `json:"get_packet_receipt"`
+	PacketReceipt PacketIdentity `json:"get_packet_receipt"`
 }
 
 func (x *GetPacketReceipt) Bytes() ([]byte, error) {
 	return json.Marshal(x)
 }
 
-func NewPacketReceipt(portId, channelId string, sequence uint64) *GetPacketReceipt {
+func NewPacketReceipt(PortId, ChannelId string, Sequence uint64) *GetPacketReceipt {
 	return &GetPacketReceipt{
-		PacketReceipt: struct {
-			PortId    string "json:\"port_id\""
-			ChannelId string "json:\"channel_id\""
-			Sequence  uint64 "json:\"sequence\""
-		}{
-			PortId:    portId,
-			ChannelId: channelId,
-			Sequence:  sequence,
-		},
+		PacketReceipt: PacketIdentity{PortId, ChannelId, Sequence},
 	}
 }
 
