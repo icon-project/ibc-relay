@@ -837,7 +837,7 @@ func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight in
 	return packetHeights, nil
 }
 
-func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, dstChanID, dstPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
 	panic("QuerySendPacketByHeight not implemented")
 }
 

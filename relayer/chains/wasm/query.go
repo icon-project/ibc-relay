@@ -925,8 +925,34 @@ func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, latestHeight int
 	return packetHeights, nil
 }
 
-func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, dstChanID, dstPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
-	panic("QuerySendPacketByHeight not implemented")
+func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+
+	h := int64(seqHeight)
+	blockRes, err := ap.RPCClient.BlockResults(ctx, &h)
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+
+	base64Encoded := true
+	for _, tx := range blockRes.TxsResults {
+		if tx.Code != 0 {
+			// tx was not successful
+			continue
+		}
+		messages := ibcMessagesFromEvents(ap.log, tx.Events, ap.ChainId(), seqHeight, ap.PCfg.IbcHandlerAddress, base64Encoded)
+		for _, m := range messages {
+			switch t := m.info.(type) {
+			case *packetInfo:
+				packet := provider.PacketInfo(*t)
+				if packet.Sequence == sequence && packet.SourceChannel == srcChanID && packet.SourcePort == srcPortID {
+					return packet, nil
+				}
+			default:
+				continue
+			}
+		}
+	}
+	return provider.PacketInfo{}, fmt.Errorf("Packet not found on height")
 }
 
 func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (uint64, error) {
