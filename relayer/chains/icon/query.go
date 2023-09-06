@@ -44,7 +44,12 @@ const (
 
 type CallParamOption func(*types.CallParam)
 
+// if height is less than or zero don't set height
 func callParamsWithHeight(height types.HexInt) CallParamOption {
+	val, _ := height.Value()
+	if val <= 0 {
+		return func(*types.CallParam) {}
+	}
 	return func(cp *types.CallParam) {
 		cp.Height = height
 	}
@@ -306,7 +311,7 @@ func (icp *IconProvider) QueryConsensusState(ctx context.Context, height int64) 
 
 // query all the clients of the chain
 func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
-	seq, err := icp.getNextSequence(ctx, MethodGetNextClientSequence)
+	seq, err := icp.getNextSequence(ctx, MethodGetNextClientSequence, 0, map[string]interface{}{})
 
 	if err != nil {
 		return nil, err
@@ -398,7 +403,8 @@ var emptyConnRes = conntypes.NewQueryConnectionResponse(
 // ics 03 - connection
 func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 
-	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextConnectionSequence)
+	// sending -1 for latest height
+	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextConnectionSequence, -1, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -440,27 +446,16 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 	return conns, nil
 }
 
-func (icp *IconProvider) getNextSequence(ctx context.Context, methodName string) (uint64, error) {
-
+func (icp *IconProvider) getNextSequence(ctx context.Context, methodName string, height int64, params map[string]interface{}) (uint64, error) {
 	var seq types.HexInt
-	switch methodName {
-	case MethodGetNextClientSequence:
-		callParam := icp.prepareCallParams(MethodGetNextClientSequence, map[string]interface{}{})
-		if err := icp.client.Call(callParam, &seq); err != nil {
-			return 0, err
-		}
-	case MethodGetNextChannelSequence:
-		callParam := icp.prepareCallParams(MethodGetNextChannelSequence, map[string]interface{}{})
-		if err := icp.client.Call(callParam, &seq); err != nil {
-			return 0, err
-		}
-	case MethodGetNextConnectionSequence:
-		callParam := icp.prepareCallParams(MethodGetNextConnectionSequence, map[string]interface{}{})
-		if err := icp.client.Call(callParam, &seq); err != nil {
-			return 0, err
-		}
-	default:
-		return 0, errors.New("Invalid method name")
+	options := make([]CallParamOption, 0)
+	if height > 0 {
+		options = append(options, callParamsWithHeight(types.NewHexInt(height)))
+	}
+
+	callParam := icp.prepareCallParams(methodName, params, options...)
+	if err := icp.client.Call(callParam, &seq); err != nil {
+		return 0, err
 	}
 	val, _ := seq.Value()
 	return uint64(val), nil
@@ -592,7 +587,7 @@ func (icp *IconProvider) QueryConnectionChannels(ctx context.Context, height int
 }
 
 func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
-	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextChannelSequence)
+	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextChannelSequence, 0, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -670,28 +665,22 @@ func (icp *IconProvider) QueryUnreceivedAcknowledgements(ctx context.Context, he
 }
 
 func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	callParam := icp.prepareCallParams(MethodGetNextSequenceReceive, map[string]interface{}{
+
+	seq, err := icp.getNextSequence(ctx, MethodGetNextSequenceReceive, height, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
-	}, callParamsWithHeight(types.NewHexInt(height)))
-	var nextSeqRecv types.HexInt
-	if err := icp.client.Call(callParam, &nextSeqRecv); err != nil {
-		return nil, err
-	}
+	})
+
 	key := common.GetNextSequenceRecvCommitmentKey(portid, channelid)
-	keyHash := common.Sha3keccak256(key, []byte(nextSeqRecv))
+	keyHash := common.Sha3keccak256(key, []byte(types.NewHexInt(int64(seq))))
 
 	proof, err := icp.QueryIconProof(ctx, height, keyHash)
 	if err != nil {
 		return nil, err
 	}
 
-	nextSeq, err := nextSeqRecv.Value()
-	if err != nil {
-		return nil, err
-	}
 	return &chantypes.QueryNextSequenceReceiveResponse{
-		NextSequenceReceive: uint64(nextSeq),
+		NextSequenceReceive: seq,
 		Proof:               proof,
 		ProofHeight:         clienttypes.NewHeight(0, uint64(height)),
 	}, nil
@@ -853,7 +842,10 @@ func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, dstChanID, 
 }
 
 func (ap *IconProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
-	panic("QueryNextSeqSend not implemented")
+	return ap.getNextSequence(ctx, MethodGetNextSequenceSend, height, map[string]interface{}{
+		"channelId": channelid,
+		"portId":    portid,
+	})
 }
 
 // ics 20 - transfer
