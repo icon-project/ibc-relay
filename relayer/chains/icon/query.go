@@ -809,20 +809,20 @@ func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestH
 
 func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.PacketHeights, error) {
 
-	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
-		"portId":    portId,
-		"channelId": channelId,
-		"startSeq":  types.NewHexInt(int64(startSeq)),
-		"endSeq":    types.NewHexInt(int64(endSeq)),
+	callParam := icp.prepareCallParams(MethodGetPacketHeights, map[string]interface{}{
+		"portId":        portId,
+		"channelId":     channelId,
+		"startSequence": types.NewHexInt(int64(startSeq)),
+		"endSequence":   types.NewHexInt(int64(endSeq)),
 	}, callParamsWithHeight(types.NewHexInt(latestHeight)))
 
-	var missingReceipts map[types.HexInt]types.HexInt
-	if err := icp.client.Call(callParam, &missingReceipts); err != nil {
+	var rawPacketHeights map[types.HexInt]types.HexInt
+	if err := icp.client.Call(callParam, &rawPacketHeights); err != nil {
 		return nil, err
 	}
 
-	var packetHeights provider.PacketHeights
-	for seq, h := range missingReceipts {
+	packetHeights := make(provider.PacketHeights, 0)
+	for seq, h := range rawPacketHeights {
 		seqInt, err := seq.Value()
 		if err != nil {
 			return nil, err
@@ -838,7 +838,61 @@ func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight in
 }
 
 func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
-	panic("QuerySendPacketByHeight not implemented")
+	block, err := ap.client.GetBlockByHeight(&types.BlockHeightParam{
+		Height: types.NewHexInt(int64(seqHeight)),
+	})
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+
+	for _, res := range block.NormalTransactions {
+
+		txResult, err := ap.client.GetTransactionResult(&types.TransactionHashParam{
+			Hash: res.TxHash,
+		})
+		if err != nil {
+			return provider.PacketInfo{}, err
+		}
+		for _, el := range txResult.EventLogs {
+			if el.Addr != types.Address(ap.PCfg.IbcHandlerAddress) &&
+				// sendPacket will be of index length 2
+				len(el.Indexed) != 2 &&
+				el.Indexed[0] != EventTypeSendPacket {
+				continue
+			}
+			packetStr := el.Indexed[1]
+			packetByte, err := hex.DecodeString(strings.TrimPrefix(packetStr, "0x"))
+			if err != nil {
+				return provider.PacketInfo{}, err
+			}
+			var packet icon.Packet
+			if err := proto.Unmarshal(packetByte, &packet); err != nil {
+				return provider.PacketInfo{}, err
+			}
+
+			if packet.Sequence != sequence && packet.SourceChannel != srcChanID && packet.SourcePort != srcPortID {
+				continue
+			}
+			return provider.PacketInfo{
+				Height:           seqHeight + 1,
+				Sequence:         packet.Sequence,
+				SourcePort:       packet.SourcePort,
+				SourceChannel:    packet.SourceChannel,
+				DestPort:         packet.DestinationPort,
+				DestChannel:      packet.DestinationChannel,
+				Data:             packet.Data,
+				TimeoutHeight:    clienttypes.NewHeight(packet.TimeoutHeight.RevisionNumber, packet.TimeoutHeight.RevisionHeight),
+				TimeoutTimestamp: packet.TimeoutTimestamp,
+			}, nil
+
+		}
+
+	}
+
+	return provider.PacketInfo{}, fmt.Errorf(
+		fmt.Sprintf("Packet of seq number : %d, srcchannel:%s, srcPort:%s not found at height %d",
+			sequence, srcChanID, srcPortID, seqHeight))
+
 }
 
 func (ap *IconProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
