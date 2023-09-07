@@ -960,11 +960,19 @@ func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, chan
 	if err != nil {
 		return 0, err
 	}
-	res, err := ap.QueryIBCHandlerContract(ctx, param)
+	clientCtx := ap.ClientCtx
+	if height > 0 {
+		clientCtx = clientCtx.WithHeight(height)
+
+	}
+	qc := wasmtypes.NewQueryClient(clientCtx)
+	res, err := qc.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+		Address:   ap.PCfg.IbcHandlerAddress,
+		QueryData: param,
+	})
 	if err != nil {
 		return 0, err
 	}
-
 	var seq uint64
 	if err := json.Unmarshal(res.Data.Bytes(), &seq); err != nil {
 		return 0, err
