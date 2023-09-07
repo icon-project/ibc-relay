@@ -748,7 +748,7 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 		return nil, fmt.Errorf("Invalid packet bytes")
 	}
 
-	key := common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(height))
+	key := common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq)))
 	keyhash := common.Sha3keccak256(key, packetAckBytes)
 
 	proof, err := icp.QueryIconProof(ctx, height, keyhash)
@@ -764,14 +764,14 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 }
 
 func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
+	callParam := icp.prepareCallParams(MethodGetPacketReceipt, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
 		"sequence":  types.NewHexInt(int64(seq)),
 	})
 	var packetReceiptHexByte types.HexInt
 	if err := icp.client.Call(callParam, &packetReceiptHexByte); err != nil {
-		return nil, err
+		packetReceiptHexByte = types.NewHexInt(0)
 	}
 	packetReceipt, err := packetReceiptHexByte.Value()
 	if err != nil {
@@ -825,7 +825,7 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 		}
 		hashIndex := merkleHashTree.Hashes.FindIndex(keyHash)
 		if hashIndex == -1 {
-			return nil, errors.New("Btp message for this hash not found")
+			return nil, errors.New(fmt.Sprintf("Btp message at height %d for hash: %x not found", height, string(keyHash)))
 		}
 
 		proof := merkleHashTree.MerkleProof(hashIndex)

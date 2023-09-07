@@ -694,7 +694,8 @@ func (icp *IconProvider) SendMessagesToMempool(
 		if msg != nil {
 			err := icp.SendIconTransaction(ctx, msg, asyncCtx, asyncCallback)
 			if err != nil {
-				return err
+				icp.log.Warn("Send Icon Transaction Error", zap.String("method", msg.Type()), zap.Error(err))
+				continue
 			}
 		}
 	}
@@ -712,12 +713,35 @@ func (icp *IconProvider) SendIconTransaction(
 	if err != nil {
 		return err
 	}
+
+	txParamEst := &types.TransactionParamForEstimate{
+		Version:     types.NewHexInt(types.JsonrpcApiVersion),
+		FromAddress: types.Address(wallet.Address().String()),
+		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
+		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
+		DataType:    "call",
+		Data: types.CallData{
+			Method: m.Method,
+			Params: m.Params,
+		},
+	}
+
+	step, err := icp.client.EstimateStep(txParamEst)
+	if err != nil {
+		return fmt.Errorf("failed estimating step: %w", err)
+	}
+	stepVal, err := step.Int()
+	if err != nil {
+		return err
+	}
+	stepLimit := types.NewHexInt(int64(stepVal + 200_000))
+
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
 		FromAddress: types.Address(wallet.Address().String()),
 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
 		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-		StepLimit:   types.NewHexInt(int64(defaultStepLimit)),
+		StepLimit:   stepLimit,
 		DataType:    "call",
 		Data: types.CallData{
 			Method: m.Method,
@@ -739,10 +763,11 @@ func (icp *IconProvider) SendIconTransaction(
 	}
 	icp.log.Info("Submitted Transaction", zap.String("chain_id", icp.ChainId()), zap.String("method", m.Method), zap.String("tx_hash", string(txParam.TxHash)))
 
+	// wait for the update client but dont cancel sending message.
 	// If update fails, the subsequent txn will fail, result of update not being fetched concurrently
 	switch m.Method {
 	case MethodUpdateClient:
-		return icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
+		icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
 	default:
 		go icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
 	}
