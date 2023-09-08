@@ -34,170 +34,167 @@ func (pp *PathProcessor) getMessagesToSend(
 	msgs []packetIBCMessage,
 	src, dst *pathEndRuntime,
 ) (srcMsgs []packetIBCMessage, dstMsgs []packetIBCMessage) {
-	// if len(msgs) == 0 {
-	// 	return
-	// }
+	if len(msgs) == 0 {
+		return
+	}
 
-	// ordered := false
+	ordered := false
 
-	// // channelStateCache most likely has the ordering information.
-	// if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; ok && cs.Order == chantypes.ORDERED {
-	// 	ordered = true
-	// }
+	// channelStateCache most likely has the ordering information.
+	if cs, ok := src.channelStateCache[packetInfoChannelKey(msgs[0].info)]; ok && cs.Order == chantypes.ORDERED {
+		ordered = true
+	}
 
-	// // if packet info has the order defined, use that.
-	// if msgs[0].info.ChannelOrder != "" && msgs[0].info.ChannelOrder != chantypes.NONE.String() {
-	// 	ordered = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
-	// }
+	// if packet info has the order defined, use that.
+	if msgs[0].info.ChannelOrder != "" && msgs[0].info.ChannelOrder != chantypes.NONE.String() {
+		ordered = msgs[0].info.ChannelOrder == chantypes.ORDERED.String()
+	}
 
-	// if ordered {
-	// 	eventMessages := make(map[string][]packetIBCMessage)
-	// 	lowestSeq := make(map[string]uint64)
+	if ordered {
+		eventMessages := make(map[string][]packetIBCMessage)
+		lowestSeq := make(map[string]uint64)
 
-	// 	for _, m := range msgs {
-	// 		eventMessages[m.eventType] = append(eventMessages[m.eventType], m)
-	// 		switch m.eventType {
-	// 		case chantypes.EventTypeRecvPacket:
-	// 			dstChan, dstPort := m.info.DestChannel, m.info.DestPort
-	// 			res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, dstChan, dstPort)
-	// 			if err != nil {
-	// 				dst.log.Error("Failed to query next sequence recv",
-	// 					zap.String("channel_id", dstChan),
-	// 					zap.String("port_id", dstPort),
-	// 					zap.Error(err),
-	// 				)
-	// 				return
-	// 			}
-	// 			lowestSeq[chantypes.EventTypeRecvPacket] = res.NextSequenceReceive
-	// 		case chantypes.EventTypeAcknowledgePacket:
-	// 			srcChan, srcPort := m.info.SourceChannel, m.info.SourcePort
-	// 			res, err := src.chainProvider.QueryNextSeqAck(ctx, 0, srcChan, srcPort)
-	// 			if err != nil {
-	// 				src.log.Error("Failed to query next sequence ack",
-	// 					zap.String("channel_id", srcChan),
-	// 					zap.String("port_id", srcPort),
-	// 					zap.Error(err),
-	// 				)
-	// 				return
-	// 			}
-	// 			lowestSeq[chantypes.EventTypeAcknowledgePacket] = res.NextSequenceReceive
-	// 		}
-	// 	}
+		for _, m := range msgs {
+			eventMessages[m.eventType] = append(eventMessages[m.eventType], m)
+			switch m.eventType {
+			case chantypes.EventTypeRecvPacket:
+				dstChan, dstPort := m.info.DestChannel, m.info.DestPort
+				res, err := dst.chainProvider.QueryNextSeqRecv(ctx, 0, dstChan, dstPort)
+				if err != nil {
+					dst.log.Error("Failed to query next sequence recv",
+						zap.String("channel_id", dstChan),
+						zap.String("port_id", dstPort),
+						zap.Error(err),
+					)
+					return
+				}
+				lowestSeq[chantypes.EventTypeRecvPacket] = res.NextSequenceReceive
+			case chantypes.EventTypeAcknowledgePacket:
+				srcChan, srcPort := m.info.SourceChannel, m.info.SourcePort
+				res, err := src.chainProvider.QueryNextSeqAck(ctx, 0, srcChan, srcPort)
+				if err != nil {
+					src.log.Error("Failed to query next sequence ack",
+						zap.String("channel_id", srcChan),
+						zap.String("port_id", srcPort),
+						zap.Error(err),
+					)
+					return
+				}
+				lowestSeq[chantypes.EventTypeAcknowledgePacket] = res.NextSequenceReceive
+			}
+		}
 
-	// 	for e, m := range eventMessages {
-	// 		m := m
-	// 		sort.SliceStable(m, func(i, j int) bool {
-	// 			return m[i].info.Sequence < m[j].info.Sequence
-	// 		})
+		for e, m := range eventMessages {
+			m := m
+			sort.SliceStable(m, func(i, j int) bool {
+				return m[i].info.Sequence < m[j].info.Sequence
+			})
 
-	// 		foundFirst := false
-	// 	MsgLoop:
-	// 		for _, msg := range m {
-	// 			if e == chantypes.EventTypeRecvPacket || e == chantypes.EventTypeAcknowledgePacket {
-	// 				if msg.info.Sequence < lowestSeq[e] {
-	// 					// TODO prune these from caches
-	// 					continue MsgLoop
-	// 				} else if msg.info.Sequence > lowestSeq[e] && !foundFirst {
-	// 					switch e {
-	// 					case chantypes.EventTypeRecvPacket:
-	// 						dst.log.Debug("Not yet ready to relay this recv sequence",
-	// 							zap.String("channel_id", msg.info.DestChannel),
-	// 							zap.String("port_id", msg.info.DestPort),
-	// 							zap.Uint64("expected", lowestSeq[e]),
-	// 							zap.Uint64("actual", msg.info.Sequence),
-	// 						)
-	// 					case chantypes.EventTypeAcknowledgePacket:
-	// 						src.log.Debug("Not yet ready to relay this ack sequence",
-	// 							zap.String("channel_id", msg.info.SourceChannel),
-	// 							zap.String("port_id", msg.info.SourcePort),
-	// 							zap.Uint64("expected", lowestSeq[e]),
-	// 							zap.Uint64("actual", msg.info.Sequence),
-	// 						)
-	// 					}
+			foundFirst := false
+		MsgLoop:
+			for _, msg := range m {
+				if e == chantypes.EventTypeRecvPacket || e == chantypes.EventTypeAcknowledgePacket {
+					if msg.info.Sequence < lowestSeq[e] {
+						// TODO prune these from caches
+						continue MsgLoop
+					} else if msg.info.Sequence > lowestSeq[e] && !foundFirst {
+						switch e {
+						case chantypes.EventTypeRecvPacket:
+							dst.log.Debug("Not yet ready to relay this recv sequence",
+								zap.String("channel_id", msg.info.DestChannel),
+								zap.String("port_id", msg.info.DestPort),
+								zap.Uint64("expected", lowestSeq[e]),
+								zap.Uint64("actual", msg.info.Sequence),
+							)
+						case chantypes.EventTypeAcknowledgePacket:
+							src.log.Debug("Not yet ready to relay this ack sequence",
+								zap.String("channel_id", msg.info.SourceChannel),
+								zap.String("port_id", msg.info.SourcePort),
+								zap.Uint64("expected", lowestSeq[e]),
+								zap.Uint64("actual", msg.info.Sequence),
+							)
+						}
 
-	// 					break MsgLoop
-	// 				}
-	// 			}
+						break MsgLoop
+					}
+				}
 
-	// 			switch e {
-	// 			case chantypes.EventTypeRecvPacket:
-	// 				if len(dstMsgs) > 0 && dstMsgs[len(dstMsgs)-1].eventType == e && dstMsgs[len(dstMsgs)-1].info.Sequence != msg.info.Sequence-1 {
-	// 					dst.log.Debug("Skipping non-consecutive packet(s)",
-	// 						zap.String("event_type", e),
-	// 						zap.String("channel_id", msg.info.DestChannel),
-	// 						zap.String("port_id", msg.info.DestChannel),
-	// 						zap.Uint64("seq", msg.info.Sequence),
-	// 						zap.Uint64("prior_seq", dstMsgs[len(dstMsgs)-1].info.Sequence),
-	// 					)
-	// 					break MsgLoop
-	// 				}
-	// 				if uint64(len(dstMsgs)) <= pp.maxMsgs && dst.shouldSendPacketMessage(msg, src) {
-	// 					dst.log.Debug("Appending packet",
-	// 						zap.String("event_type", e),
-	// 						zap.String("channel_id", msg.info.DestChannel),
-	// 						zap.String("port_id", msg.info.DestChannel),
-	// 						zap.Uint64("seq", msg.info.Sequence),
-	// 					)
-	// 					dstMsgs = append(dstMsgs, msg)
-	// 					if e == chantypes.EventTypeRecvPacket && msg.info.Sequence == lowestSeq[e] {
-	// 						foundFirst = true
-	// 					}
-	// 				}
-	// 			default:
-	// 				if len(srcMsgs) > 0 && srcMsgs[len(srcMsgs)-1].eventType == e && srcMsgs[len(srcMsgs)-1].info.Sequence != msg.info.Sequence-1 {
-	// 					src.log.Debug("Skipping non-consecutive packet(s)",
-	// 						zap.String("event_type", e),
-	// 						zap.String("channel_id", msg.info.SourceChannel),
-	// 						zap.String("port_id", msg.info.SourcePort),
-	// 						zap.Uint64("seq", msg.info.Sequence),
-	// 						zap.Uint64("prior_seq", srcMsgs[len(srcMsgs)-1].info.Sequence),
-	// 					)
-	// 					break MsgLoop
-	// 				}
+				switch e {
+				case chantypes.EventTypeRecvPacket:
+					if len(dstMsgs) > 0 && dstMsgs[len(dstMsgs)-1].eventType == e && dstMsgs[len(dstMsgs)-1].info.Sequence != msg.info.Sequence-1 {
+						dst.log.Debug("Skipping non-consecutive packet(s)",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.DestChannel),
+							zap.String("port_id", msg.info.DestChannel),
+							zap.Uint64("seq", msg.info.Sequence),
+							zap.Uint64("prior_seq", dstMsgs[len(dstMsgs)-1].info.Sequence),
+						)
+						break MsgLoop
+					}
+					if uint64(len(dstMsgs)) <= pp.maxMsgs && dst.shouldSendPacketMessage(msg, src) {
+						dst.log.Debug("Appending packet",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.DestChannel),
+							zap.String("port_id", msg.info.DestChannel),
+							zap.Uint64("seq", msg.info.Sequence),
+						)
+						dstMsgs = append(dstMsgs, msg)
+						if e == chantypes.EventTypeRecvPacket && msg.info.Sequence == lowestSeq[e] {
+							foundFirst = true
+						}
+					}
+				case common.EventTimeoutRequest:
+					if dst.shouldSendPacketMessage(msg, src) {
+						dstMsgs = append(dstMsgs, msg)
+					}
+				default:
+					if len(srcMsgs) > 0 && srcMsgs[len(srcMsgs)-1].eventType == e && srcMsgs[len(srcMsgs)-1].info.Sequence != msg.info.Sequence-1 {
+						src.log.Debug("Skipping non-consecutive packet(s)",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.SourceChannel),
+							zap.String("port_id", msg.info.SourcePort),
+							zap.Uint64("seq", msg.info.Sequence),
+							zap.Uint64("prior_seq", srcMsgs[len(srcMsgs)-1].info.Sequence),
+						)
+						break MsgLoop
+					}
 
-	// 				if uint64(len(srcMsgs)) <= pp.maxMsgs && src.shouldSendPacketMessage(msg, dst) {
-	// 					src.log.Debug("Appending packet",
-	// 						zap.String("event_type", e),
-	// 						zap.String("channel_id", msg.info.SourceChannel),
-	// 						zap.String("port_id", msg.info.SourcePort),
-	// 						zap.Uint64("seq", msg.info.Sequence),
-	// 					)
-	// 					srcMsgs = append(srcMsgs, msg)
-	// 					if e == chantypes.EventTypeAcknowledgePacket && msg.info.Sequence == lowestSeq[e] {
-	// 						foundFirst = true
-	// 					}
-	// 				}
-	// 			}
-	// 	case common.EventTimeoutRequest:
-	// 		if dst.shouldSendPacketMessage(firstMsg, src) {
-	// 			dstMsgs = append(dstMsgs, firstMsg)
-	// 		}
-	// 	default:
-	// 		if src.shouldSendPacketMessage(firstMsg, dst) {
-	// 			srcMsgs = append(srcMsgs, firstMsg)
-	// 		}
-	// 	}
+					if uint64(len(srcMsgs)) <= pp.maxMsgs && src.shouldSendPacketMessage(msg, dst) {
+						src.log.Debug("Appending packet",
+							zap.String("event_type", e),
+							zap.String("channel_id", msg.info.SourceChannel),
+							zap.String("port_id", msg.info.SourcePort),
+							zap.Uint64("seq", msg.info.Sequence),
+						)
+						srcMsgs = append(srcMsgs, msg)
+						if e == chantypes.EventTypeAcknowledgePacket && msg.info.Sequence == lowestSeq[e] {
+							foundFirst = true
+						}
+					}
+				}
+			}
+		}
 
-	// 	return srcMsgs, dstMsgs
-	// }
+		return srcMsgs, dstMsgs
+	}
 
-	// // for unordered channels, don't need to worry about sequence ordering.
-	// for _, msg := range msgs {
-	// 	switch msg.eventType {
-	// 	case chantypes.EventTypeRecvPacket:
-	// 		if uint64(len(dstMsgs)) <= pp.maxMsgs && dst.shouldSendPacketMessage(msg, src) {
-	// 			dstMsgs = append(dstMsgs, msg)
-	// 		}
-	// 	case common.EventTimeoutRequest:
-	// 		if dst.shouldSendPacketMessage(msg, src) {
-	// 			dstMsgs = append(dstMsgs, msg)
-	// 		}
-	// 	default:
-	// 		if uint64(len(srcMsgs)) <= pp.maxMsgs && src.shouldSendPacketMessage(msg, dst) {
-	// 			srcMsgs = append(srcMsgs, msg)
-	// 		}
-	// 	}
-	// }
+	// for unordered channels, don't need to worry about sequence ordering.
+	for _, msg := range msgs {
+		switch msg.eventType {
+		case chantypes.EventTypeRecvPacket:
+			if uint64(len(dstMsgs)) <= pp.maxMsgs && dst.shouldSendPacketMessage(msg, src) {
+				dstMsgs = append(dstMsgs, msg)
+			}
+		case common.EventTimeoutRequest:
+			if dst.shouldSendPacketMessage(msg, src) {
+				dstMsgs = append(dstMsgs, msg)
+			}
+		default:
+			if uint64(len(srcMsgs)) <= pp.maxMsgs && src.shouldSendPacketMessage(msg, dst) {
+				srcMsgs = append(srcMsgs, msg)
+			}
+		}
+	}
 	return srcMsgs, dstMsgs
 }
 
