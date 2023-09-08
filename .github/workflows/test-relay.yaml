@@ -2,7 +2,7 @@ name: Test Relayer Locally - Icon/Archway
 on:
   push:
     branches:
-      - "**"
+      - "main"
 
 jobs:
   relay-local-deployment:
