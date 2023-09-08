@@ -343,12 +343,13 @@ func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error
 			continue
 		}
 		ccp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		ccp.channelStateCache[processor.ChannelKey{
+		channelKey := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}
+		ccp.channelStateCache.SetOpen(channelKey, ch.State == chantypes.OPEN, ch.Ordering)
 		ccp.log.Debug("Found open channel",
 			zap.String("channel-id", ch.ChannelId),
 			zap.String("port-id ", ch.PortId),

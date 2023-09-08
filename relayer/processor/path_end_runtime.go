@@ -2,14 +2,15 @@ package processor
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"time"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	"go.uber.org/zap"
@@ -693,7 +694,7 @@ func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessag
 
 	pathEndForHeight := counterparty
 
-	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {	
+	if strings.Contains(pathEnd.clientState.ClientID, "tendermint") && message.info.Height >= pathEndForHeight.latestBlock.Height {
 		pathEnd.log.Debug("Waiting to relay channel message until counterparty height has incremented",
 			zap.Inline(channelKey),
 			zap.String("event_type", eventType),

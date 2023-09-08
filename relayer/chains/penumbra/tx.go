@@ -1285,6 +1285,10 @@ func (cc *PenumbraProvider) PacketReceipt(ctx context.Context, msgTransfer provi
 	}, nil
 }
 
+func (cc *PenumbraProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
+	panic("implement me")
+}
+
 func (cc *PenumbraProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {

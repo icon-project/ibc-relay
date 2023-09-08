@@ -669,6 +669,10 @@ func (icp *IconProvider) QueryUnreceivedAcknowledgements(ctx context.Context, he
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
+func (icp *IconProvider) QueryNextSeqAck(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
+}
+
 func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	callParam := icp.prepareCallParams(MethodGetNextSequenceReceive, map[string]interface{}{
 		"portId":    portid,

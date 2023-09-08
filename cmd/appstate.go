@@ -13,7 +13,6 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
 )
 

@@ -226,12 +226,14 @@ func (icp *IconChainProcessor) initializeChannelState(ctx context.Context) error
 		}
 
 		icp.channelConnections[ch.ChannelId] = ch.ConnectionHops[0]
-		icp.channelStateCache[processor.ChannelKey{
+		channelKey := processor.ChannelKey{
 			ChannelID:             ch.ChannelId,
 			PortID:                ch.PortId,
 			CounterpartyChannelID: ch.Counterparty.ChannelId,
 			CounterpartyPortID:    ch.Counterparty.PortId,
-		}] = ch.State == chantypes.OPEN
+		}
+
+		icp.channelStateCache.SetOpen(channelKey, ch.State == chantypes.OPEN, ch.Ordering)
 
 		icp.log.Debug("Found open channel",
 			zap.String("channel-id", ch.ChannelId),

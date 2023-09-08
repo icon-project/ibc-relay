@@ -9,6 +9,7 @@ import (
 	"time"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -102,7 +103,7 @@ func (mp *messageProcessor) processMessages(
 			return err
 		}
 
-		if err := mp.assembleMsgUpdateClient(ctx, src, dst); err != nil {
+		if err := mp.assembleMsgUpdateClient(ctx, src, dst, needsClientUpdate); err != nil {
 			return err
 		}
 	}
@@ -512,7 +513,7 @@ func (mp *messageProcessor) sendClientUpdate(
 		}
 	}
 
-	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, callback); err != nil {
+	if err := dst.chainProvider.SendMessagesToMempool(broadcastCtx, msgs, mp.memo, ctx, []func(*provider.RelayerTxResponse, error){callback}); err != nil {
 		mp.log.Error("Error sending client update message",
 			zap.String("path_name", src.info.PathName),
 			zap.String("src_chain_id", src.info.ChainID),
@@ -664,8 +665,8 @@ func (mp *messageProcessor) sendSingleMessage(
 		if !IsBTPLightClient(dst.clientState) {
 			msgs = append(msgs, mp.msgUpdateClient)
 		}
-		// {mp.msgUpdateClient}?? 
-		msgs = append(msgs,tracker.assembledMsg())
+		// {mp.msgUpdateClient}??
+		msgs = append(msgs, tracker.assembledMsg())
 	}
 
 	broadcastCtx, cancel := context.WithTimeout(ctx, messageSendTimeout)

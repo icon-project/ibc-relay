@@ -12,10 +12,11 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/icon-project/ibc-relay/relayer/chains/cosmos"
-	"github.com/icon-project/ibc-relay/relayer/chains/icon"
-	penumbraprocessor "github.com/icon-project/ibc-relay/relayer/chains/penumbra"
-	"github.com/icon-project/ibc-relay/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/chains/icon"
+	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
+	"github.com/cosmos/relayer/v2/relayer/chains/wasm"
+	"github.com/cosmos/relayer/v2/relayer/processor"
 	"go.uber.org/zap"
 )
 

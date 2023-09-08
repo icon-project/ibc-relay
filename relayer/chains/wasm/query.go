@@ -723,6 +723,10 @@ func (ap *WasmProvider) QueryUnreceivedAcknowledgements(ctx context.Context, hei
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
+func (ap *WasmProvider) QueryNextSeqAck(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
+}
+
 func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
 	nextSeqRecvParams, err := types.NewNextSequenceReceive(portid, channelid).Bytes()
 	if err != nil {

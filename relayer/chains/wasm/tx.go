@@ -682,7 +682,7 @@ func (ap *WasmProvider) SendMessages(ctx context.Context, msgs []provider.Relaye
 	wg.Add(1)
 
 	if err := retry.Do(func() error {
-		return ap.SendMessagesToMempool(ctx, msgs, memo, ctx, callback)
+		return ap.SendMessagesToMempool(ctx, msgs, memo, ctx, []func(*provider.RelayerTxResponse, error){callback})
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		ap.log.Info(
 			"Error building or broadcasting transaction",
@@ -714,7 +714,7 @@ func (ap *WasmProvider) SendMessagesToMempool(
 	memo string,
 
 	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error),
+	asyncCallback []func(*provider.RelayerTxResponse, error),
 ) error {
 	ap.txMu.Lock()
 	defer ap.txMu.Unlock()
@@ -974,7 +974,7 @@ func (ap *WasmProvider) BroadcastTx(
 	msgs []provider.RelayerMessage,
 	asyncCtx context.Context, // context for async wait for block inclusion after successful tx broadcast
 	asyncTimeout time.Duration, // timeout for waiting for block inclusion
-	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
+	asyncCallback []func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 	shouldWait bool,
 ) error {
 	res, err := clientCtx.BroadcastTx(txBytes)
@@ -1044,13 +1044,15 @@ func (ap *WasmProvider) waitForTx(
 	txHash []byte,
 	msgs []provider.RelayerMessage, // used for logging only
 	waitTimeout time.Duration,
-	callback func(*provider.RelayerTxResponse, error),
+	callbacks []func(*provider.RelayerTxResponse, error),
 ) error {
 	res, err := ap.waitForTxResult(ctx, txHash, waitTimeout)
 	if err != nil {
 		ap.log.Error("Failed to wait for block inclusion", zap.Error(err))
-		if callback != nil {
-			callback(nil, err)
+		if len(callbacks) > 0 {
+			for _, cb := range callbacks {
+				cb(nil, err)
+			}
 		}
 		return err
 	}
@@ -1074,16 +1076,22 @@ func (ap *WasmProvider) waitForTx(
 		if err == nil {
 			err = fmt.Errorf("transaction failed to execute")
 		}
-		if callback != nil {
-			callback(nil, err)
+		if len(callbacks) > 0 {
+			for _, cb := range callbacks {
+				cb(nil, err)
+			}
 		}
 		ap.LogFailedTx(rlyResp, nil, msgs)
 		return err
 	}
 
-	if callback != nil {
-		callback(rlyResp, nil)
+	if len(callbacks) > 0 {
+		for _, cb := range callbacks {
+			// Call each callback in order since waitForTx is already invoked asyncronously
+			cb(rlyResp, err)
+		}
 	}
+
 	ap.LogSuccessTx(res, msgs)
 	return nil
 }

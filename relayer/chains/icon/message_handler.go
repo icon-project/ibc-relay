@@ -73,18 +73,18 @@ func (icp *IconChainProcessor) handleChannelMessage(eventType string, ci provide
 			}
 		}
 		if !found {
-			icp.channelStateCache[channelKey] = false
+			icp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		}
 	} else {
 		switch eventType {
 		case chantypes.EventTypeChannelOpenTry:
-			icp.channelStateCache[channelKey] = false
+			icp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 		case chantypes.EventTypeChannelOpenAck, chantypes.EventTypeChannelOpenConfirm:
-			icp.channelStateCache[channelKey] = true
+			icp.channelStateCache.SetOpen(channelKey, true, ci.Order)
 		case chantypes.EventTypeChannelCloseConfirm:
 			for k := range icp.channelStateCache {
 				if k.PortID == ci.PortID && k.ChannelID == ci.ChannelID {
-					icp.channelStateCache[k] = false
+					icp.channelStateCache.SetOpen(channelKey, false, ci.Order)
 					break
 				}
 			}

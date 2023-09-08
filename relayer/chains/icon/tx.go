@@ -580,7 +580,7 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 
 	wg.Add(1)
 	if err := retry.Do(func() error {
-		return icp.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, memo, ctx, callback)
+		return icp.SendMessagesToMempool(ctx, []provider.RelayerMessage{msg}, memo, ctx, []func(*provider.RelayerTxResponse, error){callback})
 	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
 		icp.log.Info(
 			"Error building or broadcasting transaction",
@@ -681,7 +681,7 @@ func (icp *IconProvider) SendMessagesToMempool(
 	msgs []provider.RelayerMessage,
 	memo string,
 	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error),
+	asyncCallback []func(*provider.RelayerTxResponse, error),
 ) error {
 	icp.txMu.Lock()
 	defer icp.txMu.Unlock()
@@ -707,7 +707,7 @@ func (icp *IconProvider) SendIconTransaction(
 	ctx context.Context,
 	msg provider.RelayerMessage,
 	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error)) error {
+	asyncCallback []func(*provider.RelayerTxResponse, error)) error {
 	m := msg.(*IconMessage)
 	wallet, err := icp.Wallet()
 	if err != nil {
@@ -781,14 +781,17 @@ func (icp *IconProvider) WaitForTxResult(
 	txHash []byte,
 	method string,
 	timeout time.Duration,
-	callback func(*provider.RelayerTxResponse, error),
+	callbacks []func(*provider.RelayerTxResponse, error),
 ) error {
 	txhash := types.NewHexBytes(txHash)
 	_, txRes, err := icp.client.WaitForResults(asyncCtx, &types.TransactionHashParam{Hash: txhash})
 	if err != nil {
 		icp.log.Error("Failed to get txn result", zap.String("txHash", string(txhash)), zap.String("method", method), zap.Error(err))
-		if callback != nil {
-			callback(nil, err)
+		if len(callbacks) > 0 {
+			for _, cb := range callbacks {
+				// Call each callback in order since waitForTx is already invoked asyncronously
+				cb(nil, err)
+			}
 		}
 		return err
 	}
@@ -812,8 +815,11 @@ func (icp *IconProvider) WaitForTxResult(
 	status, err := txRes.Status.Int()
 	if status != 1 {
 		err = fmt.Errorf("Transaction Failed to Execute")
-		if callback != nil {
-			callback(nil, err)
+		if len(callbacks) > 0 {
+			for _, cb := range callbacks {
+				// Call each callback in order since waitForTx is already invoked asyncronously
+				cb(nil, err)
+			}
 		}
 		icp.LogFailedTx(method, txRes, err)
 		return err
@@ -827,9 +833,13 @@ func (icp *IconProvider) WaitForTxResult(
 		Data:   string(txRes.SCOREAddress),
 		Events: eventLogs,
 	}
-	if callback != nil {
-		callback(rlyResp, nil)
+	if len(callbacks) > 0 {
+		for _, cb := range callbacks {
+			// Call each callback in order since waitForTx is already invoked asyncronously
+			cb(rlyResp, err)
+		}
 	}
+
 	// log successful txn
 	icp.LogSuccessTx(method, txRes)
 	return nil

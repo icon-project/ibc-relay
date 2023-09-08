@@ -152,7 +152,7 @@ func (cc *CosmosProvider) ConfigureWithGrantees(grantees []string, granterKey st
 	for _, newGrantee := range grantees {
 		if !cc.KeyExists(newGrantee) {
 			//Add another key to the chain client for the grantee
-			_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type))
+			_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type), "")
 			if err != nil {
 				return err
 			}
@@ -168,7 +168,7 @@ func (fg *FeeGrantConfiguration) AddGranteeKeys(cc *CosmosProvider) error {
 		newGrantee := "grantee" + newGranteeIdx
 
 		//Add another key to the chain client for the grantee
-		_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type))
+		_, err := cc.AddKey(newGrantee, sdk.CoinType, string(hd.Secp256k1Type), "")
 		if err != nil {
 			return err
 		}
