@@ -390,36 +390,3 @@ func (a *appState) updatePathConfig(
 		return nil
 	})
 }
-
-// updatePathConfig overwrites the config file concurrently,
-// locking to read, modify, then write the config.
-func (a *appState) updatePathConfig(
-	ctx context.Context,
-	pathName string,
-	clientSrc, clientDst string,
-	connectionSrc, connectionDst string,
-) error {
-	if pathName == "" {
-		return errors.New("empty path name not allowed")
-	}
-
-	return a.performConfigLockingOperation(ctx, func() error {
-		path, ok := a.config.Paths[pathName]
-		if !ok {
-			return fmt.Errorf("config does not exist for that path: %s", pathName)
-		}
-		if clientSrc != "" {
-			path.Src.ClientID = clientSrc
-		}
-		if clientDst != "" {
-			path.Dst.ClientID = clientDst
-		}
-		if connectionSrc != "" {
-			path.Src.ConnectionID = connectionSrc
-		}
-		if connectionDst != "" {
-			path.Dst.ConnectionID = connectionDst
-		}
-		return nil
-	})
-}
