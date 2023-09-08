@@ -1,9 +1,8 @@
-name: Deploy Relayer Locally
-
+name: Test Relayer Locally - Icon/Archway
 on:
   push:
     branches:
-      - "main"
+      - "**"
 
 jobs:
   relay-local-deployment:
@@ -32,18 +31,6 @@ jobs:
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
         shell: bash
 
-      # Install rust toolchain
-      # - name: Install rust stable toolchain
-      #   uses: actions-rs/toolchain@v1
-      #   with:
-      #     toolchain: 1.69.0
-      #     target: wasm32-unknown-unknown
-      #     override: true
-      #     profile: minimal
-
-      # - name: Cache Rust dependencies
-      #   uses: Swatinem/rust-cache@v2
-
       # Build relay 
       - name: Build relayer
         run: make install
@@ -59,23 +46,7 @@ jobs:
           echo $GITHUB_WORKSPACE
           git clean -fdx
           git checkout v4.0.0
-          find ./contrib -type f
           make install
-
-
-      # Build comsmwasm
-      # - name: Compile WASM
-      #   working-directory: .github/scripts/IBC-Integration
-      #   run: |
-      #     rustup component add rustfmt --toolchain 1.69.0-x86_64-unknown-linux-gnu
-      #     rustup component add clippy --toolchain 1.69.0-x86_64-unknown-linux-gnu
-      #     bash ./optimize_build.sh
-
-      # - name: Build javascore
-      #   working-directory: .github/scripts/IBC-Integration/contracts/javascore
-      #   run: |
-      #     ./gradlew clean build 
-      #     ./gradlew optimizedJar
 
       - name: Fetch Latest IBC-Integration Tag
         id: fetch_ibc_tag
