@@ -1569,19 +1569,19 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 	}
 	size := src.BTPHeightQueue.Size()
 	for i := 0; i < size; i++ {
-		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+		btpHeight, err := src.BTPHeightQueue.GetQueue()
 		if err != nil {
 			continue
 		}
-		if dst.clientState.ConsensusHeight.RevisionHeight < uint64(btpHeightInfo.Height) {
+		if dst.clientState.ConsensusHeight.RevisionHeight < btpHeight {
 			break
 		}
-		if dst.clientState.ConsensusHeight.RevisionHeight == uint64(btpHeightInfo.Height) {
+		if dst.clientState.ConsensusHeight.RevisionHeight == btpHeight {
 			src.BTPHeightQueue.Dequeue()
 			continue
 		}
-		if dst.clientState.ConsensusHeight.RevisionHeight > uint64(btpHeightInfo.Height) {
-			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, uint64(btpHeightInfo.Height)))
+		if dst.clientState.ConsensusHeight.RevisionHeight > btpHeight {
+			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, uint64(btpHeight)))
 			if err == nil && cs != nil {
 				// removing latest height element
 				src.BTPHeightQueue.Dequeue()
@@ -1802,7 +1802,6 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 
 		// incase of BTPBlock SeqHeight+1 will have matching BTPMessage
 		seqHeight, ok := packetHeights.PacketHeights[seq]
-		seqHeight = seqHeight
 		if !ok {
 			continue
 		}
@@ -1834,15 +1833,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 
 			return nil
 		})
-		if IsBTPLightClient(dst.clientState) {
-			// the btpMessage will be present in seqHeight +1 , if not present need to insert btpBlockHeight to the btpBlockDataStructure
-			_, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, seqHeight+1))
-			// if err !=nil header may not be there in light client
-			// if btpHeight already submitted then will be discarded before submitting update client
-			if err != nil {
-				src.BTPHeightQueue.Enqueue(BlockInfoHeight{Height: int64(seqHeight) + 1, IsProcessing: false, RetryCount: 0})
-			}
-		}
+		// not trying to enqueue btpBlock height if height is missing
 	}
 
 	if err := eg.Wait(); err != nil {
