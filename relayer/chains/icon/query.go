@@ -783,11 +783,11 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 
 func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) ([]uint64, error) {
 
-	callParam := icp.prepareCallParams(MethodHasPacketReceipt, map[string]interface{}{
-		"portId":    portId,
-		"channelId": channelId,
-		"startSeq":  types.NewHexInt(int64(startSeq)),
-		"endSeq":    types.NewHexInt(int64(endSeq)),
+	callParam := icp.prepareCallParams(MethodGetMissingPacketReceipts, map[string]interface{}{
+		"portId":        portId,
+		"channelId":     channelId,
+		"startSequence": types.NewHexInt(int64(startSeq)),
+		"endSequence":   types.NewHexInt(int64(endSeq)),
 	}, callParamsWithHeight(types.NewHexInt(latestHeight)))
 
 	var missingReceipts []types.HexInt
