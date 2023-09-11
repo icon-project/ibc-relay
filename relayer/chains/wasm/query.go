@@ -253,7 +253,9 @@ func (ap *WasmProvider) QueryClientStateResponse(ctx context.Context, height int
 }
 
 func (ap *WasmProvider) QueryClientStateContract(ctx context.Context, clientId string) (*icon.ClientState, error) {
-	clientStateParam, err := types.NewClientState(clientId).Bytes()
+	clientStateParam, err := types.GenerateQueryParams(MethodGetClientState, types.ClientState{
+		ClientId: clientId,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +281,9 @@ func (ap *WasmProvider) QueryClientStateContract(ctx context.Context, clientId s
 }
 
 func (ap *WasmProvider) QueryConnectionContract(ctx context.Context, connId string) (*conntypes.ConnectionEnd, error) {
-	connStateParam, err := types.NewConnection(connId).Bytes()
+	connStateParam, err := types.GenerateQueryParams(MethodGetConnection, types.Connection{
+		ConnectionId: connId,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -298,12 +302,14 @@ func (ap *WasmProvider) QueryConnectionContract(ctx context.Context, connId stri
 }
 
 func (ap *WasmProvider) QueryChannelContractNoRetry(ctx context.Context, portId, channelId string) (*chantypes.Channel, error) {
-	channelStateParam, err := types.NewChannel(portId, channelId).Bytes()
+	param, err := types.GenerateQueryParams(MethodGetChannel,
+		types.NewCapability(channelId, portId),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	channelState, err := ap.QueryIBCHandlerContractNoRetry(ctx, channelStateParam)
+	channelState, err := ap.QueryIBCHandlerContractNoRetry(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -317,11 +323,14 @@ func (ap *WasmProvider) QueryChannelContractNoRetry(ctx context.Context, portId,
 
 func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 
-	consensusStateParam, err := types.NewConsensusStateByHeight(clientid, uint64(clientHeight.GetRevisionHeight())).Bytes()
+	param, err := types.GenerateQueryParams(MethodGetConsensusStateByHeight, types.ConsensusStateByHeight{
+		ClientId: clientid,
+		Height:   clientHeight.GetRevisionHeight(),
+	})
 	if err != nil {
 		return nil, err
 	}
-	consensusState, err := ap.QueryIBCHandlerContractProcessed(ctx, consensusStateParam)
+	consensusState, err := ap.QueryIBCHandlerContractProcessed(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +428,7 @@ func (ap *WasmProvider) QueryConsensusState(ctx context.Context, height int64) (
 }
 
 func (ap *WasmProvider) getAllPorts(ctx context.Context) ([]string, error) {
-	param, err := types.NewGetAllPorts().Bytes()
+	param, err := types.GenerateQueryParams(MethodGetAllPorts, struct{}{})
 	if err != nil {
 		return make([]string, 0), err
 	}
@@ -437,41 +446,24 @@ func (ap *WasmProvider) getAllPorts(ctx context.Context) ([]string, error) {
 }
 
 func (ap *WasmProvider) getNextSequence(ctx context.Context, methodName string) (int, error) {
+
 	switch methodName {
-	case MethodGetNextClientSequence:
-		param, err := types.NewNextClientSequence().Bytes()
+	case MethodGetNextClientSequence, MethodGetNextChannelSequence, MethodGetNextConnectionSequence:
+		param, err := types.GenerateQueryParams(methodName, struct{}{})
 		if err != nil {
 			return 0, err
 		}
 
-		op, err := ap.QueryIBCHandlerContract(ctx, param)
+		res, err := ap.QueryIBCHandlerContract(ctx, param)
 		if err != nil {
 			return 0, err
 		}
 
-		return byteToInt(op.Data.Bytes())
-
-	case MethodGetNextChannelSequence:
-		param, err := types.NewNextChannelSequence().Bytes()
-		if err != nil {
+		var op int
+		if err := json.Unmarshal(res.Data.Bytes(), &op); err != nil {
 			return 0, err
 		}
-		op, err := ap.QueryIBCHandlerContract(ctx, param)
-		if err != nil {
-			return 0, err
-		}
-		return byteToInt(op.Data.Bytes())
-
-	case MethodGetNextConnectionSequence:
-		param, err := types.NewNextConnectionSequence().Bytes()
-		if err != nil {
-			return 0, err
-		}
-		op, err := ap.QueryIBCHandlerContract(ctx, param)
-		if err != nil {
-			return 0, err
-		}
-		return byteToInt(op.Data.Bytes())
+		return op, nil
 
 	default:
 		return 0, errors.New("Invalid method name")
@@ -504,12 +496,14 @@ func (ap *WasmProvider) QueryClients(ctx context.Context) (clienttypes.Identifie
 
 // ics 03 - connection
 func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-	connectionStateParams, err := types.NewConnection(connectionid).Bytes()
+	param, err := types.GenerateQueryParams(MethodGetConnection, types.Connection{
+		ConnectionId: connectionid,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	connState, err := ap.QueryIBCHandlerContractProcessed(ctx, connectionStateParams)
+	connState, err := ap.QueryIBCHandlerContractProcessed(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -645,13 +639,15 @@ func (ap *WasmProvider) GenerateConnHandshakeProof(ctx context.Context, height i
 }
 
 // ics 04 - channel
-func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-	channelParams, err := types.NewChannel(portid, channelid).Bytes()
+func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channelId, portId string) (chanRes *chantypes.QueryChannelResponse, err error) {
+	param, err := types.GenerateQueryParams(MethodGetChannel,
+		types.NewCapability(channelId, portId),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	channelState, err := ap.QueryIBCHandlerContractProcessed(ctx, channelParams)
+	channelState, err := ap.QueryIBCHandlerContractProcessed(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -665,7 +661,7 @@ func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channeli
 		return nil, err
 	}
 
-	storageKey := getStorageKeyFromPath(common.GetChannelCommitmentKey(portid, channelid))
+	storageKey := getStorageKeyFromPath(common.GetChannelCommitmentKey(portId, channelId))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 	if err != nil {
 		return nil, err
@@ -674,7 +670,7 @@ func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channeli
 	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
 }
 
-func (ap *WasmProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
+func (ap *WasmProvider) QueryChannelClient(ctx context.Context, height int64, channelId, portId string) (*clienttypes.IdentifiedClientState, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
@@ -734,28 +730,30 @@ func (ap *WasmProvider) QueryChannels(ctx context.Context) ([]*chantypes.Identif
 	return channels, nil
 }
 
-func (ap *WasmProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelid, portid string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
+func (ap *WasmProvider) QueryPacketCommitments(ctx context.Context, height uint64, channelId, portId string) (commitments *chantypes.QueryPacketCommitmentsResponse, err error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *WasmProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelid, portid string) (acknowledgements []*chantypes.PacketState, err error) {
+func (ap *WasmProvider) QueryPacketAcknowledgements(ctx context.Context, height uint64, channelId, portId string) (acknowledgements []*chantypes.PacketState, err error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *WasmProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (ap *WasmProvider) QueryUnreceivedPackets(ctx context.Context, height uint64, channelId, portId string, seqs []uint64) ([]uint64, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *WasmProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelid, portid string, seqs []uint64) ([]uint64, error) {
+func (ap *WasmProvider) QueryUnreceivedAcknowledgements(ctx context.Context, height uint64, channelId, portId string, seqs []uint64) ([]uint64, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
 }
 
-func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	nextSeqRecvParams, err := types.NewNextSequenceReceive(portid, channelid).Bytes()
+func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelId, portId string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
+	param, err := types.GenerateQueryParams(MethodGetNextSequenceReceive,
+		types.NewCapability(channelId, portId),
+	)
 	if err != nil {
 		return nil, err
 	}
-	nextSeqRecv, err := ap.QueryIBCHandlerContract(ctx, nextSeqRecvParams)
+	nextSeqRecv, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -776,16 +774,18 @@ func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, chan
 	}, nil
 }
 
-func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
-	pktCommitmentParams, err := types.NewPacketCommitment(portid, channelid, seq).Bytes()
+func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64, channelId, portId string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error) {
+	param, err := types.GenerateQueryParams(MethodGetPacketCommitment,
+		types.NewPacketIdentity(channelId, portId, seq),
+	)
 	if err != nil {
 		return nil, err
 	}
-	pktCommitment, err := ap.QueryIBCHandlerContract(ctx, pktCommitmentParams)
+	pktCommitment, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
 	}
-	storageKey := getStorageKeyFromPath(common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	storageKey := getStorageKeyFromPath(common.GetPacketCommitmentKey(portId, channelId, big.NewInt(int64(seq))))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 
 	if err != nil {
@@ -799,16 +799,19 @@ func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64,
 
 }
 
-func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
-	pktAcknowledgementParams, err := types.NewPacketAcknowledgementCommitment(portid, channelid, seq).Bytes()
+func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelId, portId string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
+	param, err := types.GenerateQueryParams(
+		MethodGetPacketAcknowledgementCommitment,
+		types.NewPacketIdentity(channelId, portId, seq),
+	)
 	if err != nil {
 		return nil, err
 	}
-	pktAcknowledgement, err := ap.QueryIBCHandlerContract(ctx, pktAcknowledgementParams)
+	pktAcknowledgement, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
 	}
-	storageKey := getStorageKeyFromPath(common.GetPacketAcknowledgementCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	storageKey := getStorageKeyFromPath(common.GetPacketAcknowledgementCommitmentKey(portId, channelId, big.NewInt(int64(seq))))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 
 	return &chantypes.QueryPacketAcknowledgementResponse{
@@ -818,27 +821,27 @@ func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height i
 	}, nil
 }
 
-func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
+func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, channelId, portId string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
 
-	// getting proof from commitment map in contract
-	storageKey := getStorageKeyFromPath(common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
+	param, err := types.GenerateQueryParams(
+		MethodGetPacketReceipt, types.NewPacketIdentity(channelId, portId, seq))
+	if err != nil {
+		return nil, err
+	}
+
+	pktReceipt, err := ap.QueryIBCHandlerContract(ctx, param)
+	if err != nil && !strings.Contains(err.Error(), "PacketReceiptNotFound") {
+		return nil, err
+	}
+
+	storageKey := getStorageKeyFromPath(common.GetPacketReceiptCommitmentKey(portId, channelId, big.NewInt(int64(seq))))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
 	if err != nil {
 		return nil, err
 	}
 
-	pktReceiptParams, err := types.NewPacketReceipt(portid, channelid, seq).Bytes()
-	if err != nil {
-		return nil, err
-	}
-
-	pktReceipt, err := ap.QueryIBCHandlerContract(ctx, pktReceiptParams)
-	if err != nil && !strings.Contains(err.Error(), "PacketReceiptNotFound") {
-		return nil, err
-	}
-
 	return &chantypes.QueryPacketReceiptResponse{
-		Received:    pktReceipt != nil, // TODO: Bytes to boolean
+		Received:    pktReceipt != nil,
 		Proof:       proof,
 		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
 	}, nil
@@ -846,11 +849,11 @@ func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, ch
 
 func (ap *WasmProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]byte, error) {
 
-	pktCommitmentParams, err := types.NewCommitmentPrefix().Bytes()
+	param, err := types.GenerateQueryParams(MethodGetAllPorts, struct{}{})
 	if err != nil {
 		return nil, err
 	}
-	return ap.QueryIBCHandlerContractProcessed(ctx, pktCommitmentParams)
+	return ap.QueryIBCHandlerContractProcessed(ctx, param)
 
 }
 
@@ -892,7 +895,12 @@ func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint
 }
 
 func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
-	param, err := types.NewPrevConsensusStateHeight(clientId, uint64(clientHeight)).Bytes()
+	param, err := types.GenerateQueryParams(MethodGetPreviousConsensusStateHeight,
+		types.NewConsensusStateByHeight(clientId, uint64(clientHeight)),
+	)
+	if err != nil {
+		return nil, err
+	}
 	res, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
@@ -913,13 +921,13 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 
 func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error) {
 
-	callParams := types.NewPacketMissingReceiptParams(channelId, portId, startSeq, endSeq)
-	callParamsByte, err := json.Marshal(callParams)
+	param, err := types.GenerateQueryParams(MethodGetMissingPacketReceipts,
+		types.NewRangeParams(channelId, portId, startSeq, endSeq))
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := ap.QueryIBCHandlerContract(ctx, callParamsByte)
+	result, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -932,13 +940,20 @@ func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, latestHe
 	return receipts, nil
 }
 
-func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
-	callParams := types.NewPacketHeightParams(channelId, portId, startSeq, endSeq)
-	callParamsBytes, err := json.Marshal(callParams)
+func (ap *WasmProvider) QueryMessageHeights(ctx context.Context, methodName string, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+
+	if methodName != MethodGetAckHeights &&
+		methodName != MethodGetPacketHeights {
+		return provider.MessageHeights{}, fmt.Errorf("incorrect method name: %s", methodName)
+	}
+
+	param, err := types.GenerateQueryParams(methodName,
+		types.NewRangeParams(channelId, portId, startSeq, endSeq))
 	if err != nil {
 		return nil, err
 	}
-	result, err := ap.QueryIBCHandlerContract(ctx, callParamsBytes)
+
+	result, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
 		return nil, err
 	}
@@ -950,24 +965,13 @@ func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, latestHeight int
 
 	return packetHeights, nil
 }
+
+func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+	return ap.QueryMessageHeights(ctx, MethodGetPacketHeights, latestHeight, channelId, portId, startSeq, endSeq)
+}
+
 func (ap *WasmProvider) QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
-
-	callParams := types.NewAckHeightParams(channelId, portId, startSeq, endSeq)
-	callParamsBytes, err := json.Marshal(callParams)
-	if err != nil {
-		return nil, err
-	}
-	result, err := ap.QueryIBCHandlerContract(ctx, callParamsBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	var packetHeights provider.MessageHeights
-	if err := json.Unmarshal(result.Data.Bytes(), &packetHeights); err != nil {
-		return nil, err
-	}
-
-	return packetHeights, nil
+	return ap.QueryMessageHeights(ctx, MethodGetAckHeights, latestHeight, channelId, portId, startSeq, endSeq)
 }
 
 func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
@@ -1000,8 +1004,10 @@ func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, 
 	return provider.PacketInfo{}, fmt.Errorf("Packet not found on height")
 }
 
-func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (uint64, error) {
-	param, err := types.NewNextSequenceSend(portid, channelid).Bytes()
+func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, channelId, portId string) (uint64, error) {
+	param, err := types.GenerateQueryParams(MethodGetNextSequenceSend,
+		types.NewCapability(channelId, portId),
+	)
 	if err != nil {
 		return 0, err
 	}
