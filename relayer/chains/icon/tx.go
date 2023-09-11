@@ -694,7 +694,8 @@ func (icp *IconProvider) SendMessagesToMempool(
 		if msg != nil {
 			err := icp.SendIconTransaction(ctx, msg, asyncCtx, asyncCallback)
 			if err != nil {
-				return err
+				icp.log.Warn("Send Icon Transaction Error", zap.String("method", msg.Type()), zap.Error(err))
+				continue
 			}
 		}
 	}
@@ -762,10 +763,11 @@ func (icp *IconProvider) SendIconTransaction(
 	}
 	icp.log.Info("Submitted Transaction", zap.String("chain_id", icp.ChainId()), zap.String("method", m.Method), zap.String("tx_hash", string(txParam.TxHash)))
 
+	// wait for the update client but dont cancel sending message.
 	// If update fails, the subsequent txn will fail, result of update not being fetched concurrently
 	switch m.Method {
 	case MethodUpdateClient:
-		return icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
+		icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
 	default:
 		go icp.WaitForTxResult(asyncCtx, txhash, m.Method, defaultBroadcastWaitTimeout, asyncCallback)
 	}
