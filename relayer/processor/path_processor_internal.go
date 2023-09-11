@@ -1789,6 +1789,12 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 	skipped := false
 
 	for i, seq := range unrecv {
+		// seq could be only queried if in packetheights
+		seqHeight, ok := packetHeights.PacketHeights[seq]
+		if !ok {
+			continue
+		}
+
 		srcMu.Lock()
 		if srcCache.IsCached(chantypes.EventTypeSendPacket, k, seq) {
 			continue // already cached
@@ -1800,16 +1806,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 			break
 		}
 
-		// incase of BTPBlock SeqHeight+1 will have matching BTPMessage
-		seqHeight, ok := packetHeights.PacketHeights[seq]
-		if !ok {
-			continue
-		}
-
 		src.log.Debug("Querying send packet",
 			zap.String("channel", k.ChannelID),
 			zap.String("port", k.PortID),
-			zap.Uint64("sequence", seq),
+			zap.Any("Seq", seq),
 		)
 
 		seq := seq
@@ -1844,7 +1844,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 		src.log.Debug("Will flush MsgRecvPacket",
 			zap.String("channel", k.ChannelID),
 			zap.String("port", k.PortID),
-			zap.Uint64s("sequences", unrecv),
+			zap.Any("PacketHeights", packetHeights),
 		)
 	} else {
 		src.log.Debug("No MsgRecvPacket to flush",
