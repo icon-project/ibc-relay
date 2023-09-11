@@ -218,12 +218,12 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type PacketHeights map[uint64]uint64
+type MessageHeights map[uint64]uint64
 
-type PacketHeightsInfo struct {
-	PacketHeights PacketHeights
-	StartSeq      uint64
-	EndSeq        uint64
+type MessageHeightsInfo struct {
+	MessageHeights MessageHeights
+	StartSeq       uint64
+	EndSeq         uint64
 }
 
 type KeyProvider interface {
@@ -477,7 +477,8 @@ type QueryProvider interface {
 	QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error)
 	QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error)
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
-	QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights PacketHeights, err error)
+	QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
+	// QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
 	QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error)
 	QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error)
 

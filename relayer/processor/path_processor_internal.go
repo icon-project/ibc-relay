@@ -1604,8 +1604,8 @@ func (pp *PathProcessor) flushByCase(ctx context.Context) error {
 func (pp *PathProcessor) ibcContractBasedFlush(ctx context.Context) error {
 
 	var (
-		channelPacketheights1                            = make(map[ChannelKey]provider.PacketHeightsInfo)
-		channelPacketheights2                            = make(map[ChannelKey]provider.PacketHeightsInfo)
+		channelPacketheights1                            = make(map[ChannelKey]provider.MessageHeightsInfo)
+		channelPacketheights2                            = make(map[ChannelKey]provider.MessageHeightsInfo)
 		channelPacketheights1Mu, channelPacketheights2Mu sync.Mutex
 
 		pathEnd1Cache                    = NewIBCMessagesCache()
@@ -1696,7 +1696,7 @@ func QueryPacketHeights(
 	src *pathEndRuntime,
 	dst *pathEndRuntime,
 	k ChannelKey,
-	packetHeights map[ChannelKey]provider.PacketHeightsInfo,
+	packetHeights map[ChannelKey]provider.MessageHeightsInfo,
 	mu sync.Locker,
 ) func() error {
 	return func() error {
@@ -1721,10 +1721,10 @@ func QueryPacketHeights(
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		packetHeights[k] = provider.PacketHeightsInfo{
-			PacketHeights: c,
-			StartSeq:      startSeq,
-			EndSeq:        endSeq,
+		packetHeights[k] = provider.MessageHeightsInfo{
+			MessageHeights: c,
+			StartSeq:       startSeq,
+			EndSeq:         endSeq,
 		}
 		return nil
 	}
@@ -1735,14 +1735,14 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 	ctx context.Context,
 	src, dst *pathEndRuntime,
 	k ChannelKey,
-	packetHeights provider.PacketHeightsInfo,
+	packetHeights provider.MessageHeightsInfo,
 	srcCache ChannelPacketMessagesCache,
 	dstCache ChannelPacketMessagesCache,
 	srcMu sync.Locker,
 	dstMu sync.Locker,
 ) (bool, error) {
 
-	if len(packetHeights.PacketHeights) == 0 {
+	if len(packetHeights.MessageHeights) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
 		return true, nil
 	}
@@ -1790,7 +1790,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 
 	for i, seq := range unrecv {
 		// seq could be only queried if in packetheights
-		seqHeight, ok := packetHeights.PacketHeights[seq]
+		seqHeight, ok := packetHeights.MessageHeights[seq]
 		if !ok {
 			continue
 		}

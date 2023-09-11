@@ -807,7 +807,7 @@ func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestH
 	return receipts, nil
 }
 
-func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.PacketHeights, error) {
+func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
 
 	callParam := icp.prepareCallParams(MethodGetPacketHeights, map[string]interface{}{
 		"portId":        portId,
@@ -821,7 +821,7 @@ func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight in
 		return nil, err
 	}
 
-	packetHeights := make(provider.PacketHeights, 0)
+	packetHeights := make(provider.MessageHeights, 0)
 	for seq, h := range rawPacketHeights {
 		seqInt, err := seq.Value()
 		if err != nil {
