@@ -231,7 +231,7 @@ func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provid
 	)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetCommitmentResponse.Proof,
@@ -242,7 +242,7 @@ func (ap *WasmProvider) PacketCommitment(ctx context.Context, msgTransfer provid
 func (ap *WasmProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacket provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetAckResponse, err := ap.QueryPacketAcknowledgement(ctx, int64(height), msgRecvPacket.DestChannel, msgRecvPacket.DestPort, msgRecvPacket.Sequence)
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetAckResponse.Proof,
@@ -255,7 +255,7 @@ func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.
 	packetReceiptResponse, err := ap.QueryPacketReceipt(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
 
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       packetReceiptResponse.Proof,
@@ -266,7 +266,7 @@ func (ap *WasmProvider) PacketReceipt(ctx context.Context, msgTransfer provider.
 func (ap *WasmProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	nextSeqRecvResponse, err := ap.QueryNextSeqRecv(ctx, int64(height), msgTransfer.DestChannel, msgTransfer.DestPort)
 	if err != nil {
-		return provider.PacketProof{}, nil
+		return provider.PacketProof{}, err
 	}
 	return provider.PacketProof{
 		Proof:       nextSeqRecvResponse.Proof,
@@ -744,20 +744,20 @@ func (ap *WasmProvider) SendMessagesToMempool(
 			return err
 		}
 
-		if msg.Type() == MethodUpdateClient {
-			if err := retry.Do(func() error {
-				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
-					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-						ap.handleAccountSequenceMismatchError(err)
-					}
-				}
-				return err
-			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
-				ap.log.Error("Failed to update client", zap.Any("Message", msg))
-				return err
-			}
-			continue
-		}
+		// if msg.Type() == MethodUpdateClient {
+		// 	if err := retry.Do(func() error {
+		// 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+		// 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+		// 				ap.handleAccountSequenceMismatchError(err)
+		// 			}
+		// 		}
+		// 		return err
+		// 	}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
+		// 		ap.log.Error("Failed to update client", zap.Any("Message", msg))
+		// 		return err
+		// 	}
+		// 	continue
+		// }
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 				ap.handleAccountSequenceMismatchError(err)
@@ -1262,8 +1262,6 @@ func (cc *WasmProvider) QueryABCI(ctx context.Context, req abci.RequestQuery) (a
 func (cc *WasmProvider) handleAccountSequenceMismatchError(err error) {
 
 	clientCtx := cc.ClientContext()
-	fmt.Println("client context is ", clientCtx.GetFromAddress())
-
 	_, seq, err := cc.ClientCtx.AccountRetriever.GetAccountNumberSequence(clientCtx, clientCtx.GetFromAddress())
 
 	// sequences := numRegex.FindAllString(err.Error(), -1)

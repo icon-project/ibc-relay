@@ -157,21 +157,22 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	return err
 }
 
-func (icp *IconChainProcessor) StartFromHeight(ctx context.Context) int {
+func (icp *IconChainProcessor) StartFromHeight(ctx context.Context) int64 {
 	cfg := icp.Provider().ProviderConfig().(*IconProviderConfig)
+
 	if cfg.StartHeight != 0 {
-		return int(cfg.StartHeight)
+		return cfg.StartHeight
 	}
 	snapshotHeight, err := rlycommon.LoadSnapshotHeight(icp.Provider().ChainId())
 	if err != nil {
 		icp.log.Warn("Failed to load height from snapshot", zap.Error(err))
 	} else {
-		icp.log.Info("Obtained start height from config", zap.Int("height", snapshotHeight))
+		icp.log.Info("Obtained start height from config", zap.Int64("height", snapshotHeight))
 	}
 	return snapshotHeight
 }
 
-func (icp *IconChainProcessor) getLastSavedHeight() int {
+func (icp *IconChainProcessor) getLastSavedHeight() int64 {
 	snapshotHeight, err := rlycommon.LoadSnapshotHeight(icp.Provider().ChainId())
 	if err != nil || snapshotHeight < 0 {
 		return 0
@@ -180,9 +181,8 @@ func (icp *IconChainProcessor) getLastSavedHeight() int {
 }
 
 func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) error {
-	// TODO: review
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	// defer cancel()
 
 	connections, err := icp.chainProvider.QueryConnections(ctx)
 	if err != nil {
@@ -207,9 +207,8 @@ func (icp *IconChainProcessor) initializeConnectionState(ctx context.Context) er
 }
 
 func (icp *IconChainProcessor) initializeChannelState(ctx context.Context) error {
-	// TODO:
-	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
-	defer cancel()
+	// ctx, cancel := context.WithTimeout(ctx, queryTimeout)
+	// defer cancel()
 	channels, err := icp.chainProvider.QueryChannels(ctx)
 	if err != nil {
 		return fmt.Errorf("error querying channels: %w", err)
@@ -275,17 +274,22 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	}
 
 	var err error
-	// processedheight := int64(icp.chainProvider.lastBTPBlockHeight)
-	// if processedheight == 0 {
-	processedheight := int64(icp.StartFromHeight(ctx))
-	if processedheight <= 0 {
-		processedheight, err = icp.chainProvider.QueryLatestHeight(ctx)
-		if err != nil {
-			fmt.Println("Error fetching latest block")
-			return err
-		}
+	processedheight := icp.StartFromHeight(ctx)
+	latestHeight, err := icp.chainProvider.QueryLatestHeight(ctx)
+	if err != nil {
+		icp.log.Error("Error fetching block", zap.Error(err))
+		return err
 	}
-	// }
+	if processedheight > latestHeight {
+		icp.log.Warn("Start height set is greater than latest height",
+			zap.Int64("start height", processedheight),
+			zap.Int64("latest Height", latestHeight),
+		)
+		processedheight = latestHeight
+	}
+	if processedheight <= 0 {
+		processedheight = latestHeight
+	}
 
 	icp.log.Info("Start to query from height", zap.Int64("height", processedheight))
 	// subscribe to monitor block
@@ -297,7 +301,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	icp.firstTime = true
 
 	blockReq := &types.BlockRequest{
-		Height:       types.NewHexInt(int64(icp.chainProvider.PCfg.StartHeight)),
+		Height:       types.NewHexInt(int64(processedheight)),
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
 
@@ -346,7 +350,7 @@ loop:
 				err := icp.verifyBlock(ctx, br.Header)
 				if err != nil {
 					reconnect()
-					icp.log.Warn("Failed to verify BTP Block",
+					icp.log.Warn("Failed to verify BTP block",
 						zap.Int64("height", br.Height),
 						zap.Error(err),
 					)
@@ -379,6 +383,9 @@ loop:
 					break
 				}
 				time.Sleep(10 * time.Millisecond)
+				if icp.firstTime {
+					time.Sleep(4000 * time.Millisecond)
+				}
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
@@ -400,7 +407,7 @@ loop:
 					if err != nil {
 						return err
 					} else if height != processedheight+i {
-						icp.log.Warn("Reconnect: missing block notification ",
+						icp.log.Warn("Reconnect: missing block notification",
 							zap.Int64("got", height),
 							zap.Int64("expected", processedheight+i),
 						)
@@ -473,20 +480,20 @@ loop:
 	}
 }
 
-func (icp *IconChainProcessor) getHeightToSave(height int64) int {
+func (icp *IconChainProcessor) getHeightToSave(height int64) int64 {
 	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
-	ht := int(height - int64(retryAfter))
+	ht := height - int64(retryAfter)
 	if ht < 0 {
 		return 0
 	}
 	return ht
 }
 
-func (icp *IconChainProcessor) SnapshotHeight(height int) {
-	icp.log.Info("Save height for snapshot", zap.Int("height", height))
+func (icp *IconChainProcessor) SnapshotHeight(height int64) {
+	icp.log.Info("Save height for snapshot", zap.Int64("height", height))
 	err := rlycommon.SnapshotHeight(icp.Provider().ChainId(), height)
 	if err != nil {
-		icp.log.Warn("Failed saving height snapshot for height", zap.Int("height", height))
+		icp.log.Warn("Failed saving height snapshot for height", zap.Int64("height", height))
 	}
 }
 
@@ -655,7 +662,6 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 	}
 	request.response.Header = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
 	request.response.IsProcessed = processed
-
 }
 
 func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
@@ -697,6 +703,7 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	if state, ok := icp.latestClientState[clientID]; ok {
 		return state, nil
 	}
+
 	cs, err := icp.chainProvider.QueryClientStateWithoutProof(ctx, int64(icp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err
