@@ -933,8 +933,26 @@ func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, latestHe
 }
 
 func (ap *WasmProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
-
 	callParams := types.NewPacketHeightParams(channelId, portId, startSeq, endSeq)
+	callParamsBytes, err := json.Marshal(callParams)
+	if err != nil {
+		return nil, err
+	}
+	result, err := ap.QueryIBCHandlerContract(ctx, callParamsBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	var packetHeights provider.MessageHeights
+	if err := json.Unmarshal(result.Data.Bytes(), &packetHeights); err != nil {
+		return nil, err
+	}
+
+	return packetHeights, nil
+}
+func (ap *WasmProvider) QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+
+	callParams := types.NewAckHeightParams(channelId, portId, startSeq, endSeq)
 	callParamsBytes, err := json.Marshal(callParams)
 	if err != nil {
 		return nil, err

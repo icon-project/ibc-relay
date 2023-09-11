@@ -478,7 +478,7 @@ type QueryProvider interface {
 	QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error)
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
 	QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
-	// QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
+	QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
 	QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error)
 	QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error)
 

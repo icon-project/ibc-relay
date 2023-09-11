@@ -808,8 +808,21 @@ func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestH
 }
 
 func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+	return icp.QueryMessageHeights(ctx, MethodGetPacketHeights, latestHeight, channelId, portId, startSeq, endSeq)
+}
 
-	callParam := icp.prepareCallParams(MethodGetPacketHeights, map[string]interface{}{
+func (icp *IconProvider) QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+	return icp.QueryMessageHeights(ctx, MethodGetAckHeights, latestHeight, channelId, portId, startSeq, endSeq)
+}
+
+func (icp *IconProvider) QueryMessageHeights(ctx context.Context, methodName string, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+
+	if methodName != MethodGetPacketHeights &&
+		methodName != MethodGetAckHeights {
+		return provider.MessageHeights{}, fmt.Errorf("invalid methodName: %s", methodName)
+	}
+
+	callParam := icp.prepareCallParams(methodName, map[string]interface{}{
 		"portId":        portId,
 		"channelId":     channelId,
 		"startSequence": types.NewHexInt(int64(startSeq)),

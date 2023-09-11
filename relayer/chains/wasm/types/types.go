@@ -338,3 +338,13 @@ func NewPacketHeightParams(channelId, portId string, startSequence, endSequence 
 		GetPacketHeights: NewRangeParams(channelId, portId, startSequence, endSequence),
 	}
 }
+
+type AckHeightsParams struct {
+	GetPacketHeights RangeParams `json:"get_ack_heights"`
+}
+
+func NewAckHeightParams(channelId, portId string, startSequence, endSequence uint64) AckHeightsParams {
+	return AckHeightsParams{
+		GetPacketHeights: NewRangeParams(channelId, portId, startSequence, endSequence),
+	}
+}

@@ -44,4 +44,5 @@ const (
 	MethodGetAllPorts              = "getAllPorts"
 	MethodGetMissingPacketReceipts = "getMissingPacketReceipts"
 	MethodGetPacketHeights         = "getPacketHeights"
+	MethodGetAckHeights            = "getAckHeights"
 )
