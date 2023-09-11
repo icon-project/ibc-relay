@@ -850,7 +850,15 @@ func (icp *IconProvider) QueryMessageHeights(ctx context.Context, methodName str
 	return packetHeights, nil
 }
 
-func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+func (ap *IconProvider) QueryPacketMessageByEventHeight(ctx context.Context, eventType string, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+	var eventName = ""
+	switch eventType {
+	case chantypes.EventTypeSendPacket:
+		eventName = EventTypeSendPacket
+	case chantypes.EventTypeWriteAck:
+		eventName = EventTypeWriteAcknowledgement
+	}
+
 	block, err := ap.client.GetBlockByHeight(&types.BlockHeightParam{
 		Height: types.NewHexInt(int64(seqHeight)),
 	})
@@ -870,7 +878,7 @@ func (ap *IconProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, 
 			if el.Addr != types.Address(ap.PCfg.IbcHandlerAddress) &&
 				// sendPacket will be of index length 2
 				len(el.Indexed) != 2 &&
-				el.Indexed[0] != EventTypeSendPacket {
+				el.Indexed[0] != eventName {
 				continue
 			}
 			packetStr := el.Indexed[1]

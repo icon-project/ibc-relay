@@ -989,9 +989,10 @@ func (cc *PenumbraProvider) QueryClientPrevConsensusStateHeight(ctx context.Cont
 	panic("QueryClientPrevConsensusStateHeight not implemented")
 }
 
-func (ap *PenumbraProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+func (ap *PenumbraProvider) QueryPacketMessageByEventHeight(ctx context.Context, eventType, srcChanID, srcPortID string, sequence uint64, height uint64) (provider.PacketInfo, error) {
 	panic("QuerySendPacketByHeight not implemented")
 }
+
 func (ap *PenumbraProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights provider.MessageHeights, err error) {
 	panic("QueryPacketHeights not implemented")
 }

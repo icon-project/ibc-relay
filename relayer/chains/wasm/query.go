@@ -974,7 +974,7 @@ func (ap *WasmProvider) QueryAckHeights(ctx context.Context, latestHeight int64,
 	return ap.QueryMessageHeights(ctx, MethodGetAckHeights, latestHeight, channelId, portId, startSeq, endSeq)
 }
 
-func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+func (ap *WasmProvider) QueryPacketMessageByEventHeight(ctx context.Context, eventType, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
 
 	h := int64(seqHeight)
 	blockRes, err := ap.RPCClient.BlockResults(ctx, &h)
@@ -990,6 +990,10 @@ func (ap *WasmProvider) QuerySendPacketByHeight(ctx context.Context, srcChanID, 
 		}
 		messages := ibcMessagesFromEvents(ap.log, tx.Events, ap.ChainId(), seqHeight, ap.PCfg.IbcHandlerAddress, base64Encoded)
 		for _, m := range messages {
+			// in case eventtype donot match
+			if m.eventType != eventType {
+				continue
+			}
 			switch t := m.info.(type) {
 			case *packetInfo:
 				packet := provider.PacketInfo(*t)

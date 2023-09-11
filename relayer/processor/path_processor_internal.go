@@ -1815,7 +1815,7 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 		seq := seq
 
 		eg.Go(func() error {
-			sendPacket, err := src.chainProvider.QuerySendPacketByHeight(ctx, k.ChannelID, k.PortID, seq, seqHeight)
+			sendPacket, err := src.chainProvider.QueryPacketMessageByEventHeight(ctx, chantypes.EventTypeSendPacket, k.ChannelID, k.PortID, seq, seqHeight)
 			if err != nil {
 				return err
 			}
@@ -1853,75 +1853,76 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 		)
 	}
 
-	// TODO: for ackedMessage
-	// 	var unacked []uint64
+	var unacked []uint64
 
-	// SeqLoop:
-	// 	for _, seq := range seqs {
-	// 		for _, unrecvSeq := range unrecv {
-	// 			if seq == unrecvSeq {
-	// 				continue SeqLoop
-	// 			}
-	// 		}
-	// 		// does not exist in unrecv, so this is an ack that must be written
-	// 		unacked = append(unacked, seq)
-	// 	}
+	ackHeights, err := dst.chainProvider.QueryAckHeights(ctx, int64(dst.latestBlock.Height), dstChan, dstPort, packetHeights.StartSeq, packetHeights.EndSeq)
+	if err != nil {
+		return false, err
+	}
 
-	// 	for i, seq := range unacked {
-	// 		dstMu.Lock()
-	// 		ck := k.Counterparty()
-	// 		if dstCache.IsCached(chantypes.EventTypeRecvPacket, ck, seq) &&
-	// 			dstCache.IsCached(chantypes.EventTypeWriteAck, ck, seq) {
-	// 			continue // already cached
-	// 		}
-	// 		dstMu.Unlock()
+	counter := 0
+	for seq, height := range ackHeights {
 
-	// 		if i >= maxPacketsPerFlush {
-	// 			skipped = true
-	// 			break
-	// 		}
+		// Is packetHeights is present then Ack not received
+		// not present means ack already received
+		_, ok := packetHeights.MessageHeights[seq]
+		if !ok {
+			continue
+		}
 
-	// 		seq := seq
+		dstMu.Lock()
+		ck := k.Counterparty()
+		if dstCache.IsCached(chantypes.EventTypeWriteAck, ck, seq) {
+			continue // already cached
+		}
+		dstMu.Unlock()
 
-	// 		dst.log.Debug("Querying recv packet",
-	// 			zap.String("channel", k.CounterpartyChannelID),
-	// 			zap.String("port", k.CounterpartyPortID),
-	// 			zap.Uint64("sequence", seq),
-	// 		)
+		if counter >= maxPacketsPerFlush {
+			skipped = true
+			break
+		}
 
-	// 		eg.Go(func() error {
-	// 			recvPacket, err := dst.chainProvider.QueryRecvPacket(ctx, k.CounterpartyChannelID, k.CounterpartyPortID, seq)
-	// 			if err != nil {
-	// 				return err
-	// 			}
+		seq := seq
 
-	// 			ck := k.Counterparty()
-	// 			dstMu.Lock()
-	// 			dstCache.Cache(chantypes.EventTypeRecvPacket, ck, seq, recvPacket)
-	// 			dstCache.Cache(chantypes.EventTypeWriteAck, ck, seq, recvPacket)
-	// 			dstMu.Unlock()
+		dst.log.Debug("Querying write Ack",
+			zap.String("channel", k.CounterpartyChannelID),
+			zap.String("port", k.CounterpartyPortID),
+			zap.Uint64("sequence", seq),
+		)
 
-	// 			return nil
-	// 		})
-	// 	}
+		eg.Go(func() error {
+			AckPacket, err := dst.chainProvider.QueryPacketMessageByEventHeight(ctx, chantypes.EventTypeWriteAck, k.CounterpartyChannelID, k.CounterpartyPortID, seq, height)
+			if err != nil {
+				return err
+			}
 
-	// 	if err := eg.Wait(); err != nil {
-	// 		return false, err
-	// 	}
+			ck := k.Counterparty()
+			dstMu.Lock()
+			dstCache.Cache(chantypes.EventTypeWriteAck, ck, seq, AckPacket)
+			dstMu.Unlock()
 
-	// 	if len(unacked) > 0 {
-	// 		dst.log.Debug(
-	// 			"Will flush MsgAcknowledgement",
-	// 			zap.Object("channel", k),
-	// 			zap.Uint64s("sequences", unacked),
-	// 		)
-	// 	} else {
-	// 		dst.log.Debug(
-	// 			"No MsgAcknowledgement to flush",
-	// 			zap.String("channel", k.CounterpartyChannelID),
-	// 			zap.String("port", k.CounterpartyPortID),
-	// 		)
-	// 	}
+			return nil
+		})
+		counter++
+	}
+
+	if err := eg.Wait(); err != nil {
+		return false, err
+	}
+
+	if len(unacked) > 0 {
+		dst.log.Debug(
+			"Will flush MsgAcknowledgement",
+			zap.Object("channel", k),
+			zap.Uint64s("sequences", unacked),
+		)
+	} else {
+		dst.log.Debug(
+			"No MsgAcknowledgement to flush",
+			zap.String("channel", k.CounterpartyChannelID),
+			zap.String("port", k.CounterpartyPortID),
+		)
+	}
 
 	return !skipped, nil
 }

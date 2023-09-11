@@ -438,8 +438,7 @@ type QueryProvider interface {
 	// query packet info for sequence
 	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)
 	QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (PacketInfo, error)
-	QuerySendPacketByHeight(ctx context.Context, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (PacketInfo, error)
-
+	QueryPacketMessageByEventHeight(ctx context.Context, eventType string, srcChanID, srcPortID string, sequence uint64, height uint64) (PacketInfo, error)
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
 	QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error)
