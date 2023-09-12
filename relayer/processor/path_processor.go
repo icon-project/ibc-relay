@@ -49,6 +49,9 @@ const (
 	// made to retrieve the client consensus state in order to assemble a
 	// MsgUpdateClient message.
 	clientConsensusHeightUpdateThresholdBlocks = 2
+
+	// Needed for finding trusting block one week
+	defaultTrustingPeriod = 7 * 24 * time.Hour
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.

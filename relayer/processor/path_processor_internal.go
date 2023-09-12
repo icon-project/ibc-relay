@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -1708,11 +1709,18 @@ func QueryPacketHeights(
 		}
 
 		startSeq := uint64(0)
-		if dst.clientState.TrustingPeriodBlock > 0 {
-			startSeq, err = src.chainProvider.QueryNextSeqSend(ctx, int64(src.latestBlock.Height)-dst.clientState.TrustingPeriodBlock, k.ChannelID, k.PortID)
-			if err != nil {
-				return err
+		if src.chainProvider.ProviderConfig().GetBlockInterval() > 0 {
+			// blockInterval from provider config will be in milliseconds
+			blockInterval := int64(src.chainProvider.ProviderConfig().GetBlockInterval()) * int64(time.Millisecond)
+			startBlock := int64(src.latestBlock.Height) - defaultTrustingPeriod.Nanoseconds()/blockInterval
+			if startBlock > 0 {
+				startSeq, err = src.chainProvider.QueryNextSeqSend(ctx, startBlock, k.ChannelID, k.PortID)
+				if err != nil {
+					// don't care about error here,
+					// if error start from startSeq 0
+				}
 			}
+
 		}
 
 		c, err := src.chainProvider.QueryPacketHeights(ctx, int64(src.latestBlock.Height), k.ChannelID, k.PortID, startSeq, endSeq)
