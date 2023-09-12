@@ -361,7 +361,6 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	if addr != nil {
 		clientCtx = clientCtx.
 			WithFromAddress(addr)
-
 	}
 
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)

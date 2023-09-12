@@ -76,6 +76,7 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
+	// BlockInterval should be in milliseconds
 	if pp.BlockInterval == 0 {
 		return fmt.Errorf("Block interval cannot be zero")
 	}
@@ -191,20 +192,6 @@ func (h IconIBCHeader) ShouldUpdateWithZeroMessage() bool {
 //ChainProvider Methods
 
 func (icp *IconProvider) Init(ctx context.Context) error {
-	// if _, err := os.Stat(icp.PCfg.Keystore); err != nil {
-	// 	return err
-	// }
-
-	// ksByte, err := os.ReadFile(icp.PCfg.Keystore)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// wallet, err := wallet.NewFromKeyStore(ksByte, []byte(icp.PCfg.Password))
-	// if err != nil {
-	// 	return err
-	// }
-	// icp.AddWallet(wallet)
 	return nil
 }
 
@@ -225,7 +212,8 @@ func (icp *IconProvider) NewClientState(
 		return nil, fmt.Errorf("Blockinterval cannot be empty in Icon config")
 	}
 
-	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(common.NanoToMilliRatio))
+	// BlockInterval should be in milliseconds
+	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(time.Millisecond))
 
 	return &icon.ClientState{
 		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration

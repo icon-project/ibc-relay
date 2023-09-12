@@ -386,6 +386,33 @@ func (ap *WasmProvider) QueryIBCHandlerContractNoRetry(ctx context.Context, para
 	return ProcessContractResponse(resp)
 }
 
+func (ap *WasmProvider) QueryIBCHandlerContractWithHeight(ctx context.Context, param wasmtypes.RawContractMessage, height int64, response interface{}) error {
+
+	clientCtx := ap.ClientCtx
+	if height > 0 {
+		clientCtx = clientCtx.WithHeight(height)
+
+	}
+	qc := wasmtypes.NewQueryClient(clientCtx)
+	// holding sdk just before and after
+	done := ap.SetSDKContext()
+	r, err := qc.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
+		Address:   ap.PCfg.IbcHandlerAddress,
+		QueryData: param,
+	})
+	defer done()
+	if err != nil {
+		ap.log.Error(
+			"Failed to query",
+			zap.Any("Param", param),
+			zap.Error(err),
+		)
+		return err
+	}
+
+	return json.Unmarshal(r.Data.Bytes(), &response)
+}
+
 func (ap *WasmProvider) QueryIBCHandlerContractProcessed(ctx context.Context, param wasmtypes.RawContractMessage) ([]byte, error) {
 	res, err := ap.QueryIBCHandlerContract(ctx, param)
 	if err != nil {
@@ -901,15 +928,8 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	res, err := ap.QueryIBCHandlerContract(ctx, param)
-	if err != nil {
-		return nil, err
-	}
-
 	var heights []int64
-	err = json.Unmarshal(res.Data.Bytes(), &heights)
-
-	if err != nil {
+	if err := ap.QueryIBCHandlerContractWithHeight(ctx, param, chainHeight, &heights); err != nil {
 		return nil, err
 	}
 
@@ -927,13 +947,8 @@ func (ap *WasmProvider) QueryMissingPacketReceipts(ctx context.Context, latestHe
 		return nil, err
 	}
 
-	result, err := ap.QueryIBCHandlerContract(ctx, param)
-	if err != nil {
-		return nil, err
-	}
-
 	var receipts []uint64
-	if err := json.Unmarshal(result.Data.Bytes(), &receipts); err != nil {
+	if err := ap.QueryIBCHandlerContractWithHeight(ctx, param, latestHeight, &receipts); err != nil {
 		return nil, err
 	}
 
@@ -953,13 +968,8 @@ func (ap *WasmProvider) QueryMessageHeights(ctx context.Context, methodName stri
 		return nil, err
 	}
 
-	result, err := ap.QueryIBCHandlerContract(ctx, param)
-	if err != nil {
-		return nil, err
-	}
-
 	var packetHeights provider.MessageHeights
-	if err := json.Unmarshal(result.Data.Bytes(), &packetHeights); err != nil {
+	if err := ap.QueryIBCHandlerContractWithHeight(ctx, param, latestHeight, &packetHeights); err != nil {
 		return nil, err
 	}
 
@@ -1015,22 +1025,9 @@ func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, chan
 	if err != nil {
 		return 0, err
 	}
-	clientCtx := ap.ClientCtx
-	if height > 0 {
-		clientCtx = clientCtx.WithHeight(height)
-
-	}
-	qc := wasmtypes.NewQueryClient(clientCtx)
-	res, err := qc.SmartContractState(ctx, &wasmtypes.QuerySmartContractStateRequest{
-		Address:   ap.PCfg.IbcHandlerAddress,
-		QueryData: param,
-	})
-	if err != nil {
+	var response uint64
+	if err := ap.QueryIBCHandlerContractWithHeight(ctx, param, height, &response); err != nil {
 		return 0, err
 	}
-	var seq uint64
-	if err := json.Unmarshal(res.Data.Bytes(), &seq); err != nil {
-		return 0, err
-	}
-	return seq, nil
+	return response, nil
 }
