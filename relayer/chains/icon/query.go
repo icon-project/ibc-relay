@@ -39,7 +39,8 @@ import (
 var _ provider.QueryProvider = &IconProvider{}
 
 const (
-	epoch = 24 * 3600 * 1000
+	epoch         = 24 * 3600 * 1000
+	sequenceLimit = 2
 )
 
 type CallParamOption func(*types.CallParam)
@@ -782,26 +783,39 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 }
 
 func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) ([]uint64, error) {
+	receipts := make([]uint64, 0)
 
-	callParam := icp.prepareCallParams(MethodGetMissingPacketReceipts, map[string]interface{}{
-		"portId":        portId,
-		"channelId":     channelId,
-		"startSequence": types.NewHexInt(int64(startSeq)),
-		"endSequence":   types.NewHexInt(int64(endSeq)),
-	}, callParamsWithHeight(types.NewHexInt(latestHeight)))
-
-	var missingReceipts []types.HexInt
-	if err := icp.client.Call(callParam, &missingReceipts); err != nil {
-		return nil, err
+	if endSeq <= startSeq {
+		return receipts, fmt.Errorf("start sequence %d is greater than end sequence: %d ", startSeq, endSeq)
 	}
 
-	var receipts []uint64
-	for _, h := range missingReceipts {
-		val, err := h.Value()
+	paginate := common.NewPaginate(startSeq, endSeq, sequenceLimit)
+
+	for paginate.HasNext() {
+		start, end, err := paginate.Next()
 		if err != nil {
 			return nil, err
 		}
-		receipts = append(receipts, uint64(val))
+		callParam := icp.prepareCallParams(MethodGetMissingPacketReceipts, map[string]interface{}{
+			"portId":        portId,
+			"channelId":     channelId,
+			"startSequence": types.NewHexInt(int64(start)),
+			"endSequence":   types.NewHexInt(int64(end)),
+		}, callParamsWithHeight(types.NewHexInt(latestHeight)))
+
+		var missingReceipts []types.HexInt
+		if err := icp.client.Call(callParam, &missingReceipts); err != nil {
+			return nil, err
+		}
+
+		for _, h := range missingReceipts {
+			val, err := h.Value()
+			if err != nil {
+				return nil, err
+			}
+			receipts = append(receipts, uint64(val))
+		}
+
 	}
 
 	return receipts, nil
@@ -817,36 +831,46 @@ func (icp *IconProvider) QueryAckHeights(ctx context.Context, latestHeight int64
 
 func (icp *IconProvider) QueryMessageHeights(ctx context.Context, methodName string, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
 
+	packetHeights := make(provider.MessageHeights, 0)
+
 	if methodName != MethodGetPacketHeights &&
 		methodName != MethodGetAckHeights {
 		return provider.MessageHeights{}, fmt.Errorf("invalid methodName: %s", methodName)
 	}
 
-	callParam := icp.prepareCallParams(methodName, map[string]interface{}{
-		"portId":        portId,
-		"channelId":     channelId,
-		"startSequence": types.NewHexInt(int64(startSeq)),
-		"endSequence":   types.NewHexInt(int64(endSeq)),
-	}, callParamsWithHeight(types.NewHexInt(latestHeight)))
-
-	var rawPacketHeights map[types.HexInt]types.HexInt
-	if err := icp.client.Call(callParam, &rawPacketHeights); err != nil {
-		return nil, err
+	if endSeq <= startSeq {
+		return provider.MessageHeights{}, fmt.Errorf("start sequence %d is greater than end sequence: %d ", startSeq, endSeq)
 	}
 
-	packetHeights := make(provider.MessageHeights, 0)
-	for seq, h := range rawPacketHeights {
-		seqInt, err := seq.Value()
-		if err != nil {
-			return nil, err
-		}
-		heightInt, err := h.Value()
+	paginate := common.NewPaginate(startSeq, endSeq, sequenceLimit)
+	for paginate.HasNext() {
+		start, end, err := paginate.Next()
 		if err != nil {
 			return nil, err
 		}
 
-		packetHeights[uint64(seqInt)] = uint64(heightInt)
+		callParam := icp.prepareCallParams(methodName, map[string]interface{}{
+			"portId":        portId,
+			"channelId":     channelId,
+			"startSequence": types.NewHexInt(int64(start)),
+			"endSequence":   types.NewHexInt(int64(end)),
+		}, callParamsWithHeight(types.NewHexInt(latestHeight)))
+
+		var rawPacketHeights map[int64]types.HexInt
+		if err := icp.client.Call(callParam, &rawPacketHeights); err != nil {
+			return nil, err
+		}
+
+		for seq, h := range rawPacketHeights {
+			heightInt, err := h.Value()
+			if err != nil {
+				return nil, err
+			}
+
+			packetHeights[uint64(seq)] = uint64(heightInt)
+		}
 	}
+
 	return packetHeights, nil
 }
 
