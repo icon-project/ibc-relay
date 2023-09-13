@@ -259,6 +259,7 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		deletePreInitIfMatches(info)
 		toDeleteSrc[chantypes.EventTypeSendPacket] = append(toDeleteSrc[chantypes.EventTypeSendPacket], seq)
 		toDeleteSrc[chantypes.EventTypeTimeoutPacket] = append(toDeleteSrc[chantypes.EventTypeTimeoutPacket], seq)
+		toDeleteDst[common.EventTimeoutRequest] = append(toDeleteDst[common.EventTimeoutRequest], seq)
 		if info.ChannelOrder == chantypes.ORDERED.String() {
 			// Channel is now closed on src.
 			// enqueue channel close init observation to be handled by channel close correlation
@@ -370,13 +371,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		}
 		msgs = append(msgs, msgTransfer)
 	}
-
-	res.SrcMessages, res.DstMessages = pp.getMessagesToSend(
-		ctx,
-		msgs,
-		pathEndPacketFlowMessages.Src,
-		pathEndPacketFlowMessages.Dst,
-	)
 
 	res.SrcMessages, res.DstMessages = pp.getMessagesToSend(
 		ctx,
@@ -819,6 +813,7 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		return
 	}
 
+	pp.sentInitialMsg = true
 	switch m := pp.messageLifecycle.(type) {
 	case *PacketMessageLifecycle:
 		pp.sentInitialMsg = true
@@ -869,7 +864,6 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		if !pp.IsRelevantClient(m.Initial.ChainID, m.Initial.Info.ClientID) {
 			return
 		}
-
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
@@ -902,7 +896,6 @@ func (pp *PathProcessor) queuePreInitMessages(cancel func()) {
 		if !pp.IsRelevantConnection(m.Initial.ChainID, m.Initial.Info.ConnID) {
 			return
 		}
-
 		eventType, ok := observedEventTypeForDesiredMessage[m.Initial.EventType]
 		if !ok {
 			pp.log.Error(
@@ -1074,43 +1067,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	pathEnd2ProcessRes := make([]pathEndPacketFlowResponse, len(channelPairs))
 
 	for i, pair := range channelPairs {
-		// Append acks into recv packet info if present
-		// pathEnd1DstMsgRecvPacket :=
-		// for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
-		// 	if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
-		// 		recvPacketInfo.Ack = ackInfo.Ack
-		// 		pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
-		// 		continue
-		// 	}
-		// 	pathEnd1DstMsgRecvPacket[seq] = ackInfo
-
-		// }
-
-		// pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
-		// for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
-		// 	if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
-		// 		recvPacketInfo.Ack = ackInfo.Ack
-		// 		pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
-		// 		continue
-		// 	}
-
-		// 	pathEnd2DstMsgRecvPacket[seq] = ackInfo
-		// }
-		pathEnd1DstMsgRecvPacket := pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket]
-		for seq, ackInfo := range pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck] {
-			if recvPacketInfo, ok := pathEnd1DstMsgRecvPacket[seq]; ok {
-				recvPacketInfo.Ack = ackInfo.Ack
-				pathEnd1DstMsgRecvPacket[seq] = recvPacketInfo
-			}
-		}
-
-		pathEnd2DstMsgRecvPacket := pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket]
-		for seq, ackInfo := range pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck] {
-			if recvPacketInfo, ok := pathEnd2DstMsgRecvPacket[seq]; ok {
-				recvPacketInfo.Ack = ackInfo.Ack
-				pathEnd2DstMsgRecvPacket[seq] = recvPacketInfo
-			}
-		}
 
 		pathEnd1PacketFlowMessages := pathEndPacketFlowMessages{
 			Src:                              pp.pathEnd1,
@@ -1118,7 +1074,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			ChannelKey:                       pair.pathEnd1ChannelKey,
 			SrcPreTransfer:                   pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][preInitKey],
 			SrcMsgTransfer:                   pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:                 pathEnd1DstMsgRecvPacket,
+			DstMsgRecvPacket:                 pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeRecvPacket],
 			DstMsgWriteAcknowledgementPacket: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck],
 			SrcMsgAcknowledgement:            pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:                    pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
@@ -1132,7 +1088,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			ChannelKey:                       pair.pathEnd2ChannelKey,
 			SrcPreTransfer:                   pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd1ChannelKey][preInitKey],
 			SrcMsgTransfer:                   pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeSendPacket],
-			DstMsgRecvPacket:                 pathEnd2DstMsgRecvPacket,
+			DstMsgRecvPacket:                 pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeRecvPacket],
 			DstMsgWriteAcknowledgementPacket: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck],
 			SrcMsgAcknowledgement:            pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:                    pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],

@@ -15,7 +15,7 @@ jobs:
       - name: Set up Go 1.20
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: "1.20"
 
       # setup gopath
       - name: Set PATH
@@ -30,7 +30,6 @@ jobs:
       # unit tests
       - name: run unit tests
         run: make test
-        
 
       # build binary
       - name: build binary and move to upload location

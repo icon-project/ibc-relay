@@ -34,7 +34,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/chains/penumbra"
-	"github.com/cosmos/relayer/v2/relayer/chains/wasm"
+	wasm "github.com/cosmos/relayer/v2/relayer/chains/wasm"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
