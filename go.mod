@@ -1,4 +1,4 @@
-module github.com/icon-project/ibc-relay/v2
+module github.com/cosmos/relayer/v2
 
 go 1.19
 

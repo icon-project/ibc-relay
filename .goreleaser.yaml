@@ -13,7 +13,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Version }}
   - id: darwin-arm64
     main: ./main.go
     binary: rly
@@ -27,7 +27,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Version }}
   - id: linux-amd64
     main: ./main.go
     binary: rly
@@ -41,7 +41,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Version }}
   - id: linux-arm64
     main: ./main.go
     binary: rly
@@ -55,7 +55,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Tag }}
+      - -s -w -X github.com/cosmos/relayer/v2/cmd.Version={{ .Version }}
 
 archives:
   - id: golang-cross
