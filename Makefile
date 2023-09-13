@@ -115,7 +115,7 @@ build-gaia:
 
 .PHONY: two-chains test test-integration interchaintest install build lint coverage clean
 
-PACKAGE_NAME          := github.com/cosmos/relayer
+PACKAGE_NAME          := github.com/icon-project/ibc-relay
 GOLANG_CROSS_VERSION  ?= v1.19.4
 
 SYSROOT_DIR     ?= sysroots
