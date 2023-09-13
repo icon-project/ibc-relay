@@ -2,8 +2,10 @@ name: "Release"
 
 on:
   push:
-    tags:
-      - 'v*.*.*-alpha.*' # Run release on any tag. Will be marked as draft by default anyway.
+     branches:
+       - '173-relay-binary-version-missing'
+    # tags:
+    #   - 'v*.*.*-alpha.*' # Run release on any tag. Will be marked as draft by default anyway.
 
 jobs:
   goreleaser:
