@@ -13,7 +13,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version=v0.1.0-alpha.12
+      - -s -w -X github.com/icon-project/ibc-relay/v2/cmd.Version={{ .Tag }}
   - id: darwin-arm64
     main: ./main.go
     binary: rly
