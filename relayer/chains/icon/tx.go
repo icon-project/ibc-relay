@@ -189,7 +189,7 @@ func (ip *IconProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof
 }
 
 func (icp *IconProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
-	return nil, fmt.Errorf("Not implemented on icon")
+	return nil, fmt.Errorf("not implemented on icon")
 }
 
 func (icp *IconProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
