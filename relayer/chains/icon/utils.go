@@ -157,7 +157,7 @@ func VerifyBtpProof(decision *types.NetworkTypeSectionDecision, proof [][]byte, 
 	for _, raw_sig := range proof {
 		sig, err := crypto.ParseSignature(raw_sig)
 		if err != nil {
-			return false, err
+			continue
 		}
 		pubkey, err := sig.RecoverPublicKey(decision.Hash())
 		if err != nil {
