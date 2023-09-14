@@ -63,11 +63,11 @@ func Base64ToData(encoded string, v interface{}) ([]byte, error) {
 func HexBytesToProtoUnmarshal(encoded types.HexBytes, v proto.Message) ([]byte, error) {
 	inputBytes, err := encoded.Value()
 	if err != nil {
-		return nil, fmt.Errorf("Error unmarshalling HexByte")
+		return nil, fmt.Errorf("error unmarshalling HexByte")
 	}
 
 	if bytes.Equal(inputBytes, make([]byte, 0)) {
-		return nil, fmt.Errorf("Encoded hexbyte is empty ")
+		return nil, fmt.Errorf("encoded hexbyte is empty ")
 	}
 
 	if err := proto.Unmarshal(inputBytes, v); err != nil {
