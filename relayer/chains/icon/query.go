@@ -39,8 +39,9 @@ import (
 var _ provider.QueryProvider = &IconProvider{}
 
 const (
-	epoch         = 24 * 3600 * 1000
-	sequenceLimit = 2
+	epoch           = 24 * 3600 * 1000
+	sequenceLimit   = 2
+	genesisContract = "cx0000000000000000000000000000000000000000"
 )
 
 type CallParamOption func(*types.CallParam)
@@ -1014,4 +1015,63 @@ func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Messa
 	}
 	return inputBytes, nil
 
+}
+
+func (ip *IconProvider) GetProofContextChangePeriod() (uint64, error) {
+	// assigning termPeriod
+	prep, err := ip.client.GetPrepTerm()
+	if err != nil {
+		return 0, fmt.Errorf("fail to get prepterm: %v", err)
+	}
+
+	decentralized, err := prep.IsDecentralized.Value()
+	if err != nil {
+		return 0, err
+	}
+
+	// storing  prep-term term only if decentralized
+	if decentralized == 1 {
+		period, err := prep.Period.Value()
+		if err != nil {
+			return 0, err
+		}
+		return uint64(period), nil
+
+	}
+	return 0, nil
+}
+
+func (ip *IconProvider) QueryProofContextChangeHeights(ctx context.Context, counterpartyClientHeight uint64, latestHeight uint64) ([]uint64, error) {
+	heights := make([]uint64, 0)
+	// querying prepterm
+
+	period, err := ip.GetProofContextChangePeriod()
+	if err != nil {
+		return heights, err
+	}
+
+	// 0 suggest that proof context period is not set
+	if period == 0 {
+		return heights, nil
+	}
+
+	// hasn't reached until the latest block
+	if counterpartyClientHeight+period > latestHeight {
+		return heights, nil
+	}
+
+	lastPeriodChangeHeight := counterpartyClientHeight - counterpartyClientHeight%period
+
+	for lastPeriodChangeHeight < latestHeight {
+		lastPeriodChangeHeight += period
+		btpblock, err := ip.GetBtpHeader(int64(lastPeriodChangeHeight + 1))
+		if err != nil {
+			continue
+		}
+		if btpblock != nil {
+			heights = append(heights, btpblock.MainHeight)
+		}
+	}
+
+	return heights, nil
 }

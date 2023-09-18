@@ -391,6 +391,20 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
+	// from the last clientState update to latest header
+	// add all the proof context change height in btp
+	if d.IsGenesis && pathEnd.chainProvider.Type() == common.IconModule {
+
+		heights, _ := pathEnd.chainProvider.QueryProofContextChangeHeights(ctx,
+			counterParty.clientState.ConsensusHeight.RevisionHeight,
+			d.LatestHeader.Height())
+
+		for _, h := range heights {
+			pathEnd.BTPHeightQueue.Enqueue(h)
+
+		}
+	}
+
 	if pathEnd.chainProvider.Type() == common.IconModule && d.LatestHeader.IsCompleteBlock() {
 		pathEnd.BTPHeightQueue.Enqueue(d.LatestHeader.Height())
 	}

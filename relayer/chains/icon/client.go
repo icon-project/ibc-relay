@@ -64,6 +64,7 @@ type IClient interface {
 	GetLastBlock() (*types.Block, error)
 	GetBlockHeaderByHeight(height int64) (*types.BlockHeader, error)
 	GetValidatorsByHash(hash common.HexHash) ([]common.Address, error)
+	GetPrepTerm() (*types.PrepTerm, error)
 }
 
 type Client struct {
@@ -620,6 +621,25 @@ func (c *Client) EstimateStep(param *types.TransactionParamForEstimate) (*types.
 		return nil, err
 	}
 	return &result, nil
+}
+
+func (c *Client) GetPrepTerm() (*types.PrepTerm, error) {
+
+	param := types.CallParam{
+		FromAddress: types.Address(fmt.Sprintf("hx%s", strings.Repeat("0", 40))),
+		ToAddress:   types.Address(genesisContract),
+		DataType:    "call",
+		Data: &types.CallData{
+			Method: MethodGetPrepTerm,
+			Params: map[string]string{},
+		},
+	}
+
+	var op types.PrepTerm
+	if err := c.Call(&param, &op); err != nil {
+		return nil, err
+	}
+	return &op, nil
 }
 
 func NewClient(uri string, l *zap.Logger) *Client {

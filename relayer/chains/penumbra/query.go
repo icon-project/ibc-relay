@@ -1005,3 +1005,6 @@ func (ap *PenumbraProvider) QueryMissingPacketReceipts(ctx context.Context, late
 func (ap *PenumbraProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
 	panic("QueryNextSeqSend not implemented")
 }
+func (ap *PenumbraProvider) QueryProofContextChangeHeights(ctx context.Context, counterpartyClientHeight uint64, height uint64) ([]uint64, error) {
+	panic("QueryProofContextChangeHeights not implemented")
+}

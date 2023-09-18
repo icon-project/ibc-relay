@@ -666,3 +666,23 @@ func (h *NetworkTypeSection) Encode() []byte {
 func (h *NetworkTypeSection) Hash() []byte {
 	return relayer_common.Sha3keccak256(h.Encode())
 }
+
+type PrepTerm struct {
+	BlockHeight      HexInt
+	bondRequirement  HexInt
+	EndBlockHeight   HexInt
+	IissVersion      HexInt
+	Irep             HexInt
+	IsDecentralized  HexInt
+	MainPRepCount    HexInt
+	Period           HexInt
+	Preps            interface{} //dont need right now
+	Revision         HexInt
+	RewardFund       interface{} //dont need right now
+	Rrep             HexInt
+	Sequence         HexInt
+	StartBlockHeight HexInt
+	TotalDelegated   HexInt
+	TotalPower       HexInt
+	TotalSupply      HexInt
+}

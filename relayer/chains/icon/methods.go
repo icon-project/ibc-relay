@@ -45,4 +45,7 @@ const (
 	MethodGetMissingPacketReceipts = "getMissingPacketReceipts"
 	MethodGetPacketHeights         = "getPacketHeights"
 	MethodGetAckHeights            = "getAckHeights"
+
+	//
+	MethodGetPrepTerm = "getPRepTerm"
 )

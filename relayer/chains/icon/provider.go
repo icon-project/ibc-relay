@@ -104,15 +104,14 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 		return nil, err
 	}
 
-	codec := MakeCodec(ModuleBasics, []string{})
-
 	return &IconProvider{
 		log:         log.With(zap.String("chain_id", pp.ChainID)),
 		client:      NewClient(pp.getRPCAddr(), log),
 		PCfg:        pp,
 		StartHeight: uint64(pp.StartHeight),
-		codec:       codec,
+		codec:       MakeCodec(ModuleBasics, []string{}),
 	}, nil
+
 }
 
 func (pp IconProviderConfig) getRPCAddr() string {
