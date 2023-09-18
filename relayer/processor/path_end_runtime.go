@@ -473,14 +473,17 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is updated",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
+				zap.String("client id", pathEnd.clientState.ClientID),
+				zap.Uint64("client height", pathEnd.clientState.ConsensusHeight.RevisionHeight),
 			)
 			return false
 		}
 		if counterparty.BTPHeightQueue.ItemExist(int64(message.info.Height)) {
-
-			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue",
+			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue since btp height exist",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
+				zap.String("client id", pathEnd.clientState.ClientID),
+				zap.Uint64("client height", pathEnd.clientState.ConsensusHeight.RevisionHeight),
 			)
 			return false
 		}
