@@ -393,8 +393,8 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 
 	// from the last clientState update to latest header
 	// add all the proof context change height in btp
+	// Genesis denotes first time
 	if d.IsGenesis && pathEnd.chainProvider.Type() == common.IconModule {
-
 		heights, _ := pathEnd.chainProvider.QueryProofContextChangeHeights(ctx,
 			counterParty.clientState.ConsensusHeight.RevisionHeight,
 			d.LatestHeader.Height())
@@ -487,6 +487,8 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is updated",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
+				zap.String("client id", pathEnd.clientState.ClientID),
+				zap.Uint64("client height", pathEnd.clientState.ConsensusHeight.RevisionHeight),
 			)
 			return false
 		}
@@ -494,6 +496,8 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
+				zap.String("client id", pathEnd.clientState.ClientID),
+				zap.Uint64("client height", pathEnd.clientState.ConsensusHeight.RevisionHeight),
 			)
 			return false
 		}

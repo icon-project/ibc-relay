@@ -920,6 +920,8 @@ func (ap *IconProvider) QueryPacketMessageByEventHeight(ctx context.Context, eve
 				continue
 			}
 			return provider.PacketInfo{
+				// in case of icon we need to consider btp block because of which if a message is send at height h
+				// btp header will be in h + 1
 				Height:           seqHeight + 1,
 				Sequence:         packet.Sequence,
 				SourcePort:       packet.SourcePort,
