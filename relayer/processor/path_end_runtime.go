@@ -395,13 +395,19 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	// add all the proof context change height in btp
 	// Genesis denotes first time
 	if d.IsGenesis && pathEnd.chainProvider.Type() == common.IconModule {
+		// need to fetch clientstate height
+		clientHeight := counterParty.clientState.ConsensusHeight.RevisionHeight
+		if clientHeight == 0 {
+			cs, _ := counterParty.chainProvider.QueryClientState(ctx, 0, counterParty.info.ClientID)
+			clientHeight = cs.GetLatestHeight().GetRevisionHeight()
+		}
+
 		heights, _ := pathEnd.chainProvider.QueryProofContextChangeHeights(ctx,
-			counterParty.clientState.ConsensusHeight.RevisionHeight,
+			clientHeight,
 			d.LatestHeader.Height())
 
 		for _, h := range heights {
 			pathEnd.BTPHeightQueue.Enqueue(h)
-
 		}
 	}
 

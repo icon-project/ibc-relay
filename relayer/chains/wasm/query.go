@@ -876,7 +876,7 @@ func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, ch
 
 func (ap *WasmProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]byte, error) {
 
-	param, err := types.GenerateQueryParams(MethodGetAllPorts, struct{}{})
+	param, err := types.GenerateQueryParams(MethodGetCommitmentPrefix, struct{}{})
 	if err != nil {
 		return nil, err
 	}
