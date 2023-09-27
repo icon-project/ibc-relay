@@ -321,7 +321,7 @@ func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeig
 	if err != nil {
 		return nil, err
 	}
-	consensusState, err := ap.QueryIBCHandlerContractProcessed(ctx, consensusStateParam)
+	consensusState, err := ap.QueryIBCHandlerContractNoRetry(ctx, consensusStateParam)
 	if err != nil {
 		return nil, err
 	}

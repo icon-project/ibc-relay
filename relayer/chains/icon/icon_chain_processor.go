@@ -357,9 +357,6 @@ loop:
 					break
 				}
 
-				icp.log.Debug("Verified block ",
-					zap.Int64("height", int64(processedheight)))
-
 				icp.latestBlock = provider.LatestBlock{
 					Height: uint64(processedheight),
 				}
