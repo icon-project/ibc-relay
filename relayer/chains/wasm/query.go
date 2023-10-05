@@ -376,11 +376,6 @@ func (ap *WasmProvider) QueryIBCHandlerContractNoRetry(ctx context.Context, para
 		QueryData: param,
 	})
 	if err != nil {
-		ap.log.Error(
-			"Failed to query",
-			zap.Any("Param", param),
-			zap.Error(err),
-		)
 		return nil, err
 	}
 	return ProcessContractResponse(resp)
@@ -1008,6 +1003,11 @@ func (ap *WasmProvider) QueryPacketMessageByEventHeight(ctx context.Context, eve
 			case *packetInfo:
 				packet := provider.PacketInfo(*t)
 				if packet.Sequence == sequence && packet.SourceChannel == srcChanID && packet.SourcePort == srcPortID {
+					// for ack byte length cannot be empty
+					if eventType == chantypes.EventTypeAcknowledgePacket && len(packet.Ack) == 0 {
+						continue
+					}
+
 					return packet, nil
 				}
 			default:
