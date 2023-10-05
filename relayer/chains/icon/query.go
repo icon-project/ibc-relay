@@ -906,6 +906,13 @@ func (ap *IconProvider) QueryPacketMessageByEventHeight(ctx context.Context, eve
 				el.Indexed[0] != eventName {
 				continue
 			}
+			// for ack
+			if eventName == EventTypeWriteAcknowledgement {
+				if len(el.Data) == 0 || el.Data[0] == "" {
+					continue
+				}
+			}
+
 			packetStr := el.Indexed[1]
 			packetByte, err := hex.DecodeString(strings.TrimPrefix(packetStr, "0x"))
 			if err != nil {
@@ -916,22 +923,29 @@ func (ap *IconProvider) QueryPacketMessageByEventHeight(ctx context.Context, eve
 				return provider.PacketInfo{}, err
 			}
 
-			if packet.Sequence != sequence && packet.SourceChannel != srcChanID && packet.SourcePort != srcPortID {
-				continue
+			if packet.Sequence == sequence && packet.SourceChannel == srcChanID && packet.SourcePort == srcPortID {
+				packet := provider.PacketInfo{
+					// in case of icon we need to consider btp block because of which if a message is send at height h
+					// btp header will be in h + 1
+					Height:           seqHeight + 1,
+					Sequence:         packet.Sequence,
+					SourcePort:       packet.SourcePort,
+					SourceChannel:    packet.SourceChannel,
+					DestPort:         packet.DestinationPort,
+					DestChannel:      packet.DestinationChannel,
+					Data:             packet.Data,
+					TimeoutHeight:    clienttypes.NewHeight(packet.TimeoutHeight.RevisionNumber, packet.TimeoutHeight.RevisionHeight),
+					TimeoutTimestamp: packet.TimeoutTimestamp,
+				}
+				// adding ack bytes
+				if eventName == EventTypeWriteAcknowledgement {
+					packet.Ack, err = hex.DecodeString(strings.TrimPrefix(el.Data[0], "0x"))
+					if err != nil {
+						return provider.PacketInfo{}, err
+					}
+				}
+				return packet, nil
 			}
-			return provider.PacketInfo{
-				// in case of icon we need to consider btp block because of which if a message is send at height h
-				// btp header will be in h + 1
-				Height:           seqHeight + 1,
-				Sequence:         packet.Sequence,
-				SourcePort:       packet.SourcePort,
-				SourceChannel:    packet.SourceChannel,
-				DestPort:         packet.DestinationPort,
-				DestChannel:      packet.DestinationChannel,
-				Data:             packet.Data,
-				TimeoutHeight:    clienttypes.NewHeight(packet.TimeoutHeight.RevisionNumber, packet.TimeoutHeight.RevisionHeight),
-				TimeoutTimestamp: packet.TimeoutTimestamp,
-			}, nil
 
 		}
 

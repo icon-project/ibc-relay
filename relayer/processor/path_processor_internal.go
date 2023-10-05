@@ -1908,14 +1908,15 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 			break
 		}
 
-		seq := seq
-
 		dst.log.Debug("Querying write Ack",
 			zap.String("channel", k.CounterpartyChannelID),
 			zap.String("port", k.CounterpartyPortID),
 			zap.Uint64("sequence", seq),
+			zap.Uint64("height", height),
 		)
 
+		seq := seq
+		height := height
 		eg.Go(func() error {
 			ackPacket, err := dst.chainProvider.QueryPacketMessageByEventHeight(ctx, chantypes.EventTypeWriteAck, k.CounterpartyChannelID, k.CounterpartyPortID, seq, height)
 			if err != nil {
@@ -1924,11 +1925,11 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 
 			// save btp block if height is Icon
 			// height+1
-			if src.chainProvider.Type() == common.IconModule {
-				_, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, ackPacket.Height))
+			if dst.chainProvider.Type() == common.IconModule {
+				_, err := src.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), src.clientState.ClientID, clienttypes.NewHeight(0, ackPacket.Height))
 				if err != nil {
 					// could mean update client for the message is not present
-					header, err := src.chainProvider.QueryIBCHeader(ctx, int64(ackPacket.Height))
+					header, err := dst.chainProvider.QueryIBCHeader(ctx, int64(ackPacket.Height))
 					if err != nil {
 						return err
 					}
@@ -1936,8 +1937,11 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 						return fmt.Errorf("icon module should have complete block at height:%d because of send packet message: %v",
 							ackPacket.Height, ackPacket)
 					}
+
 					// enqueuing this height
-					src.BTPHeightQueue.Enqueue(ackPacket.Height)
+					if !dst.BTPHeightQueue.ItemExist(ackPacket.Height) {
+						dst.BTPHeightQueue.Enqueue(ackPacket.Height)
+					}
 				}
 			}
 
