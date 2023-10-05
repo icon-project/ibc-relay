@@ -314,7 +314,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTimer.C:
 		// Periodic flush to clear out any old packets
-		// pp.handleFlush(ctx)
+		pp.handleFlush(ctx)
 	}
 	return false
 }
@@ -323,7 +323,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	var retryTimer *time.Timer
 
-	pp.flushTimer = time.NewTimer(time.Hour)
+	pp.flushTimer = time.NewTimer(pp.flushInterval)
 
 	for {
 		// block until we have any signals to process
