@@ -12,6 +12,7 @@ import (
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
 	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
 	wasm_module "github.com/cosmos/relayer/v2/relayer/chains/wasm/module"
+	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
 )
 
 var ModuleBasics = []module.AppModuleBasic{
@@ -33,6 +34,7 @@ func MakeCodec(moduleBasics []module.AppModuleBasic, extraCodecs []string) Codec
 	modBasic := module.NewBasicManager(moduleBasics...)
 	encodingConfig := MakeCodecConfig()
 	std.RegisterInterfaces(encodingConfig.InterfaceRegistry)
+	injective.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	modBasic.RegisterInterfaces(encodingConfig.InterfaceRegistry)
 	return encodingConfig
 }
