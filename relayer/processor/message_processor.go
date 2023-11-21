@@ -276,6 +276,10 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		trustedConsensusHeight = clientConsensusHeight
 		trustedNextValidatorsHash = header.NextValidatorsHash()
 	}
+	if src.latestHeader == nil {
+		mp.log.Info("check for height error")
+	}
+	// fmt.Printf("Src latest Header in MP %v\n\n", src.latestHeader)
 
 	if src.latestHeader.Height() == trustedConsensusHeight.RevisionHeight &&
 		!bytes.Equal(src.latestHeader.NextValidatorsHash(), trustedNextValidatorsHash) {

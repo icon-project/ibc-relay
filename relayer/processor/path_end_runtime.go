@@ -391,10 +391,6 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	if pathEnd.chainProvider.Type() == common.IconModule && d.LatestHeader.IsCompleteBlock() {
-		pathEnd.BTPHeightQueue.Enqueue(BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false})
-	}
-
 	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
 	if err != nil {
 		pathEnd.log.Error(
@@ -423,6 +419,37 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.channelStateCache = d.ChannelStateCache       // Update latest channel open state for chain
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
+
+	if pathEnd.chainProvider.Type() == common.IconModule {
+		btpHeightKey := BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false}
+		if d.LatestHeader.ShouldUpdateForProofContextChange() {
+			pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+		} else {
+			// nested for loop, but there won't be too many messages in a block.
+			if len(d.IBCMessagesCache.PacketFlow) > 0 {
+				for k, pmc := range d.IBCMessagesCache.PacketFlow {
+					ck := ChannelKey{
+						ChannelID:             k.ChannelID,
+						PortID:                k.PortID,
+						CounterpartyChannelID: k.CounterpartyChannelID,
+						CounterpartyPortID:    k.CounterpartyPortID,
+					}
+
+					if pathEnd.channelStateCache[ck] && d.LatestHeader.IsCompleteBlock() {
+						for event := range pmc {
+							// filter request timeout, send packet and write acknowledgement
+							if event == chantypes.EventTypeSendPacket || event == chantypes.EventTypeWriteAck || event == common.EventTimeoutRequest {
+								pathEnd.log.Info("This packet message is directed ", zap.String("from", pathEnd.chainProvider.ChainName()), zap.String("to", counterpartyChainID))
+								if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
+									pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
 	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
