@@ -447,8 +447,13 @@ func (pathEnd *pathEndRuntime) updateBTPQueue(d ChainProcessorCacheData, counter
 				if pathEnd.channelStateCache[ck] && d.LatestHeader.IsCompleteBlock() {
 					for event := range pmc {
 						// filter request timeout, send packet and write acknowledgement
-						if event == chantypes.EventTypeSendPacket || event == chantypes.EventTypeWriteAck || event == common.EventTimeoutRequest {
-							pathEnd.log.Info("This packet message is directed ", zap.String("from", pathEnd.chainProvider.ChainId()), zap.String("to", counterpartyChainID))
+						if event == chantypes.EventTypeSendPacket ||
+							event == chantypes.EventTypeWriteAck ||
+							event == common.EventTimeoutRequest {
+							pathEnd.log.Info("This packet message is directed",
+								zap.String("from", pathEnd.chainProvider.ChainId()),
+								zap.String("to", counterpartyChainID),
+							)
 							if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
 								pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
 							}
