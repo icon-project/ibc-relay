@@ -185,7 +185,7 @@ func (a WasmIBCHeader) NextValidatorsHash() []byte {
 	return a.SignedHeader.Header.NextValidatorsHash
 }
 
-func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
+func (a WasmIBCHeader) ShouldUpdateForProofContextChange() bool {
 	return false
 }
 
