@@ -602,6 +602,7 @@ type Queue[T any] interface {
 	Enqueue(item T)
 	Dequeue() (T, error)
 	MustGetQueue() T
+	PrintQueue()
 	GetQueue() (T, error)
 	ItemExist(interface{}) bool
 	ReplaceQueue(index int, item T)
@@ -636,6 +637,18 @@ func (q *ArrayQueue[T]) Enqueue(item T) {
 	q.items = append(q.items, item)
 }
 
+func (q *ArrayQueue[T]) PrintQueue() {
+
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.Size() == 0 {
+		fmt.Println("Queue is empty")
+	}
+	for i, item := range q.items {
+		fmt.Printf("%d: %+v\n", i, item)
+	}
+}
+
 func (q *ArrayQueue[T]) MustGetQueue() T {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -663,7 +676,7 @@ func (q *ArrayQueue[T]) GetQueue() (T, error) {
 	defer q.mu.Unlock()
 	if q.Size() == 0 {
 		var element T
-		return element, fmt.Errorf("The queue is of empty length")
+		return element, fmt.Errorf("the queue is of empty length")
 	}
 	item := q.items[0]
 	return item, nil

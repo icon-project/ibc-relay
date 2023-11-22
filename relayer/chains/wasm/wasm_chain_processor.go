@@ -90,7 +90,7 @@ const (
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
 	inSyncNumBlocksThreshold         = 2
-	MaxBlockFetch                    = 100
+	MaxBlockFetch                    = 200
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -201,6 +201,8 @@ type queryCyclePersistence struct {
 	minQueryLoopDuration      time.Duration
 	lastBalanceUpdate         time.Time
 	balanceUpdateWaitDuration time.Duration
+
+	retriesAtLatestQueriedBlock int
 }
 
 func (ccp *WasmChainProcessor) StartFromHeight(ctx context.Context) int64 {
@@ -376,10 +378,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
-
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
 	}
@@ -420,6 +418,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var lightBlock *types.LightBlock
+		var h provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
@@ -430,7 +429,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			latestHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
+			h, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -438,6 +437,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			ccp.log.Warn("Error querying block data", zap.Error(err))
 			break
 		}
+		ccp.log.Info(
+			"Queried block",
+			zap.Int64("height", i),
+			zap.Int64("latest", persistence.latestHeight),
+			zap.Int64("delta", persistence.latestHeight-i),
+		)
+
+		latestHeader = h
 
 		if err := ccp.Verify(ctx, lightBlock); err != nil {
 			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
@@ -554,7 +561,7 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 		untrusted.ValidatorSet,
 		ccp.verifier.Header.SignedHeader,
 		time.Now(), 0); err != nil {
-		return fmt.Errorf("Failed to verify Header: %v", err)
+		return fmt.Errorf("failed to verify Header: %v", err)
 	}
 
 	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {

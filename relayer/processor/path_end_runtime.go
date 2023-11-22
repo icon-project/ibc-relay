@@ -391,6 +391,11 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
+	// if counterpartyChainID == "ibc-icon" {
+	// 	pathEnd.log.Info("Latest Header for Injective")
+	// 	fmt.Printf("%+v\n\n", pathEnd.latestHeader)
+	// }
+
 	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
 	if err != nil {
 		pathEnd.log.Error(
@@ -420,39 +425,48 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
+	pathEnd.updateBTPQueue(d, counterpartyChainID)
+
+	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
+	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
+}
+
+// handle update for icon btp blocks.
+// When btp blocks are produced, forward them only to chain which the message is directed for.
+// However, when proof context changes, update has to be sent
+func (pathEnd *pathEndRuntime) updateBTPQueue(d ChainProcessorCacheData, counterpartyChainID string) {
 	if pathEnd.chainProvider.Type() == common.IconModule {
 		btpHeightKey := BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false}
 		if d.LatestHeader.ShouldUpdateForProofContextChange() {
+			pathEnd.log.Info("Proof context changed", zap.Uint64("height", d.LatestHeader.Height()))
 			pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
 		} else {
 			// nested for loop, but there won't be too many messages in a block.
-			if len(d.IBCMessagesCache.PacketFlow) > 0 {
-				for k, pmc := range d.IBCMessagesCache.PacketFlow {
-					ck := ChannelKey{
-						ChannelID:             k.ChannelID,
-						PortID:                k.PortID,
-						CounterpartyChannelID: k.CounterpartyChannelID,
-						CounterpartyPortID:    k.CounterpartyPortID,
-					}
+		BTPLoop:
+			for k := range d.IBCMessagesCache.PacketFlow {
+				ck := ChannelKey{
+					ChannelID:             k.ChannelID,
+					PortID:                k.PortID,
+					CounterpartyChannelID: k.CounterpartyChannelID,
+					CounterpartyPortID:    k.CounterpartyPortID,
+				}
 
-					if pathEnd.channelStateCache[ck] && d.LatestHeader.IsCompleteBlock() {
-						for event := range pmc {
-							// filter request timeout, send packet and write acknowledgement
-							if event == chantypes.EventTypeSendPacket || event == chantypes.EventTypeWriteAck || event == common.EventTimeoutRequest {
-								pathEnd.log.Info("This packet message is directed ", zap.String("from", pathEnd.chainProvider.ChainName()), zap.String("to", counterpartyChainID))
-								if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
-									pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
-								}
-							}
-						}
+				if pathEnd.channelStateCache[ck] && d.LatestHeader.IsCompleteBlock() {
+					// filter request timeout, send packet and write acknowledgement
+					pathEnd.log.Info("This packet message is directed",
+						zap.String("from", pathEnd.chainProvider.ChainId()),
+						zap.String("to", counterpartyChainID),
+						zap.Uint64("height", d.LatestHeader.Height()),
+					)
+					if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
+						pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+						break BTPLoop
 					}
 				}
 			}
 		}
+		pathEnd.BTPHeightQueue.PrintQueue()
 	}
-
-	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
-	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
 }
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
@@ -500,17 +514,14 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is updated",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
-				zap.String("client_id", pathEnd.clientState.ClientID),
-				zap.Uint64("client_height", pathEnd.clientState.ConsensusHeight.RevisionHeight),
 			)
 			return false
 		}
 		if counterparty.BTPHeightQueue.ItemExist(int64(message.info.Height)) {
-			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue since btp height exist",
+
+			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue",
 				zap.Inline(message),
 				zap.String("event_type", eventType),
-				zap.String("client_id", pathEnd.clientState.ClientID),
-				zap.Uint64("client_height", pathEnd.clientState.ConsensusHeight.RevisionHeight),
 			)
 			return false
 		}
