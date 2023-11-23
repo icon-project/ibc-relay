@@ -437,7 +437,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			ccp.log.Warn("Error querying block data", zap.Error(err))
 			break
 		}
-		ccp.log.Info(
+		ccp.log.Debug(
 			"Queried block",
 			zap.Int64("height", i),
 			zap.Int64("latest", persistence.latestHeight),

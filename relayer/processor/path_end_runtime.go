@@ -465,7 +465,6 @@ func (pathEnd *pathEndRuntime) updateBTPQueue(d ChainProcessorCacheData, counter
 				}
 			}
 		}
-		pathEnd.BTPHeightQueue.PrintQueue()
 	}
 }
 
