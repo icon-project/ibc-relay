@@ -443,9 +443,12 @@ func (mp *messageProcessor) sendClientUpdate(
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
-		mp.log.Debug("Executing callback of sendClientUpdate",
-			zap.Any("response", rtr),
-			zap.Uint64("last_client_update_height", dst.lastClientUpdateHeight))
+		if rtr != nil {
+			mp.log.Debug("Executing callback of sendClientUpdate",
+				zap.Any("response", rtr),
+				zap.Uint64("last_client_update_height", dst.lastClientUpdateHeight),
+				zap.Error(err))
+		}
 		if IsBTPLightClient(dst.clientState) {
 			if src.BTPHeightQueue.Size() == 0 {
 				return
@@ -488,6 +491,7 @@ func (mp *messageProcessor) sendClientUpdate(
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		)
+		callback(nil, err)
 		return
 	}
 	dst.log.Debug("Client update broadcast completed")
