@@ -12,6 +12,7 @@ import (
 	"github.com/CosmWasm/wasmd/app"
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	comettypes "github.com/cometbft/cometbft/types"
+	"golang.org/x/mod/semver"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
@@ -43,6 +44,8 @@ var (
 	_ provider.KeyProvider    = &WasmProvider{}
 	_ provider.ProviderConfig = &WasmProviderConfig{}
 )
+
+const cometEncodingThreshold = "v0.37.0-alpha"
 
 type WasmProviderConfig struct {
 	KeyDirectory         string                  `json:"key-directory" yaml:"key-directory"`
@@ -182,7 +185,7 @@ func (a WasmIBCHeader) NextValidatorsHash() []byte {
 	return a.SignedHeader.Header.NextValidatorsHash
 }
 
-func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
+func (a WasmIBCHeader) ShouldUpdateForProofContextChange() bool {
 	return false
 }
 
@@ -197,10 +200,10 @@ func (pp *WasmProviderConfig) ValidateContractAddress(addr string) bool {
 
 	// TODO: Is this needed?
 	// Confirmed working for neutron, archway, osmosis
-	prefixLen := len(pp.AccountPrefix)
-	if len(addr) != prefixLen+ContractAddressSizeMinusPrefix {
-		return false
-	}
+	// prefixLen := len(pp.AccountPrefix)
+	// if len(addr) != prefixLen+ContractAddressSizeMinusPrefix {
+	// 	return false
+	// }
 
 	return true
 }
@@ -315,6 +318,14 @@ func (ap *WasmProvider) Timeout() string {
 	return ap.PCfg.Timeout
 }
 
+func (ap *WasmProvider) setCometVersion(log *zap.Logger, version string) {
+	ap.cometLegacyEncoding = ap.legacyEncodedEvents(log, version)
+}
+
+func (ap *WasmProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
+	return semver.Compare("v"+version, cometEncodingThreshold) < 0
+}
+
 // CommitmentPrefix returns the commitment prefix for Cosmos
 func (ap *WasmProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
 	ctx := context.Background()
@@ -365,6 +376,12 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)
 	ap.ClientCtx = clientCtx
+
+	status, err := rpcClient.Status(ctx)
+	if err != nil {
+		return err
+	}
+	ap.setCometVersion(ap.log, status.NodeInfo.Version)
 	return nil
 }
 
