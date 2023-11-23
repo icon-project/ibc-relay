@@ -420,39 +420,78 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 
 	pathEnd.mergeMessageCache(d.IBCMessagesCache, counterpartyChainID, pathEnd.inSync && counterpartyInSync) // Merge incoming packet IBC messages into the backlog
 
-	if pathEnd.chainProvider.Type() == common.IconModule {
-		btpHeightKey := BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false}
-		if d.LatestHeader.ShouldUpdateForProofContextChange() {
-			pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
-		} else {
-			// nested for loop, but there won't be too many messages in a block.
-			if len(d.IBCMessagesCache.PacketFlow) > 0 {
-				for k, pmc := range d.IBCMessagesCache.PacketFlow {
-					ck := ChannelKey{
-						ChannelID:             k.ChannelID,
-						PortID:                k.PortID,
-						CounterpartyChannelID: k.CounterpartyChannelID,
-						CounterpartyPortID:    k.CounterpartyPortID,
-					}
+	pathEnd.updateBTPQueue(d, counterpartyChainID)
 
-					if pathEnd.channelStateCache[ck] && d.LatestHeader.IsCompleteBlock() {
-						for event := range pmc {
-							// filter request timeout, send packet and write acknowledgement
-							if event == chantypes.EventTypeSendPacket || event == chantypes.EventTypeWriteAck || event == common.EventTimeoutRequest {
-								pathEnd.log.Info("This packet message is directed ", zap.String("from", pathEnd.chainProvider.ChainName()), zap.String("to", counterpartyChainID))
-								if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
-									pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
-								}
-							}
-						}
-					}
+	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
+	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
+}
+
+// handle update for icon btp blocks.
+// When btp blocks are produced, forward them only to chain which the message is directed for.
+// However, when proof context changes, update has to be sent
+func (pathEnd *pathEndRuntime) updateBTPQueue(d ChainProcessorCacheData, counterpartyChainID string) {
+	if pathEnd.chainProvider.Type() != common.IconModule {
+		return
+	}
+
+	btpHeightKey := BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false}
+	if d.LatestHeader.ShouldUpdateForProofContextChange() {
+		pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+		return
+	}
+
+	for k := range d.IBCMessagesCache.PacketFlow {
+		ck := ChannelKey{
+			ChannelID:             k.ChannelID,
+			PortID:                k.PortID,
+			CounterpartyChannelID: k.CounterpartyChannelID,
+			CounterpartyPortID:    k.CounterpartyPortID,
+		}
+
+		if pathEnd.channelStateCache[ck] && d.LatestHeader.IsCompleteBlock() {
+
+			pathEnd.log.Info("This packet message is directed",
+				zap.String("to", counterpartyChainID),
+				zap.Uint64("height", d.LatestHeader.Height()),
+			)
+			if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
+				pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+				return
+			}
+		}
+	}
+
+	// handle for connection handshake
+	for _, v := range d.IBCMessagesCache.ConnectionHandshake {
+		for k := range v {
+			if k.ClientID == pathEnd.info.ClientID {
+				pathEnd.log.Info("This connection handshake message is directed",
+					zap.String("to", counterpartyChainID),
+					zap.Uint64("height", d.LatestHeader.Height()),
+				)
+				if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
+					pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+					return
 				}
 			}
 		}
 	}
 
-	pathEnd.ibcHeaderCache.Merge(d.IBCHeaderCache)  // Update latest IBC header state
-	pathEnd.ibcHeaderCache.Prune(ibcHeadersToCache) // Only keep most recent IBC headers
+	// handle for channel handshake
+	for _, v := range d.IBCMessagesCache.ChannelHandshake {
+		for _, x := range v {
+			if pathEnd.isRelevantConnection(x.ConnID) {
+				pathEnd.log.Info("This channel handshake message is directed",
+					zap.String("to", counterpartyChainID),
+					zap.Uint64("height", d.LatestHeader.Height()),
+				)
+				if !pathEnd.BTPHeightQueue.ItemExist(btpHeightKey) {
+					pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
+					return
+				}
+			}
+		}
+	}
 }
 
 // shouldSendPacketMessage determines if the packet flow message should be sent now.
