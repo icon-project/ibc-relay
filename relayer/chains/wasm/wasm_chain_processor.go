@@ -444,9 +444,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			return err
 		}
 
-		ccp.log.Debug("Verified block ",
-			zap.Int64("height", lightBlock.Header.Height))
-
 		heightUint64 := uint64(i)
 
 		ccp.latestBlock = provider.LatestBlock{
