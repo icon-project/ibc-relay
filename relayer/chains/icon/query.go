@@ -778,7 +778,7 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 		return nil, err
 	}
 
-	keyhash := common.Sha3keccak256(common.GetPacketReceiptCommitmentPath(portid, channelid, big.NewInt(height)))
+	keyhash := common.Sha3keccak256(common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(height)))
 
 	proof, err := icp.QueryIconProof(ctx, height, keyhash)
 	if err != nil {
