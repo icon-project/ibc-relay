@@ -420,6 +420,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var lightBlock *types.LightBlock
+		var h provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
@@ -430,7 +431,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			latestHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
+			h, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -438,6 +439,15 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			ccp.log.Warn("Error querying block data", zap.Error(err))
 			break
 		}
+
+		ccp.log.Debug(
+			"Queried block",
+			zap.Int64("height", i),
+			zap.Int64("latest", persistence.latestHeight),
+			zap.Int64("delta", persistence.latestHeight-i),
+		)
+
+		latestHeader = h
 
 		if err := ccp.Verify(ctx, lightBlock); err != nil {
 			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
@@ -554,7 +564,7 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 		untrusted.ValidatorSet,
 		ccp.verifier.Header.SignedHeader,
 		time.Now(), 0); err != nil {
-		return fmt.Errorf("Failed to verify Header: %v", err)
+		return fmt.Errorf("failed to verify Header: %v", err)
 	}
 
 	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
