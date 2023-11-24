@@ -153,7 +153,7 @@ func (icp *IconProvider) QueryBalanceWithAddress(ctx context.Context, addr strin
 	}
 	return sdk.Coins{sdk.Coin{
 		Denom:  "ICX",
-		Amount: math.NewInt(balance.Int64()),
+		Amount: math.NewIntFromBigInt(balance),
 	}}, nil
 }
 
