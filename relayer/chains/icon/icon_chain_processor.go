@@ -296,8 +296,6 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	ctxMonitorBlock, cancelMonitorBlock := context.WithCancel(ctx)
 	reconnect()
 
-	ibcHeaderCache := make(processor.IBCHeaderCache)
-
 	icp.firstTime = true
 
 	blockReq := &types.BlockRequest{
@@ -368,6 +366,7 @@ loop:
 					icp.handleMessage(ctx, *m, ibcMessageCache)
 				}
 
+				ibcHeaderCache := make(processor.IBCHeaderCache)
 				ibcHeaderCache[uint64(br.Height)] = br.Header
 				icp.log.Debug("Queried block ",
 					zap.Int64("height", br.Height))
