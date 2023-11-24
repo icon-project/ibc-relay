@@ -459,7 +459,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := true
+		base64Encoded := ccp.chainProvider.cometLegacyEncoding
 
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
