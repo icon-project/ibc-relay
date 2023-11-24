@@ -181,8 +181,9 @@ func (h IconIBCHeader) ConsensusState() ibcexported.ConsensusState {
 	}
 	return &icon.ConsensusState{}
 }
-func (h IconIBCHeader) ShouldUpdateWithZeroMessage() bool {
-	if h.Header != nil && h.Header.MessageCount == 0 {
+
+func (h IconIBCHeader) ShouldUpdateForProofContextChange() bool {
+	if h.Header != nil && h.Header.NextProofContext != nil {
 		return true
 	}
 	return false
