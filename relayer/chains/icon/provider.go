@@ -289,10 +289,10 @@ func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelI
 
 func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestBlock provider.LatestBlock) error {
 	if msgTransfer.Sequence <= 0 {
-		return fmt.Errorf("Refuse to relay packet with sequence 0")
+		return fmt.Errorf("refuse to relay packet with sequence 0")
 	}
 	if len(msgTransfer.Data) == 0 {
-		return fmt.Errorf("Refuse to relay packet with empty data")
+		return fmt.Errorf("refuse to relay packet with empty data")
 	}
 	// This should not be possible, as it violates IBC spec
 	if msgTransfer.TimeoutHeight.IsZero() {
