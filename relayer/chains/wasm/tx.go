@@ -741,6 +741,9 @@ func (ap *WasmProvider) SendMessagesToMempool(
 
 		txBytes, sequence, err := ap.buildMessages(cliCtx, factory, wasmMsg.Msg)
 		if err != nil {
+			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+				ap.handleAccountSequenceMismatchError(err)
+			}
 			return err
 		}
 
