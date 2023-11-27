@@ -376,10 +376,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 	// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
 
-	ccp.log.Debug("Queried latest height",
-		zap.Int64("latest_height", persistence.latestHeight),
-	)
-
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
 	}
@@ -420,6 +416,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var lightBlock *types.LightBlock
+		var h provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
@@ -430,7 +427,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
 			defer cancelQueryCtx()
-			latestHeader, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
+			h, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -439,13 +436,19 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			break
 		}
 
+		ccp.log.Debug(
+			"Queried block",
+			zap.Int64("height", i),
+			zap.Int64("latest", persistence.latestHeight),
+			zap.Int64("delta", persistence.latestHeight-i),
+		)
+
+		latestHeader = h
+
 		if err := ccp.Verify(ctx, lightBlock); err != nil {
 			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
 			return err
 		}
-
-		ccp.log.Debug("Verified block ",
-			zap.Int64("height", lightBlock.Header.Height))
 
 		heightUint64 := uint64(i)
 
@@ -456,7 +459,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := true
+		base64Encoded := ccp.chainProvider.cometLegacyEncoding
 
 		for _, tx := range blockRes.TxsResults {
 			if tx.Code != 0 {
@@ -557,7 +560,7 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 		untrusted.ValidatorSet,
 		ccp.verifier.Header.SignedHeader,
 		time.Now(), 0); err != nil {
-		return fmt.Errorf("Failed to verify Header: %v", err)
+		return fmt.Errorf("failed to verify Header: %v", err)
 	}
 
 	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {

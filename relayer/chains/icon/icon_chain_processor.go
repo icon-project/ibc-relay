@@ -296,8 +296,6 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	ctxMonitorBlock, cancelMonitorBlock := context.WithCancel(ctx)
 	reconnect()
 
-	ibcHeaderCache := make(processor.IBCHeaderCache)
-
 	icp.firstTime = true
 
 	blockReq := &types.BlockRequest{
@@ -357,9 +355,6 @@ loop:
 					break
 				}
 
-				icp.log.Debug("Verified block ",
-					zap.Int64("height", int64(processedheight)))
-
 				icp.latestBlock = provider.LatestBlock{
 					Height: uint64(processedheight),
 				}
@@ -371,6 +366,7 @@ loop:
 					icp.handleMessage(ctx, *m, ibcMessageCache)
 				}
 
+				ibcHeaderCache := make(processor.IBCHeaderCache)
 				ibcHeaderCache[uint64(br.Height)] = br.Header
 				icp.log.Debug("Queried block ",
 					zap.Int64("height", br.Height))
@@ -500,7 +496,7 @@ func (icp *IconChainProcessor) SnapshotHeight(height int64) {
 func (icp *IconChainProcessor) verifyBlock(ctx context.Context, ibcHeader provider.IBCHeader) error {
 	header, ok := ibcHeader.(IconIBCHeader)
 	if !ok {
-		return fmt.Errorf("Provided Header is not compatible with IBCHeader")
+		return fmt.Errorf("provided header is not compatible with IBCHeader")
 	}
 	if icp.firstTime {
 		proofContext, err := icp.chainProvider.GetProofContextByHeight(int64(header.MainHeight) - 1)
@@ -669,6 +665,13 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 	ibcHeaderCache processor.IBCHeaderCache) error {
 
 	chainID := icp.chainProvider.ChainId()
+	latestHeight, _ := icp.chainProvider.QueryLatestHeight(ctx)
+
+	inSync := false
+
+	if latestHeight != 0 && uint64(latestHeight)-latestHeader.Height() < 3 {
+		inSync = true
+	}
 
 	for _, pp := range icp.pathProcessors {
 		clientID := pp.RelevantClientID(chainID)
@@ -685,7 +688,7 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 			LatestBlock:          icp.latestBlock,
 			LatestHeader:         latestHeader,
 			IBCMessagesCache:     messageCache,
-			InSync:               true,
+			InSync:               inSync,
 			ClientState:          clientState,
 			ConnectionStateCache: icp.connectionStateCache.FilterForClient(clientID),
 			ChannelStateCache:    icp.channelStateCache.FilterForClient(clientID, icp.channelConnections, icp.connectionClients),
