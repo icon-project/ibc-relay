@@ -1191,7 +1191,3 @@ func (ap *CosmosProvider) QueryMissingPacketReceipts(ctx context.Context, latest
 func (ap *CosmosProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
 	panic("QueryNextSeqSend not implemented")
 }
-
-func (ap *CosmosProvider) QueryProofContextChangeHeights(ctx context.Context, counterpartyClientHeight uint64, height uint64) ([]uint64, error) {
-	panic("QueryProofContextChangeHeights not implemented")
-}

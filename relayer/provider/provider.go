@@ -483,9 +483,6 @@ type QueryProvider interface {
 	// ics 20 - transfer
 	QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error)
 	QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error)
-
-	// For BTP
-	QueryProofContextChangeHeights(ctx context.Context, counterpartyClientHeight uint64, height uint64) ([]uint64, error)
 }
 
 type RelayPacket interface {

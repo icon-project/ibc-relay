@@ -1031,7 +1031,3 @@ func (ap *WasmProvider) QueryNextSeqSend(ctx context.Context, height int64, chan
 	}
 	return response, nil
 }
-
-func (ap *WasmProvider) QueryProofContextChangeHeights(ctx context.Context, counterpartyClientHeight uint64, height uint64) ([]uint64, error) {
-	panic("QueryProofContextChangeHeights not implemented")
-}
