@@ -55,6 +55,7 @@ const (
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
 	flagBtpBlockHeight          = "btp-block-height"
+	flagBtpUpdateProofContext   = "btp-update-proof-context"
 )
 
 const (
@@ -386,6 +387,14 @@ func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagOverwriteConfig, "o", false,
 		"overwrite already configured paths - will clear channel filter(s)")
 	if err := v.BindPFlag(flagOverwriteConfig, cmd.Flags().Lookup(flagOverwriteConfig)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func BtpUpdateProofContextFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().BoolP(flagBtpUpdateProofContext, "u", false, "update all proof context change")
+	if err := v.BindPFlag(flagFlushInterval, cmd.Flags().Lookup(flagFlushInterval)); err != nil {
 		panic(err)
 	}
 	return cmd
