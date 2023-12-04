@@ -9,12 +9,16 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
 	"github.com/cosmos/relayer/v2/relayer/chains/wasm"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/cosmos/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
 
@@ -33,26 +37,26 @@ const (
 	TwoMB                               = 2 * 1024 * 1024
 )
 
-func timerChannel(ctx context.Context, log *zap.Logger, timerChan map[string]chan struct{}, chains map[string]*Chain) {
-	ticker := time.NewTicker(time.Hour)
-	defer ticker.Stop()
-	for {
-	NamedLoop:
-		select {
-		case <-ticker.C:
-			for _, c := range chains {
-				_, err := c.ChainProvider.QueryLatestHeight(ctx)
-				if err != nil {
-					log.Warn("Failed getting status of chain", zap.String("chain_id", c.ChainID()), zap.Error(err))
-					break NamedLoop
-				}
-			}
-			for _, c := range timerChan {
-				c <- struct{}{}
-			}
-		}
-	}
-}
+// func timerChannel(ctx context.Context, log *zap.Logger, timerChan map[string]chan struct{}, chains map[string]*Chain) {
+// 	ticker := time.NewTicker(time.Hour)
+// 	defer ticker.Stop()
+// 	for {
+// 	NamedLoop:
+// 		select {
+// 		case <-ticker.C:
+// 			for _, c := range chains {
+// 				_, err := c.ChainProvider.QueryLatestHeight(ctx)
+// 				if err != nil {
+// 					log.Warn("Failed getting status of chain", zap.String("chain_id", c.ChainID()), zap.Error(err))
+// 					break NamedLoop
+// 				}
+// 			}
+// 			for _, c := range timerChan {
+// 				c <- struct{}{}
+// 			}
+// 		}
+// 	}
+// }
 
 // StartRelayer starts the main relaying loop and returns a channel that will contain any control-flow related errors.
 func StartRelayer(
@@ -70,20 +74,20 @@ func StartRelayer(
 	metrics *processor.PrometheusMetrics,
 ) chan error {
 	errorChan := make(chan error, 1)
-	chans := make(map[string]chan struct{})
+	// chans := make(map[string]chan struct{})
 
-	for k := range chains {
-		chans[k] = make(chan struct{})
-	}
+	// for k := range chains {
+	// 	chans[k] = make(chan struct{})
+	// }
 
-	go timerChannel(ctx, log, chans, chains)
+	// go timerChannel(ctx, log, chans, chains)
 
 	switch processorType {
 	case ProcessorEvents:
 		chainProcessors := make([]processor.ChainProcessor, 0, len(chains))
 
-		for name, chain := range chains {
-			chainProcessors = append(chainProcessors, chain.chainProcessor(log, metrics, chans[name]))
+		for _, chain := range chains {
+			chainProcessors = append(chainProcessors, chain.chainProcessor(log, metrics))
 		}
 
 		ePaths := make([]path, len(paths))
@@ -144,7 +148,7 @@ type path struct {
 }
 
 // chainProcessor returns the corresponding ChainProcessor implementation instance for a pathChain.
-func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics, timerChan chan struct{}) processor.ChainProcessor {
+func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.PrometheusMetrics) processor.ChainProcessor {
 	// Handle new ChainProcessor implementations as cases here
 	switch p := chain.ChainProvider.(type) {
 	case *penumbraprocessor.PenumbraProvider:
@@ -152,9 +156,9 @@ func (chain *Chain) chainProcessor(log *zap.Logger, metrics *processor.Prometheu
 	case *cosmos.CosmosProvider:
 		return cosmos.NewCosmosChainProcessor(log, p, metrics)
 	case *icon.IconProvider:
-		return icon.NewIconChainProcessor(log, p, metrics, timerChan)
+		return icon.NewIconChainProcessor(log, p, metrics)
 	case *wasm.WasmProvider:
-		return wasm.NewWasmChainProcessor(log, p, metrics, timerChan)
+		return wasm.NewWasmChainProcessor(log, p, metrics)
 	default:
 		panic(fmt.Errorf("unsupported chain provider type: %T", chain.ChainProvider))
 	}
@@ -551,4 +555,181 @@ func relayUnrelayedAcks(ctx context.Context, log *zap.Logger, src, dst *Chain, m
 	}
 
 	return true
+}
+
+type SrcProviderClientState struct {
+	SrcChainProvider provider.ChainProvider
+	ClientState      exported.ClientState
+	ClientId         string
+}
+
+func RunProofContextUpdate(ctx context.Context, log *zap.Logger, chains map[string]*Chain, paths []NamedPath, fromHeight int64) (uint64, error) {
+
+	log.Info("runProofContextUpdate: started")
+
+	// finding the height to start from
+	srcProviderClientStates := make([]SrcProviderClientState, 0)
+
+pathloop:
+	for _, p := range paths {
+
+		if strings.Contains(p.Path.Src.ClientID, common.IconLightClient) {
+			// src should be iconchain
+			chainId := p.Path.Src.ChainID
+			clientId := p.Path.Src.ClientID
+			for _, chain := range chains {
+				if chain.ChainID() == chainId {
+					// getting clientState
+					cs, err := chain.ChainProvider.QueryClientState(ctx, 0, clientId)
+					if err != nil {
+						log.Debug("error occured when fetching client state",
+							zap.String("chainid ", chainId),
+							zap.String("clientid", clientId))
+						continue
+					}
+					srcProviderClientStates = append(srcProviderClientStates, SrcProviderClientState{
+						SrcChainProvider: chain.ChainProvider,
+						ClientState:      cs,
+						ClientId:         clientId,
+					})
+					continue pathloop
+				}
+			}
+		}
+
+		if strings.Contains(p.Path.Dst.ClientID, common.IconLightClient) {
+			// src should be iconchain
+			chainId := p.Path.Dst.ChainID
+			clientId := p.Path.Dst.ClientID
+			for _, chain := range chains {
+				if chain.ChainID() == chainId {
+					// getting clientState
+					// all the chain 0 should return current height clientState
+					cs, err := chain.ChainProvider.QueryClientState(ctx, 0, clientId)
+					if err != nil {
+						log.Debug("error occured when fetching client state",
+							zap.String("chainid ", chainId),
+							zap.String("clientid", clientId))
+						continue pathloop
+					}
+					srcProviderClientStates = append(srcProviderClientStates, SrcProviderClientState{
+						SrcChainProvider: chain.ChainProvider,
+						ClientState:      cs,
+						ClientId:         clientId,
+					})
+					continue pathloop
+				}
+			}
+		}
+	}
+
+	startQueryHeight := uint64(0)
+
+	if fromHeight > 0 {
+		startQueryHeight = uint64(fromHeight)
+	} else {
+		// find height to query From
+		for _, chainStruct := range srcProviderClientStates {
+			if chainStruct.ClientState == nil && chainStruct.ClientState.GetLatestHeight() == nil {
+				continue
+			}
+			h := chainStruct.ClientState.GetLatestHeight().GetRevisionHeight()
+			if startQueryHeight == 0 {
+				startQueryHeight = h
+			}
+			if h > 0 && startQueryHeight > h {
+				startQueryHeight = h
+			}
+		}
+	}
+
+	if startQueryHeight == 0 {
+		return 0, nil
+	}
+
+	// query all the height until the latest height
+	var chain provider.ChainProvider
+	for _, c := range chains {
+		// assumption: there will be only one icon module config in config.yaml
+		if strings.Contains(c.ChainProvider.Type(), common.IconModule) {
+			chain = c.ChainProvider
+		}
+	}
+
+	iconChainProvider, ok := chain.(*icon.IconProvider)
+	if !ok {
+		return 0, fmt.Errorf("iconChainProvider not found in chain list")
+	}
+
+	// this will move upto the latest height
+	btpBlockHeaders, uptoHeight, err := iconChainProvider.GetProofContextChangeHeaders(ctx, startQueryHeight)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get proofContextChangeHeight %v", err)
+	}
+
+	if len(btpBlockHeaders) == 0 {
+		log.Info("No btpHeight to update: clientContextdidn't changed")
+	}
+
+	// updateClientMessage and create tx
+	for _, c := range srcProviderClientStates {
+		trustedHeight := clienttypes.Height{
+			RevisionNumber: c.ClientState.GetLatestHeight().GetRevisionNumber(),
+			RevisionHeight: c.ClientState.GetLatestHeight().GetRevisionHeight(),
+		}
+		for _, blockHeader := range btpBlockHeaders {
+
+			_, err := c.SrcChainProvider.QueryClientConsensusState(ctx, 0, c.ClientId, clienttypes.NewHeight(0, blockHeader.Height()))
+			if err == nil {
+				log.Info("clientHeight is already updated",
+					zap.String("chain id", c.SrcChainProvider.ChainId()),
+					zap.String("client id ", c.ClientId),
+					zap.Int64("client height", int64(blockHeader.Height())))
+				continue
+			}
+
+			trustedHeader, err := iconChainProvider.QueryIBCHeader(ctx, int64(trustedHeight.GetRevisionHeight()))
+			if err != nil {
+				return 0, fmt.Errorf(" query and update for chain %v", err)
+			}
+
+			clientMessage, err := iconChainProvider.MsgUpdateClientHeader(blockHeader, trustedHeight, trustedHeader)
+			if err != nil {
+				return 0, fmt.Errorf("error occured: %v", err)
+			}
+			msg, err := c.SrcChainProvider.MsgUpdateClient(c.ClientId, clientMessage)
+			if err != nil {
+				return 0, fmt.Errorf("error occured: %v ", err)
+			}
+
+			res, sucess, err := c.SrcChainProvider.SendMessage(ctx, msg, "")
+			if err != nil {
+				return 0, fmt.Errorf("tx not successfull %v", err)
+			}
+
+			if !sucess {
+				return 0, fmt.Errorf("tx not successful, chainId: %s , clientId: %s ",
+					c.SrcChainProvider.ChainId(),
+					c.ClientId)
+			}
+
+			log.Debug("update client successful",
+				zap.String("chain id ", c.SrcChainProvider.ChainId()),
+				zap.String("client id ", c.ClientId),
+				zap.String("txhash", res.TxHash))
+
+			// updating trustedHeight
+			cs, err := c.SrcChainProvider.QueryClientState(ctx, 0, c.ClientId)
+			if err != nil {
+				return 0, fmt.Errorf("error fetching clientState %v", err)
+			}
+			csLatestHeight := cs.GetLatestHeight()
+			trustedHeight =
+				clienttypes.Height{
+					RevisionNumber: csLatestHeight.GetRevisionNumber(),
+					RevisionHeight: csLatestHeight.GetRevisionHeight(),
+				}
+		}
+	}
+	return uptoHeight, nil
 }
