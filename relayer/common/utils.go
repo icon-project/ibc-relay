@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -57,4 +58,20 @@ func LoadSnapshotHeight(chain_id string) (int64, error) {
 		return -1, fmt.Errorf("Failed reading file, %w", err)
 	}
 	return strconv.ParseInt(strings.TrimSuffix(string(content), "\n"), 10, 64)
+}
+
+func AnyToInt64(value interface{}) (int64, error) {
+	switch v := reflect.ValueOf(value); v.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int(), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return int64(v.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return int64(v.Float()), nil
+	case reflect.String:
+		// Parse the string as an int64
+		return strconv.ParseInt(v.String(), 10, 64)
+	default:
+		return 0, fmt.Errorf("unsupported type: %v", v.Kind())
+	}
 }
