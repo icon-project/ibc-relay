@@ -51,17 +51,17 @@ var (
  * KeyDirectory/Keystore.json
  */
 type IconProviderConfig struct {
-	KeyDirectory         string `json:"key-directory" yaml:"key-directory"`
-	ChainName            string `json:"-" yaml:"-"`
-	ChainID              string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr              string `json:"rpc-addr" yaml:"rpc-addr"`
-	Timeout              string `json:"timeout" yaml:"timeout"`
-	Keystore             string `json:"keystore" yaml:"keystore"`
-	Password             string `json:"password" yaml:"password"`
-	ICONNetworkID        int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
-	BTPNetworkID         int64  `json:"btp-network-id" yaml:"btp-network-id"`
-	BTPNetworkTypeID     int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	StartHeight          int64  `json:"start-height" yaml:"start-height"`
+	KeyDirectory     string `json:"key-directory" yaml:"key-directory"`
+	ChainName        string `json:"-" yaml:"-"`
+	ChainID          string `json:"chain-id" yaml:"chain-id"`
+	RPCAddr          string `json:"rpc-addr" yaml:"rpc-addr"`
+	Timeout          string `json:"timeout" yaml:"timeout"`
+	Keystore         string `json:"keystore" yaml:"keystore"`
+	Password         string `json:"password" yaml:"password"`
+	ICONNetworkID    int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
+	BTPNetworkID     int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
+	// StartHeight          int64  `json:"start-height" yaml:"start-height"`
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
@@ -105,11 +105,11 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	}
 
 	return &IconProvider{
-		log:         log.With(zap.String("chain_id", pp.ChainID)),
-		client:      NewClient(pp.getRPCAddr(), log),
-		PCfg:        pp,
-		StartHeight: uint64(pp.StartHeight),
-		codec:       MakeCodec(ModuleBasics, []string{}),
+		log:    log.With(zap.String("chain_id", pp.ChainID)),
+		client: NewClient(pp.getRPCAddr(), log),
+		PCfg:   pp,
+		// StartHeight: uint64(pp.StartHeight),
+		codec: MakeCodec(ModuleBasics, []string{}),
 	}, nil
 
 }
