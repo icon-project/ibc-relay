@@ -11,51 +11,52 @@ import (
 )
 
 const (
-	flagHome                    = "home"
-	flagURL                     = "url"
-	flagSkip                    = "skip"
-	flagTimeout                 = "timeout"
-	flagJSON                    = "json"
-	flagYAML                    = "yaml"
-	flagFile                    = "file"
-	flagPath                    = "path"
-	flagMaxTxSize               = "max-tx-size"
-	flagMaxMsgLength            = "max-msgs"
-	flagIBCDenoms               = "ibc-denoms"
-	flagTimeoutHeightOffset     = "timeout-height-offset"
-	flagTimeoutTimeOffset       = "timeout-time-offset"
-	flagMaxRetries              = "max-retries"
-	flagThresholdTime           = "time-threshold"
-	flagUpdateAfterExpiry       = "update-after-expiry"
-	flagUpdateAfterMisbehaviour = "update-after-misbehaviour"
-	flagClientTrustingPeriod    = "client-tp"
-	flagOverride                = "override"
-	flagSrcPort                 = "src-port"
-	flagDstPort                 = "dst-port"
-	flagOrder                   = "order"
-	flagVersion                 = "version"
-	flagDebugAddr               = "debug-addr"
-	flagOverwriteConfig         = "overwrite"
-	flagLimit                   = "limit"
-	flagHeight                  = "height"
-	flagPage                    = "page"
-	flagPageKey                 = "page-key"
-	flagCountTotal              = "count-total"
-	flagReverse                 = "reverse"
-	flagProcessor               = "processor"
-	flagInitialBlockHistory     = "block-history"
-	flagFlushInterval           = "flush-interval"
-	flagMemo                    = "memo"
-	flagFilterRule              = "filter-rule"
-	flagFilterChannels          = "filter-channels"
-	flagSrcChainID              = "src-chain-id"
-	flagDstChainID              = "dst-chain-id"
-	flagSrcClientID             = "src-client-id"
-	flagDstClientID             = "dst-client-id"
-	flagSrcConnID               = "src-connection-id"
-	flagDstConnID               = "dst-connection-id"
-	flagBtpBlockHeight          = "btp-block-height"
-	flagBtpUpdateProofContext   = "btp-update-proof-context"
+	flagHome                            = "home"
+	flagURL                             = "url"
+	flagSkip                            = "skip"
+	flagTimeout                         = "timeout"
+	flagJSON                            = "json"
+	flagYAML                            = "yaml"
+	flagFile                            = "file"
+	flagPath                            = "path"
+	flagMaxTxSize                       = "max-tx-size"
+	flagMaxMsgLength                    = "max-msgs"
+	flagIBCDenoms                       = "ibc-denoms"
+	flagTimeoutHeightOffset             = "timeout-height-offset"
+	flagTimeoutTimeOffset               = "timeout-time-offset"
+	flagMaxRetries                      = "max-retries"
+	flagThresholdTime                   = "time-threshold"
+	flagUpdateAfterExpiry               = "update-after-expiry"
+	flagUpdateAfterMisbehaviour         = "update-after-misbehaviour"
+	flagClientTrustingPeriod            = "client-tp"
+	flagOverride                        = "override"
+	flagSrcPort                         = "src-port"
+	flagDstPort                         = "dst-port"
+	flagOrder                           = "order"
+	flagVersion                         = "version"
+	flagDebugAddr                       = "debug-addr"
+	flagOverwriteConfig                 = "overwrite"
+	flagLimit                           = "limit"
+	flagHeight                          = "height"
+	flagPage                            = "page"
+	flagPageKey                         = "page-key"
+	flagCountTotal                      = "count-total"
+	flagReverse                         = "reverse"
+	flagProcessor                       = "processor"
+	flagInitialBlockHistory             = "block-history"
+	flagFlushInterval                   = "flush-interval"
+	flagMemo                            = "memo"
+	flagFilterRule                      = "filter-rule"
+	flagFilterChannels                  = "filter-channels"
+	flagSrcChainID                      = "src-chain-id"
+	flagDstChainID                      = "dst-chain-id"
+	flagSrcClientID                     = "src-client-id"
+	flagDstClientID                     = "dst-client-id"
+	flagSrcConnID                       = "src-connection-id"
+	flagDstConnID                       = "dst-connection-id"
+	flagBtpBlockHeight                  = "btp-block-height"
+	flagBtpUpdateProofContext           = "btp-update-proof-context"
+	flagBTPUpdateProofContextFromHeight = "btp-update-proof-context-from-height"
 )
 
 const (
@@ -394,6 +395,14 @@ func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 
 func BtpUpdateProofContextFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagBtpUpdateProofContext, "u", false, "update all proof context change")
+	if err := v.BindPFlag(flagFlushInterval, cmd.Flags().Lookup(flagFlushInterval)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func BtpUpdateProofContextFromHeightFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flagBTPUpdateProofContextFromHeight, 0, "btp update proof context from height")
 	if err := v.BindPFlag(flagFlushInterval, cmd.Flags().Lookup(flagFlushInterval)); err != nil {
 		panic(err)
 	}
