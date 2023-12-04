@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -1057,37 +1059,220 @@ func (ip *IconProvider) GetProofContextChangePeriod() (uint64, error) {
 	return 0, nil
 }
 
-func (ip *IconProvider) QueryProofContextChangeHeights(ctx context.Context, counterpartyClientHeight uint64, latestHeight uint64) ([]uint64, error) {
-	heights := make([]uint64, 0)
-	// querying prepterm
+func (icp *IconProvider) GetProofContextChangeHeaders(ctx context.Context, afterHeight uint64) ([]provider.IBCHeader, uint64, error) {
+	proofContextChangeHeights := make([]provider.IBCHeader, 0)
 
-	period, err := ip.GetProofContextChangePeriod()
+	logTicker := time.NewTicker(10 * time.Second)
+
+	errCh := make(chan error)                                            // error channel
+	reconnectCh := make(chan struct{}, 1)                                // reconnect channel
+	btpBlockNotifCh := make(chan *types.BlockNotification, 10)           // block notification channel
+	btpBlockRespCh := make(chan *btpBlockResponse, cap(btpBlockNotifCh)) // block result channel
+
+	// uptoHeight
+	uptoHeight, err := icp.QueryLatestHeight(ctx)
 	if err != nil {
-		return heights, err
+		return nil, 0, fmt.Errorf("error fetching latest height %v", err)
 	}
 
-	// 0 suggest that proof context period is not set
-	if period == 0 {
-		return heights, nil
-	}
-
-	// hasn't reached until the latest block
-	if counterpartyClientHeight+period > latestHeight {
-		return heights, nil
-	}
-
-	lastPeriodChangeHeight := counterpartyClientHeight - counterpartyClientHeight%period
-
-	for lastPeriodChangeHeight < latestHeight {
-		lastPeriodChangeHeight += period
-		btpblock, err := ip.GetBtpHeader(int64(lastPeriodChangeHeight + 1))
-		if err != nil {
-			continue
+	reconnect := func() {
+		select {
+		case reconnectCh <- struct{}{}:
+		default:
 		}
-		if btpblock != nil {
-			heights = append(heights, btpblock.MainHeight)
+		for len(btpBlockRespCh) > 0 || len(btpBlockNotifCh) > 0 {
+			select {
+			case <-btpBlockRespCh: // clear block result channel
+			case <-btpBlockNotifCh: // clear block notification channel
+			}
 		}
 	}
 
-	return heights, nil
+	icp.log.Info("Start to check from height", zap.Int64("height", int64(afterHeight)))
+	// subscribe to monitor block
+	ctxMonitorBlock, cancelMonitorBlock := context.WithCancel(ctx)
+	reconnect()
+
+	processedheight := int64(afterHeight) + 1
+
+	blockReq := &types.BlockRequest{
+		Height: types.NewHexInt(processedheight),
+	}
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, 0, nil
+		case err := <-errCh:
+			return nil, 0, err
+
+		// this ticker is just to show log
+		case <-logTicker.C:
+			// fetching latest height also
+			h, _ := icp.QueryLatestHeight(ctx)
+			if h > 0 {
+				uptoHeight = h
+				icp.log.Info("finding proof context change height continues...",
+					zap.Int64("reached height", processedheight))
+			}
+
+		case <-reconnectCh:
+			cancelMonitorBlock()
+			ctxMonitorBlock, cancelMonitorBlock = context.WithCancel(ctx)
+
+			go func(ctx context.Context, cancel context.CancelFunc) {
+				blockReq.Height = types.NewHexInt(processedheight)
+				err := icp.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
+					if !errors.Is(ctx.Err(), context.Canceled) {
+						btpBlockNotifCh <- v
+					}
+					return nil
+				}, func(conn *websocket.Conn) {
+				}, func(conn *websocket.Conn, err error) {})
+				if err != nil {
+					if errors.Is(err, context.Canceled) {
+						return
+					}
+					time.Sleep(time.Second * 5)
+					reconnect()
+				}
+
+			}(ctxMonitorBlock, cancelMonitorBlock)
+		case br := <-btpBlockRespCh:
+			for ; br != nil; processedheight++ {
+
+				if br.Header.ShouldUpdateForProofContextChange() {
+					icp.log.Info("proof context changed at", zap.Int64("height", int64(br.Header.MainHeight)))
+					proofContextChangeHeights = append(proofContextChangeHeights, br.Header)
+				}
+				// process completed
+				if br.Header.Height() == uint64(uptoHeight) {
+					return proofContextChangeHeights, uint64(uptoHeight), nil
+				}
+
+				if br = nil; len(btpBlockRespCh) > 0 {
+					br = <-btpBlockRespCh
+				}
+			}
+			// remove unprocessed blockResponses
+			for len(btpBlockRespCh) > 0 {
+				<-btpBlockRespCh
+			}
+
+		default:
+			select {
+			default:
+			case bn := <-btpBlockNotifCh:
+				requestCh := make(chan *btpBlockRequest, cap(btpBlockNotifCh))
+				for i := int64(0); bn != nil; i++ {
+					height, err := bn.Height.Value()
+					if err != nil {
+						return nil, 0, err
+					} else if height != processedheight+i {
+						icp.log.Warn("Reconnect: missing block notification",
+							zap.Int64("got", height),
+							zap.Int64("expected", processedheight+i),
+						)
+						reconnect()
+						continue loop
+					}
+
+					requestCh <- &btpBlockRequest{
+						height:  height,
+						hash:    bn.Hash,
+						indexes: bn.Indexes,
+						events:  bn.Events,
+						retry:   queryRetries,
+					}
+					if bn = nil; len(btpBlockNotifCh) > 0 && len(requestCh) < cap(requestCh) {
+						bn = <-btpBlockNotifCh
+					}
+				}
+
+				brs := make([]*btpBlockResponse, 0, len(requestCh))
+				for request := range requestCh {
+					switch {
+					case request.err != nil:
+						if request.retry > 0 {
+							request.retry--
+							request.response, request.err = nil, nil
+							requestCh <- request
+							continue
+						}
+						icp.log.Info("Request error ",
+							zap.Any("height", request.height),
+							zap.Error(request.err))
+						brs = append(brs, nil)
+						if len(brs) == cap(brs) {
+							close(requestCh)
+						}
+					case request.response != nil:
+						brs = append(brs, request.response)
+						if len(brs) == cap(brs) {
+							close(requestCh)
+						}
+					default:
+						go icp.handleBlockRequest(request, requestCh)
+
+					}
+
+				}
+				// filter nil
+				_brs, brs := brs, brs[:0]
+				for _, v := range _brs {
+					if v.IsProcessed == processed {
+						brs = append(brs, v)
+					}
+				}
+
+				// sort and forward notifications
+				if len(brs) > 0 {
+					sort.SliceStable(brs, func(i, j int) bool {
+						return brs[i].Height < brs[j].Height
+					})
+					for i, d := range brs {
+						if d.Height == processedheight+int64(i) {
+							btpBlockRespCh <- d
+						}
+					}
+				}
+
+			}
+		}
+	}
+}
+
+func (icp *IconProvider) handleBlockRequest(
+	request *btpBlockRequest, requestCh chan *btpBlockRequest) {
+	defer func() {
+		time.Sleep(500 * time.Millisecond)
+		requestCh <- request
+	}()
+
+	if request.response == nil {
+		request.response = &btpBlockResponse{
+			IsProcessed: notProcessed,
+			Height:      request.height,
+		}
+	}
+
+	validators, err := icp.GetProofContextByHeight(request.height)
+	if err != nil {
+		request.err = errors.Wrapf(err, "Failed to get proof context: %v", err)
+		return
+	}
+
+	btpHeader, err := icp.GetBtpHeader(request.height)
+	if err != nil {
+		if btpBlockNotPresent(err) {
+			request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
+			request.response.IsProcessed = processed
+			return
+		}
+		request.err = errors.Wrapf(err, "Failed to get btp header: %v", err)
+		return
+	}
+	request.response.Header = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
+	request.response.IsProcessed = processed
 }
