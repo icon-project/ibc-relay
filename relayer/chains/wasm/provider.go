@@ -70,8 +70,9 @@ type WasmProviderConfig struct {
 	Broadcast            provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 	IbcHandlerAddress    string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
-	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
-	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
+	// StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
+	BlockInterval uint64 `json:"block-interval" yaml:"block-interval"`
+	Concurrency   int64  `json:"concurrency" yaml:"concurrency"`
 }
 
 type WasmIBCHeader struct {
