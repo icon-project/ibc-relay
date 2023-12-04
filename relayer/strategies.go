@@ -565,7 +565,7 @@ type SrcProviderClientState struct {
 
 func RunProofContextUpdate(ctx context.Context, log *zap.Logger, chains map[string]*Chain, paths []NamedPath, fromHeight int64) (uint64, error) {
 
-	log.Info("runProofContextUpdate: started")
+	log.Info("running iconchain proof context change update")
 
 	// finding the height to start from
 	srcProviderClientStates := make([]SrcProviderClientState, 0)
