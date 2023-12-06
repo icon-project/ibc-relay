@@ -454,7 +454,7 @@ loop:
 				// filter nil
 				_brs, brs := brs, brs[:0]
 				for _, v := range _brs {
-					if v.IsProcessed == processed {
+					if v != nil && v.IsProcessed == processed {
 						brs = append(brs, v)
 					}
 				}
