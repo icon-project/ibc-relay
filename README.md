@@ -31,6 +31,11 @@ In addition to relaying packets, this relayer can open paths across chains, thus
 Additional information on how IBC works can be found [here](https://ibc.cosmos.network/).
 
 ---
+## Note
+
+If you want to run the relay server yourself, check [here](./docs/mainnet_relaying_icon.md)
+
+---
 
 ## Demo
 - The easiest way would be to follow the guide in [this repo](https://github.com/izyak/icon-ibc/tree/master) to setup relay for icon ibc integration. It has all the relevant scripts setup, and you can start the relay using a single command.
