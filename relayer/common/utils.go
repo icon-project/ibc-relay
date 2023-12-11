@@ -64,3 +64,10 @@ func LoadSnapshotHeight(chain_id string) (int64, error) {
 func NewHeight(height uint64) clienttypes.Height {
 	return clienttypes.NewHeight(1, height)
 }
+
+func ChangeProof(proof []byte, shouldNeverBeEmpty bool) []byte {
+	if proof == nil && shouldNeverBeEmpty {
+		return EmptyProofConst
+	}
+	return proof
+}

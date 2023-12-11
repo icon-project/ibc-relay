@@ -822,7 +822,6 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		ProofTry:       proof.ConnectionStateProof,
 		ProofClient:    proof.ClientStateProof,
 		ProofConsensus: proof.ConsensusStateProof,
-		// ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
 		ConsensusHeight: clienttypes.Height{
 			RevisionNumber: 1,
 			RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
@@ -944,7 +943,7 @@ func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pro
 		ChannelId:             msgOpenTry.CounterpartyChannelID,
 		CounterpartyChannelId: msgOpenTry.ChannelID,
 		CounterpartyVersion:   proof.Version,
-		ProofTry:              proof.Proof,
+		ProofTry:              common.ChangeProof(proof.Proof, true),
 		ProofHeight:           proof.ProofHeight,
 		Signer:                signer,
 	}
@@ -960,7 +959,7 @@ func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo,
 	msg := &chantypes.MsgChannelOpenConfirm{
 		PortId:      msgOpenAck.CounterpartyPortID,
 		ChannelId:   msgOpenAck.CounterpartyChannelID,
-		ProofAck:    proof.Proof,
+		ProofAck:    common.ChangeProof(proof.Proof, true),
 		ProofHeight: proof.ProofHeight,
 		Signer:      signer,
 	}
@@ -1355,21 +1354,6 @@ func (cc *CosmosProvider) NewClientState(
 	fmt.Println("revision number", revisionNumber)
 
 	var clientState ibcexported.ClientState
-
-	// // different clientState in case of icon
-	// if srcChainType == common.IconModule {
-	// 	latestHeight := icon.NewHeight(revisionNumber, dstUpdateHeader.Height())
-	// 	return &itm.ClientState{
-	// 		ChainId:                      dstChainID,
-	// 		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
-	// 		TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
-	// 		UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
-	// 		FrozenHeight:                 &icon.Height{},
-	// 		LatestHeight:                 &latestHeight,
-	// 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-	// 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-	// 	}, nil
-	// }
 
 	// Create the ClientState we want on 'c' tracking 'dst'
 	tmClientState := tendermint.ClientState{

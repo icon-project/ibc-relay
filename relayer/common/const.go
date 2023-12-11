@@ -16,6 +16,7 @@ var (
 	ChannelKey            = "channel"
 	ONE_HOUR              = 60 * 60 * 1000
 	NanoToMilliRatio      = 1000_000
+	EmptyProofConst       = []byte("empty")
 )
 
 var (
