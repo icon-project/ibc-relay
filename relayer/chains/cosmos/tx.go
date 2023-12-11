@@ -44,8 +44,6 @@ import (
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
-	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -148,6 +146,13 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	cc.txMu.Lock()
 	defer cc.txMu.Unlock()
 
+	for _, m := range msgs {
+		fmt.Println("[cosmos] from mempool messageType:", m.Type())
+		b, _ := m.MsgBytes()
+		fmt.Printf("[commos] message %x \n ", b)
+
+	}
+
 	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo)
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
@@ -216,6 +221,10 @@ func (cc *CosmosProvider) broadcastTx(
 			if err == nil {
 				err = fmt.Errorf("transaction failed to execute")
 			}
+		}
+
+		for _, m := range msgs {
+			fmt.Printf("msg: %x", m)
 		}
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
@@ -703,6 +712,8 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	fmt.Println("[cosmos] msgconnectionOpenInit")
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -750,6 +761,8 @@ func (cc *CosmosProvider) ConnectionHandshakeProof(
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+	fmt.Println("[cosmos] msgconnectionOpenTry")
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -795,20 +808,26 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		return nil, err
 	}
 
+	// if msgOpenTry client is wasm client then we need to incorporate it
+
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
 		CounterpartyConnectionId: msgOpenTry.ConnID,
 		Version:                  conntypes.DefaultIBCVersion,
 		ClientState:              csAny,
 		ProofHeight: clienttypes.Height{
-			RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
+			RevisionNumber: 1,
 			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
 		},
-		ProofTry:        proof.ConnectionStateProof,
-		ProofClient:     proof.ClientStateProof,
-		ProofConsensus:  proof.ConsensusStateProof,
-		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
-		Signer:          signer,
+		ProofTry:       proof.ConnectionStateProof,
+		ProofClient:    proof.ClientStateProof,
+		ProofConsensus: proof.ConsensusStateProof,
+		// ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
+		ConsensusHeight: clienttypes.Height{
+			RevisionNumber: 1,
+			RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
+		},
+		Signer: signer,
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -980,6 +999,7 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 }
 
 func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
+
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
@@ -1014,6 +1034,20 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 	}
 
 	clientHeader = &tmClientHeader
+
+	// TODO: handle case for icon header
+	// if true {
+	// 	wasmLatestHeader := provider.NewWasmIBCHeaderFromLightBlock(latestCosmosHeader.LightBlock())
+	// 	wasmTrustedHeader := provider.NewWasmIBCHeaderFromLightBlock(trustedCosmosHeader.LightBlock())
+
+	// 	clientHeader := itm.TmHeader{
+	// 		SignedHeader:      wasmLatestHeader.SignedHeader,
+	// 		ValidatorSet:      wasmLatestHeader.ValidatorSet,
+	// 		TrustedValidators: wasmTrustedHeader.ValidatorSet,
+	// 		TrustedHeight:     int64(trustedHeight.RevisionHeight),
+	// 	}
+	// 	return &clientHeader, nil
+	// }
 
 	if clientType == exported.Wasm {
 		tmClientHeaderBz, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
@@ -1254,15 +1288,15 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 
 // queryTMClientState retrieves the latest consensus state for a client in state at a given height
 // and unpacks/cast it to tendermint clientstate
-func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
+func (cc *CosmosProvider) queryProviderClientState(ctx context.Context, srch int64, srcClientId string) (provider.ClientState, error) {
 	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
-		return &tmclient.ClientState{}, err
+		return provider.ClientState{}, err
 	}
 
 	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
-		return &tmclient.ClientState{}, err
+		return provider.ClientState{}, err
 	}
 
 	switch cs := clientStateExported.(type) {
@@ -1270,7 +1304,7 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 		var clientState ibcexported.ClientState
 		err = cc.Cdc.Marshaler.UnmarshalInterface(cs.Data, &clientState)
 		if err != nil {
-			return &tmclient.ClientState{}, fmt.Errorf("error unmarshaling tm client state, %w", err)
+			return provider.ClientState{}, fmt.Errorf("error unmarshaling tm client state, %w", err)
 		}
 		clientStateExported = clientState
 
@@ -1278,11 +1312,27 @@ func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, sr
 
 	tmClientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
-		return &tmclient.ClientState{},
+		// icon client doesn't have real trusting period so setting large value as trusting period
+		if strings.Contains(clientStateExported.ClientType(), common.IconModule) {
+			return provider.ClientState{
+				ClientID:        srcClientId,
+				ConsensusHeight: clientStateExported.GetLatestHeight().(clienttypes.Height),
+				// using 1 month as the trusting period constant
+				TrustingPeriod: time.Hour * 24 * 7 * 4,
+			}, nil
+		}
+
+		fmt.Println("chain type ", clientStateExported.ClientType())
+		return provider.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
 
-	return tmClientState, nil
+	return provider.ClientState{
+		ClientID:        srcClientId,
+		ConsensusHeight: clientStateExported.GetLatestHeight().(clienttypes.Height),
+		TrustingPeriod:  tmClientState.TrustingPeriod,
+	}, nil
+
 }
 
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
@@ -1297,26 +1347,29 @@ func (cc *CosmosProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 	srcWasmCodeID string,
-	srcChainId string,
+	srcChainType string,
 ) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
+	fmt.Println("[cosmos] srcWasmCodeId", srcWasmCodeID)
+	fmt.Println("revision number", revisionNumber)
+
 	var clientState ibcexported.ClientState
 
-	// different clientState in case of icon
-	if strings.Contains(srcChainId, common.IconModule) {
-		latestHeight := icon.NewHeight(revisionNumber, dstUpdateHeader.Height())
-		return &itm.ClientState{
-			ChainId:                      dstChainID,
-			TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
-			TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
-			UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
-			FrozenHeight:                 &icon.Height{},
-			LatestHeight:                 &latestHeight,
-			AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
-			AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-		}, nil
-	}
+	// // different clientState in case of icon
+	// if srcChainType == common.IconModule {
+	// 	latestHeight := icon.NewHeight(revisionNumber, dstUpdateHeader.Height())
+	// 	return &itm.ClientState{
+	// 		ChainId:                      dstChainID,
+	// 		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
+	// 		TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
+	// 		UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
+	// 		FrozenHeight:                 &icon.Height{},
+	// 		LatestHeight:                 &latestHeight,
+	// 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
+	// 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
+	// 	}, nil
+	// }
 
 	// Create the ClientState we want on 'c' tracking 'dst'
 	tmClientState := tendermint.ClientState{
@@ -1354,6 +1407,7 @@ func (cc *CosmosProvider) NewClientState(
 		}
 	}
 
+	fmt.Println("[cosmos] newclientState", clientState)
 	return clientState, nil
 }
 

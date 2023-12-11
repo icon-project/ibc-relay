@@ -139,7 +139,7 @@ func (ap *WasmProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.I
 		return nil, err
 	}
 
-	return NewWasmIBCHeaderFromLightBlock(lightBlock), nil
+	return provider.NewWasmIBCHeaderFromLightBlock(lightBlock), nil
 }
 
 func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.IBCHeader, *tmtypes.LightBlock, error) {
@@ -151,7 +151,7 @@ func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.
 		return nil, nil, err
 	}
 
-	return NewWasmIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
+	return provider.NewWasmIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
 }
 
 // query packet info for sequence

@@ -401,6 +401,7 @@ func (ap *WasmProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo
 		Prefix:       msgOpenInit.CommitmentPrefix,
 	}
 
+
 	params := &conntypes.MsgConnectionOpenTry{
 		ClientId:             msgOpenInit.CounterpartyClientID,
 		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
@@ -430,6 +431,7 @@ func (ap *WasmProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo,
 	if err != nil {
 		return nil, err
 	}
+
 
 	params := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
@@ -599,12 +601,12 @@ func (ap *WasmProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo
 }
 
 func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
-	trustedWasmHeader, ok := trustedHeader.(WasmIBCHeader)
+	trustedWasmHeader, ok := trustedHeader.(provider.WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
 	}
 
-	latestWasmHeader, ok := latestHeader.(WasmIBCHeader)
+	latestWasmHeader, ok := latestHeader.(provider.WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
 	}

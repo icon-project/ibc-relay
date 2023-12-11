@@ -17,10 +17,10 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 
-	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
+	// itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"go.uber.org/zap"
@@ -228,10 +228,26 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	if err != nil {
 		return nil, err
 	}
+
 	clientStateEncode, err := proto.Marshal(proof.ClientState)
 	if err != nil {
 		return nil, err
 	}
+
+	// client is 08-wasm then
+	// then the client state that could be proved is any type byte
+	// if strings.Split(msgOpenInit.ClientID, "-")[0]==exported.Wasm{
+	anyCs, err := clienttypes.PackClientState(proof.ClientState)
+	if err != nil {
+		return nil, err
+	}
+	anyCsByte, err := proto.Marshal(anyCs)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateEncode = anyCsByte
+	// }
 
 	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
@@ -243,7 +259,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	}
 
 	consHt := &icon.Height{
-		RevisionNumber: 0,
+		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
 	consHtEncode, err := proto.Marshal(consHt)
@@ -284,10 +300,25 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		return nil, err
 	}
 
-	clientStateEncode, err := icp.codec.Marshaler.Marshal(iconClientState)
+	clientStateEncode, err := proto.Marshal(iconClientState)
 	if err != nil {
 		return nil, err
 	}
+
+	// client is 08-wasm then
+	// then the client state that could be proved is any type byte
+	// if strings.Split(msgOpenTry.ClientID, "-")[0]==exported.Wasm{
+	anyCs, err := clienttypes.PackClientState(proof.ClientState)
+	if err != nil {
+		return nil, err
+	}
+	anyCsByte, err := proto.Marshal(anyCs)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateEncode = anyCsByte
+	// }
 
 	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
@@ -497,14 +528,14 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		return nil, fmt.Errorf("Unsupported IBC Header type. Expected: IconIBCHeader,actual: %T", latestHeader)
 	}
 
-	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Header.MainHeight))
+	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Height()))
 	if err != nil {
 		return nil, err
 	}
 
 	var currentValidatorList types.ValidatorList
 	// subtract 1 because it is a current validator not last validator
-	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight-1), icp.PCfg.BTPNetworkTypeID)
+	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Height()-1), icp.PCfg.BTPNetworkTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -516,7 +547,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 
 	var nextValidators types.ValidatorList
 	// subtract 1 because it is a current validator not last validator
-	next_info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
+	next_info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Height()), icp.PCfg.BTPNetworkTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -544,6 +575,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		CurrentValidators: currentValidatorList.Validators,
 	}
 
+	fmt.Println("[icon] msgUpdateClientHeader client type", clientType)
 	// wrap with wasm client
 	if clientType == exported.Wasm {
 
@@ -552,8 +584,9 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 			return &wasmclient.Header{}, nil
 		}
 		return &wasmclient.Header{
-			Data:   tmClientHeaderBz,
-			Height: clienttypes.NewHeight(0, latestIconHeader.Header.MainHeight),
+			Data: tmClientHeaderBz,
+			// TODO: forcefully set 1
+			Height: common.NewHeight(latestIconHeader.Header.MainHeight),
 		}, nil
 
 	}
@@ -564,8 +597,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 
-	cs := counterpartyHeader.(*itm.TmHeader)
-	clientMsg, err := proto.Marshal(cs)
+	clientMsg, err := proto.Marshal(counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -730,34 +762,38 @@ func (icp *IconProvider) SendIconTransaction(
 		return err
 	}
 
-	txParamEst := &types.TransactionParamForEstimate{
-		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-		FromAddress: types.Address(wallet.Address().String()),
-		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
-		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-		DataType:    "call",
-		Data: types.CallData{
-			Method: m.Method,
-			Params: m.Params,
-		},
-	}
+	fmt.Println("[icon] mempool", msg.Type())
+	b, _ := msg.MsgBytes()
+	fmt.Printf("[icon] mempool %x \n", b)
 
-	step, err := icp.client.EstimateStep(txParamEst)
-	if err != nil {
-		return fmt.Errorf("failed estimating step: %w", err)
-	}
-	stepVal, err := step.Int()
-	if err != nil {
-		return err
-	}
-	stepLimit := types.NewHexInt(int64(stepVal + 200_000))
+	// txParamEst := &types.TransactionParamForEstimate{
+	// 	Version:     types.NewHexInt(types.JsonrpcApiVersion),
+	// 	FromAddress: types.Address(wallet.Address().String()),
+	// 	ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
+	// 	NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
+	// 	DataType:    "call",
+	// 	Data: types.CallData{
+	// 		Method: m.Method,
+	// 		Params: m.Params,
+	// 	},
+	// }
+
+	// step, err := icp.client.EstimateStep(txParamEst)
+	// if err != nil {
+	// 	return fmt.Errorf("failed estimating step: %w", err)
+	// }
+	// stepVal, err := step.Int()
+	// if err != nil {
+	// 	return err
+	// }
+	// stepLimit := types.NewHexInt(int64(stepVal + 200_000))
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
 		FromAddress: types.Address(wallet.Address().String()),
 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
 		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-		StepLimit:   stepLimit,
+		StepLimit:   types.NewHexInt(200_000_000),
 		DataType:    "call",
 		Data: types.CallData{
 			Method: m.Method,

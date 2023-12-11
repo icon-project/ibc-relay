@@ -95,6 +95,8 @@ type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
 
+	fmt.Println("clientInfo::", clientInfo)
+
 	existingClientInfo, ok := l[clientInfo.clientID]
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
@@ -708,6 +710,8 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 	if err != nil {
 		return provider.ClientState{}, err
 	}
+
+	//clientState should be of icon
 
 	clientState := provider.ClientState{
 		ClientID: clientID,

@@ -243,9 +243,12 @@ func (icp *IconProvider) NewClientState(
 		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
 	}
 
-	latestHeight := clienttypes.NewHeight(0, dstUpdateHeader.Height())
+	// TODO: arrange better way
+	latestHeight := clienttypes.NewHeight(1, dstUpdateHeader.Height())
 
 	if srcWasmCodeID != "" {
+
+		fmt.Println("inside srcWAsmCodeID")
 		tmClientStateBz, err := icp.codec.Marshaler.MarshalInterface(clientState)
 		if err != nil {
 			return &wasmclient.ClientState{}, err
@@ -457,7 +460,7 @@ func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
 }
 
 func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix(nil)
+	return commitmenttypes.NewMerklePrefix([]byte("ibc"))
 }
 
 func (icp *IconProvider) Key() string {

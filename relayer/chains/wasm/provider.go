@@ -11,10 +11,8 @@ import (
 
 	"github.com/CosmWasm/wasmd/app"
 	provtypes "github.com/cometbft/cometbft/light/provider"
-	comettypes "github.com/cometbft/cometbft/types"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -26,7 +24,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -68,122 +65,6 @@ type WasmProviderConfig struct {
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
 	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
-}
-
-type WasmIBCHeader struct {
-	SignedHeader *itm.SignedHeader
-	ValidatorSet *itm.ValidatorSet
-}
-
-func NewWasmIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet) WasmIBCHeader {
-	return WasmIBCHeader{
-		SignedHeader: header,
-		ValidatorSet: validators,
-	}
-}
-
-func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHeader {
-	vSets := make([]*itm.Validator, 0)
-	for _, v := range lightBlock.ValidatorSet.Validators {
-		_v := &itm.Validator{
-			Address: v.Address,
-			PubKey: &itm.PublicKey{
-				Sum: itm.GetPubKeyFromTx(v.PubKey.Type(), v.PubKey.Bytes()),
-			},
-			VotingPower:      v.VotingPower,
-			ProposerPriority: v.ProposerPriority,
-		}
-
-		vSets = append(vSets, _v)
-	}
-
-	signatures := make([]*itm.CommitSig, 0)
-	for _, d := range lightBlock.Commit.Signatures {
-
-		_d := &itm.CommitSig{
-			BlockIdFlag:      itm.BlockIDFlag(d.BlockIDFlag),
-			ValidatorAddress: d.ValidatorAddress,
-			Timestamp: &itm.Timestamp{
-				Seconds: int64(d.Timestamp.Unix()),
-				Nanos:   int32(d.Timestamp.Nanosecond()),
-			},
-			Signature: d.Signature,
-		}
-		signatures = append(signatures, _d)
-	}
-
-	return WasmIBCHeader{
-		SignedHeader: &itm.SignedHeader{
-			Header: &itm.LightHeader{
-				Version: &itm.Consensus{
-					Block: lightBlock.Version.Block,
-					App:   lightBlock.Version.App,
-				},
-				ChainId: lightBlock.ChainID,
-
-				Height: lightBlock.Height,
-				Time: &itm.Timestamp{
-					Seconds: int64(lightBlock.Time.Unix()),
-					Nanos:   int32(lightBlock.Time.Nanosecond()), // this is the offset after the nanosecond
-				},
-				LastBlockId: &itm.BlockID{
-					Hash: lightBlock.LastBlockID.Hash,
-					PartSetHeader: &itm.PartSetHeader{
-						Total: lightBlock.LastBlockID.PartSetHeader.Total,
-						Hash:  lightBlock.LastBlockID.PartSetHeader.Hash,
-					},
-				},
-				LastCommitHash:     lightBlock.LastCommitHash,
-				DataHash:           lightBlock.DataHash,
-				ValidatorsHash:     lightBlock.ValidatorsHash,
-				NextValidatorsHash: lightBlock.NextValidatorsHash,
-				ConsensusHash:      lightBlock.ConsensusHash,
-				AppHash:            lightBlock.AppHash,
-				LastResultsHash:    lightBlock.LastResultsHash,
-				EvidenceHash:       lightBlock.EvidenceHash,
-				ProposerAddress:    lightBlock.ProposerAddress,
-			},
-			Commit: &itm.Commit{
-				Height: lightBlock.Commit.Height,
-				Round:  lightBlock.Commit.Round,
-				BlockId: &itm.BlockID{
-					Hash: lightBlock.Commit.BlockID.Hash,
-					PartSetHeader: &itm.PartSetHeader{
-						Total: lightBlock.Commit.BlockID.PartSetHeader.Total,
-						Hash:  lightBlock.Commit.BlockID.PartSetHeader.Hash,
-					},
-				},
-				Signatures: signatures,
-			},
-		},
-		ValidatorSet: &itm.ValidatorSet{
-			Validators: vSets,
-		},
-	}
-}
-
-func (h WasmIBCHeader) ConsensusState() ibcexported.ConsensusState {
-	return &itm.ConsensusState{
-		Timestamp:          h.SignedHeader.Header.Time,
-		Root:               &itm.MerkleRoot{Hash: h.SignedHeader.Header.AppHash},
-		NextValidatorsHash: h.SignedHeader.Header.NextValidatorsHash,
-	}
-}
-
-func (a WasmIBCHeader) Height() uint64 {
-	return uint64(a.SignedHeader.Header.Height)
-}
-
-func (a WasmIBCHeader) IsCompleteBlock() bool {
-	return true
-}
-
-func (a WasmIBCHeader) NextValidatorsHash() []byte {
-	return a.SignedHeader.Header.NextValidatorsHash
-}
-
-func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
-	return false
 }
 
 func (pp *WasmProviderConfig) ValidateContractAddress(addr string) bool {

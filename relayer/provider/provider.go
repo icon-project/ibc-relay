@@ -7,6 +7,8 @@ import (
 
 	"github.com/cometbft/cometbft/proto/tendermint/crypto"
 	"github.com/cometbft/cometbft/types"
+	comettypes "github.com/cometbft/cometbft/types"
+	tmtypes "github.com/cometbft/cometbft/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
@@ -16,6 +18,8 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -304,7 +308,7 @@ type ChainProvider interface {
 	// [Begin] Connection handshake IBC message assembly
 
 	// ConnectionHandshakeProof queries for proof of an initialized connection handshake.
-	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, height uint64) (ConnectionProof, error)
+	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, height uint64,) (ConnectionProof, error)
 
 	// ConnectionProof queries for proof of an acked handshake.
 	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, height uint64) (ConnectionProof, error)
@@ -578,4 +582,128 @@ func (h TendermintIBCHeader) TMHeader() (*tendermint.Header, error) {
 		TrustedHeight:     h.TrustedHeight,
 		TrustedValidators: trustedVals,
 	}, nil
+}
+
+func (h TendermintIBCHeader) LightBlock() *comettypes.LightBlock {
+	return &tmtypes.LightBlock{
+		SignedHeader: h.SignedHeader,
+		ValidatorSet: h.ValidatorSet,
+	}
+}
+
+// ######################for wasm ##############
+type WasmIBCHeader struct {
+	SignedHeader *itm.SignedHeader
+	ValidatorSet *itm.ValidatorSet
+}
+
+func NewWasmIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet) WasmIBCHeader {
+	return WasmIBCHeader{
+		SignedHeader: header,
+		ValidatorSet: validators,
+	}
+}
+
+func (h WasmIBCHeader) ConsensusState() ibcexported.ConsensusState {
+	return &itm.ConsensusState{
+		Timestamp:          h.SignedHeader.Header.Time,
+		Root:               &itm.MerkleRoot{Hash: h.SignedHeader.Header.AppHash},
+		NextValidatorsHash: h.SignedHeader.Header.NextValidatorsHash,
+	}
+}
+
+func (a WasmIBCHeader) Height() uint64 {
+	return uint64(a.SignedHeader.Header.Height)
+}
+
+func (a WasmIBCHeader) IsCompleteBlock() bool {
+	return true
+}
+
+func (a WasmIBCHeader) NextValidatorsHash() []byte {
+	return a.SignedHeader.Header.NextValidatorsHash
+}
+
+func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
+	return false
+}
+
+func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHeader {
+	vSets := make([]*itm.Validator, 0)
+	for _, v := range lightBlock.ValidatorSet.Validators {
+		_v := &itm.Validator{
+			Address: v.Address,
+			PubKey: &itm.PublicKey{
+				Sum: itm.GetPubKeyFromTx(v.PubKey.Type(), v.PubKey.Bytes()),
+			},
+			VotingPower:      v.VotingPower,
+			ProposerPriority: v.ProposerPriority,
+		}
+
+		vSets = append(vSets, _v)
+	}
+
+	signatures := make([]*itm.CommitSig, 0)
+	for _, d := range lightBlock.Commit.Signatures {
+
+		_d := &itm.CommitSig{
+			BlockIdFlag:      itm.BlockIDFlag(d.BlockIDFlag),
+			ValidatorAddress: d.ValidatorAddress,
+			Timestamp: &itm.Timestamp{
+				Seconds: int64(d.Timestamp.Unix()),
+				Nanos:   int32(d.Timestamp.Nanosecond()),
+			},
+			Signature: d.Signature,
+		}
+		signatures = append(signatures, _d)
+	}
+
+	return WasmIBCHeader{
+		SignedHeader: &itm.SignedHeader{
+			Header: &itm.LightHeader{
+				Version: &itm.Consensus{
+					Block: lightBlock.Version.Block,
+					App:   lightBlock.Version.App,
+				},
+				ChainId: lightBlock.ChainID,
+
+				Height: lightBlock.Height,
+				Time: &itm.Timestamp{
+					Seconds: int64(lightBlock.Time.Unix()),
+					Nanos:   int32(lightBlock.Time.Nanosecond()), // this is the offset after the nanosecond
+				},
+				LastBlockId: &itm.BlockID{
+					Hash: lightBlock.LastBlockID.Hash,
+					PartSetHeader: &itm.PartSetHeader{
+						Total: lightBlock.LastBlockID.PartSetHeader.Total,
+						Hash:  lightBlock.LastBlockID.PartSetHeader.Hash,
+					},
+				},
+				LastCommitHash:     lightBlock.LastCommitHash,
+				DataHash:           lightBlock.DataHash,
+				ValidatorsHash:     lightBlock.ValidatorsHash,
+				NextValidatorsHash: lightBlock.NextValidatorsHash,
+				ConsensusHash:      lightBlock.ConsensusHash,
+				AppHash:            lightBlock.AppHash,
+				LastResultsHash:    lightBlock.LastResultsHash,
+				EvidenceHash:       lightBlock.EvidenceHash,
+				ProposerAddress:    lightBlock.ProposerAddress,
+			},
+			Commit: &itm.Commit{
+				Height: lightBlock.Commit.Height,
+				Round:  lightBlock.Commit.Round,
+				BlockId: &itm.BlockID{
+					Hash: lightBlock.Commit.BlockID.Hash,
+					PartSetHeader: &itm.PartSetHeader{
+						Total: lightBlock.Commit.BlockID.PartSetHeader.Total,
+						Hash:  lightBlock.Commit.BlockID.PartSetHeader.Hash,
+					},
+				},
+				Signatures: signatures,
+			},
+		},
+		ValidatorSet: &itm.ValidatorSet{
+			Validators: vSets,
+		},
+	}
 }

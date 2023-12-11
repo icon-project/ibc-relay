@@ -296,6 +296,8 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		return fmt.Errorf("error assembling new client header: %w", err)
 	}
 
+	// fmt.Println("message update header is", msgUpdateClientHeader)
+	// fmt.Println("dst is ", dst.chainProvider.ChainId())
 	msgUpdateClient, err := dst.chainProvider.MsgUpdateClient(clientID, msgUpdateClientHeader)
 	if err != nil {
 		return fmt.Errorf("error assembling MsgUpdateClient: %w", err)

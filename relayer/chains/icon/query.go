@@ -204,7 +204,7 @@ func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, heigh
 		return nil, err
 	}
 
-	clientStateRes := clienttypes.NewQueryClientStateResponse(any, nil, clienttypes.NewHeight(0, uint64(height)))
+	clientStateRes := clienttypes.NewQueryClientStateResponse(any, nil, common.NewHeight(uint64(height)))
 	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
 		return nil, err
@@ -243,15 +243,13 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		return nil, err
 	}
 
-	return clienttypes.NewQueryClientStateResponse(any, proof, clienttypes.NewHeight(0, uint64(height))), nil
+	return clienttypes.NewQueryClientStateResponse(any, proof, common.NewHeight(uint64(height))), nil
 }
 
 func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 
-	h, ok := clientHeight.(clienttypes.Height)
-	if !ok {
-		return nil, fmt.Errorf("clientHeight type mismatched ")
-	}
+	h := clienttypes.NewHeight(clientHeight.GetRevisionNumber(), clientHeight.GetRevisionHeight())
+	fmt.Println("[icon] queryClientConsensusState height:  ", h)
 
 	heightBytes, err := icp.codec.Marshaler.Marshal(&h)
 	if err != nil {
@@ -278,7 +276,9 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 		return nil, err
 	}
 
-	key := common.GetConsensusStateCommitmentKey(clientid, big.NewInt(0), big.NewInt(int64(h.RevisionHeight)))
+	fmt.Println("[icon] QueryClientConsensusState height: ", h)
+
+	key := common.GetConsensusStateCommitmentKey(clientid, big.NewInt(int64(h.RevisionNumber)), big.NewInt(int64(h.RevisionHeight)))
 	commitmentHash := getCommitmentHash(key, cnsStateByte)
 
 	proof, err := icp.QueryIconProof(ctx, chainHeight, commitmentHash)
@@ -289,7 +289,7 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 	return &clienttypes.QueryConsensusStateResponse{
 		ConsensusState: any,
 		Proof:          proof,
-		ProofHeight:    clienttypes.NewHeight(0, uint64(chainHeight)),
+		ProofHeight:    common.NewHeight(uint64(chainHeight)),
 	}, nil
 }
 
@@ -368,6 +368,8 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 		return emptyConnRes, err
 	}
 
+	fmt.Println("connection::::", conn)
+
 	key := common.GetConnectionCommitmentKey(connectionid)
 	commitmentHash := getCommitmentHash(key, connectionBytes)
 
@@ -376,7 +378,7 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 		return emptyConnRes, err
 	}
 
-	return conntypes.NewQueryConnectionResponse(conn, proof, clienttypes.NewHeight(0, uint64(height))), nil
+	return conntypes.NewQueryConnectionResponse(conn, proof, common.NewHeight(uint64(height))), nil
 
 }
 
@@ -483,11 +485,15 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 	[]byte, []byte, []byte,
 	ibcexported.Height, error) {
 
+	fmt.Println("[icon] generateConnHandshakeProof")
+
 	// clientProof
 	clientResponse, err := icp.QueryClientStateResponse(ctx, height, clientId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
+
+	fmt.Println("[icon] got clientResponse ")
 
 	// clientState
 	anyClientState := clientResponse.ClientState
@@ -502,13 +508,17 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
+	fmt.Println("[icon] got QueryClientConsensusState", consensusRes)
+
 	// connectionProof
 	connResponse, err := icp.QueryConnection(ctx, height, connId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	return clientState_, clientResponse.Proof, consensusRes.Proof, connResponse.Proof, clienttypes.NewHeight(0, uint64(height)), nil
+	fmt.Println("[icon] got QueryConnection", connResponse)
+
+	return clientState_, clientResponse.Proof, consensusRes.Proof, connResponse.Proof, common.NewHeight(uint64(height)), nil
 }
 
 // ics 04 - channel
@@ -553,7 +563,7 @@ func (icp *IconProvider) QueryChannel(ctx context.Context, height int64, channel
 		channel.Version,
 	)
 
-	return chantypes.NewQueryChannelResponse(cosmosChan, proof, clienttypes.NewHeight(0, uint64(height))), nil
+	return chantypes.NewQueryChannelResponse(cosmosChan, proof, common.NewHeight(uint64(height))), nil
 }
 
 var emptyChannelRes = chantypes.NewQueryChannelResponse(
@@ -694,7 +704,7 @@ func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, cha
 	return &chantypes.QueryNextSequenceReceiveResponse{
 		NextSequenceReceive: uint64(nextSeq),
 		Proof:               proof,
-		ProofHeight:         clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight:         common.NewHeight(uint64(height)),
 	}, nil
 }
 
@@ -726,7 +736,7 @@ func (icp *IconProvider) QueryPacketCommitment(ctx context.Context, height int64
 	return &chantypes.QueryPacketCommitmentResponse{
 		Commitment:  packetCommitmentBytes,
 		Proof:       proof,
-		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight: common.NewHeight(uint64(height)),
 	}, nil
 }
 
@@ -760,7 +770,7 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 	return &chantypes.QueryPacketAcknowledgementResponse{
 		Acknowledgement: packetAckBytes,
 		Proof:           proof,
-		ProofHeight:     clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight:     common.NewHeight(uint64(height)),
 	}, nil
 }
 
@@ -789,7 +799,7 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    packetReceipt == 1,
 		Proof:       proof,
-		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight: common.NewHeight(uint64(height)),
 	}, nil
 }
 

@@ -394,8 +394,10 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	if pathEnd.chainProvider.Type() == common.IconModule && d.LatestHeader.IsCompleteBlock() {
 		pathEnd.BTPHeightQueue.Enqueue(BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false})
 	}
-
-	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
+	var err error
+	// TODO: uncomment this added for the hop chain
+	// terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
+	terminate, err := false, nil
 	if err != nil {
 		pathEnd.log.Error(
 			"Failed to check for misbehaviour",

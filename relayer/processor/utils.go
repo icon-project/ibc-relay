@@ -12,6 +12,10 @@ func IsBTPLightClient(cs provider.ClientState) bool {
 	if strings.Contains(cs.ClientID, common.IconLightClient) {
 		return true
 	}
+
+	if strings.Contains(cs.ClientID, "wasm") {
+		return true
+	}
 	return false
 }
 

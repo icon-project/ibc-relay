@@ -490,7 +490,7 @@ func (cc *PenumbraProvider) QueryConnectionsUsingClient(ctx context.Context, hei
 
 // GenerateConnHandshakeProof generates all the proofs needed to prove the existence of the
 // connection state on this chain. A counterparty should use these generated proofs.
-func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
+func (cc *PenumbraProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string ) (clientState ibcexported.ClientState, clientStateProof []byte, consensusProof []byte, connectionProof []byte, connectionProofHeight ibcexported.Height, err error) {
 	var (
 		clientStateRes     *clienttypes.QueryClientStateResponse
 		consensusStateRes  *clienttypes.QueryConsensusStateResponse

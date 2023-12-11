@@ -9,7 +9,6 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -94,7 +93,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, cc
 		trustingPeriod = existingClientInfo.TrustingPeriod
 	}
 	if trustingPeriod == 0 {
-		cs, err := ccp.chainProvider.queryTMClientState(ctx, 0, clientInfo.clientID)
+		cs, err := ccp.chainProvider.queryProviderClientState(ctx, 0, clientInfo.clientID)
 		if err != nil {
 			ccp.log.Error(
 				"Failed to query client state to get trusting period",
@@ -166,17 +165,12 @@ func (ccp *CosmosChainProcessor) clientState(ctx context.Context, clientID strin
 	if state, ok := ccp.latestClientState[clientID]; ok && state.TrustingPeriod > 0 {
 		return state, nil
 	}
-	cs, err := ccp.chainProvider.queryTMClientState(ctx, int64(ccp.latestBlock.Height), clientID)
+	cs, err := ccp.chainProvider.queryProviderClientState(ctx, int64(ccp.latestBlock.Height), clientID)
 	if err != nil {
 		return provider.ClientState{}, err
 	}
-	clientState := provider.ClientState{
-		ClientID:        clientID,
-		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
-		TrustingPeriod:  cs.TrustingPeriod,
-	}
-	ccp.latestClientState[clientID] = clientState
-	return clientState, nil
+	ccp.latestClientState[clientID] = cs
+	return cs, nil
 }
 
 // queryCyclePersistence hold the variables that should be retained across queryCycles.

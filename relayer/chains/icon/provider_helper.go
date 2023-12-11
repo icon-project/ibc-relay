@@ -7,6 +7,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/gogo/protobuf/proto"
 	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
@@ -24,7 +25,7 @@ func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*cod
 		return clienttypes.PackClientState(&clientState)
 	}
 	if strings.Contains(clientId, common.TendermintLightClient) {
-		var clientState itm.ClientState
+		var clientState tendermint.ClientState
 		err := proto.Unmarshal(clientStateB, &clientState)
 		if err != nil {
 			return nil, err
