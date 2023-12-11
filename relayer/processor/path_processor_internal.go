@@ -1580,7 +1580,7 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 			continue
 		}
 		if dst.clientState.ConsensusHeight.RevisionHeight > uint64(btpHeightInfo.Height) {
-			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, common.NewHeight(uint64(btpHeightInfo.Height)))
+			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, common.NewHeightWithRevisionOne(uint64(btpHeightInfo.Height)))
 			if err == nil && cs != nil {
 				// removing latest height element
 				src.BTPHeightQueue.Dequeue()

@@ -61,7 +61,7 @@ func LoadSnapshotHeight(chain_id string) (int64, error) {
 	return strconv.ParseInt(strings.TrimSuffix(string(content), "\n"), 10, 64)
 }
 
-func NewHeight(height uint64) clienttypes.Height {
+func NewHeightWithRevisionOne(height uint64) clienttypes.Height {
 	return clienttypes.NewHeight(1, height)
 }
 

@@ -586,7 +586,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		return &wasmclient.Header{
 			Data: tmClientHeaderBz,
 			// TODO: forcefully set 1
-			Height: common.NewHeight(latestIconHeader.Header.MainHeight),
+			Height: common.NewHeightWithRevisionOne(latestIconHeader.Header.MainHeight),
 		}, nil
 
 	}
