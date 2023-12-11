@@ -1841,8 +1841,10 @@ func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
 					if !header.IsCompleteBlock() {
 						return fmt.Errorf("icon module should have complete block at height: %d because of send packet message: %v", sendPacket.Height, sendPacket)
 					}
-					// enqueuing this height
-					src.BTPHeightQueue.Enqueue(sendPacket.Height)
+					// enqueuing this height if it doesn't exist
+					if !src.BTPHeightQueue.ItemExist(sendPacket.Height) {
+						src.BTPHeightQueue.Enqueue(sendPacket.Height)
+					}
 				}
 			}
 
