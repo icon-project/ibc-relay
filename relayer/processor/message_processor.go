@@ -22,8 +22,9 @@ type messageProcessor struct {
 
 	memo string
 
-	msgUpdateClient           provider.RelayerMessage
-	clientUpdateThresholdTime time.Duration
+	msgUpdateClient            provider.RelayerMessage
+	clientUpdateThresholdTime  time.Duration
+	clientUpdateThresholdBlock uint64
 
 	pktMsgs       []packetMessageToTrack
 	connMsgs      []connectionMessageToTrack
@@ -67,12 +68,14 @@ func newMessageProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	clientUpdateThresholdBlock uint64,
 ) *messageProcessor {
 	return &messageProcessor{
-		log:                       log,
-		metrics:                   metrics,
-		memo:                      memo,
-		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		log:                        log,
+		metrics:                    metrics,
+		memo:                       memo,
+		clientUpdateThresholdTime:  clientUpdateThresholdTime,
+		clientUpdateThresholdBlock: clientUpdateThresholdBlock,
 	}
 }
 
@@ -148,7 +151,10 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	pastConfiguredClientUpdateThreshold := clientUpdateThresholdMs > 0 &&
 		time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs
 
-	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold)
+	// check if it passed threshold block too
+	pastConfiguredClientUpdateThresholdBlock := mp.clientUpdateThresholdBlock > 0 && src.latestBlock.Height > dst.clientState.ConsensusHeight.RevisionHeight+mp.clientUpdateThresholdBlock
+
+	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold || pastConfiguredClientUpdateThresholdBlock)
 
 	if shouldUpdateClientNow {
 		mp.log.Info("Client update threshold condition met",

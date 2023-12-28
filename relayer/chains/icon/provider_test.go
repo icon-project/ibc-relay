@@ -1,6 +1,7 @@
 package icon
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -50,12 +51,12 @@ func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
 	pcfg := IconProviderConfig{
 		Keystore:          absPath,
 		Password:          "gochain",
-		ICONNetworkID:     3,
+		ICONNetworkID:     7,
 		BTPNetworkID:      int64(network_id),
 		BTPNetworkTypeID:  1,
 		IbcHandlerAddress: contractAddress,
-		RPCAddr:           "http://localhost:9082/api/v3",
-		// RPCAddr: "https://berlin.net.solidwallet.io/api/v3",
+		// RPCAddr:           "http://localhost:9082/api/v3",
+		RPCAddr:       "https://berlin.net.solidwallet.io/api/v3/",
 		Timeout:       "20s",
 		BlockInterval: 2000,
 	}
@@ -477,3 +478,14 @@ func TestHash(t *testing.T) {
 
 //		assert.True(t, isValid)
 //	}
+
+func TestQueryTMClient(t *testing.T) {
+
+	m := GetMockIconProvider(8, "cxfb7563611a92349d53f60fadad4f90291490eeca")
+
+	cs, err := m.queryTMClientState(context.TODO(), 18054583, "07-tendermint-19")
+	// cs, err := m.QueryLatestHeight(context.TODO())
+	assert.NoError(t, err)
+	fmt.Println("trusting period is ", cs)
+
+}

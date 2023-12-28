@@ -25,12 +25,13 @@ type ActiveChannel struct {
 }
 
 const (
-	ProcessorEvents              string = "events"
-	ProcessorLegacy                     = "legacy"
-	DefaultClientUpdateThreshold        = 0 * time.Millisecond
-	DefaultFlushInterval                = 5 * time.Minute
-	DefaultMaxMsgLength                 = 5
-	TwoMB                               = 2 * 1024 * 1024
+	ProcessorEvents                   string = "events"
+	ProcessorLegacy                          = "legacy"
+	DefaultClientUpdateThreshold             = 0 * time.Millisecond
+	DefaultClientUpdateThresholdBlock        = 0
+	DefaultFlushInterval                     = 5 * time.Minute
+	DefaultMaxMsgLength                      = 5
+	TwoMB                                    = 2 * 1024 * 1024
 )
 
 func timerChannel(ctx context.Context, log *zap.Logger, timerChan map[string]chan struct{}, chains map[string]*Chain) {
@@ -63,6 +64,7 @@ func StartRelayer(
 	maxMsgLength uint64,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
+	clientUpdateThresholdBlock uint64,
 	flushInterval time.Duration,
 	messageLifecycle processor.MessageLifecycle,
 	processorType string,
@@ -116,6 +118,7 @@ func StartRelayer(
 			memo,
 			messageLifecycle,
 			clientUpdateThresholdTime,
+			clientUpdateThresholdBlock,
 			flushInterval,
 			errorChan,
 			metrics,
@@ -171,6 +174,7 @@ func relayerStartEventProcessor(
 	memo string,
 	messageLifecycle processor.MessageLifecycle,
 	clientUpdateThresholdTime time.Duration,
+	clientUpdateThresholdBlock uint64,
 	flushInterval time.Duration,
 	errCh chan<- error,
 	metrics *processor.PrometheusMetrics,
@@ -188,6 +192,7 @@ func relayerStartEventProcessor(
 				metrics,
 				memo,
 				clientUpdateThresholdTime,
+				clientUpdateThresholdBlock,
 				flushInterval,
 				maxMsgLength,
 			))

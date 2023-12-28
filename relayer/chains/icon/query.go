@@ -24,6 +24,7 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
@@ -859,4 +860,38 @@ func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Messa
 	}
 	return inputBytes, nil
 
+}
+
+func (icp *IconProvider) queryTMClientState(ctx context.Context, latestHeight uint64, clientId string) (*tendermint.ClientState, error) {
+	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
+		"clientId": clientId,
+	})
+
+	//similar should be implemented
+	var clientStateB types.HexBytes
+	err := icp.client.Call(callParams, &clientStateB)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateByte, err := clientStateB.Value()
+	if err != nil {
+		return nil, err
+	}
+
+	any, err := icp.ClientToAny(clientId, clientStateByte)
+	if err != nil {
+		return nil, err
+	}
+
+	clientStateExported, err := clienttypes.UnpackClientState(any)
+	if err != nil {
+		return nil, err
+	}
+
+	tmClient, ok := clientStateExported.(*tendermint.ClientState)
+	if !ok {
+		return nil, fmt.Errorf("failed to queryTmClientState")
+	}
+	return tmClient, nil
 }

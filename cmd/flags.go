@@ -55,6 +55,7 @@ const (
 	flagSrcConnID               = "src-connection-id"
 	flagDstConnID               = "dst-connection-id"
 	flagBtpBlockHeight          = "btp-block-height"
+	flagThresholdBlock          = "update-block-threshold"
 )
 
 const (
@@ -386,6 +387,14 @@ func OverwriteConfigFlag(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
 	cmd.Flags().BoolP(flagOverwriteConfig, "o", false,
 		"overwrite already configured paths - will clear channel filter(s)")
 	if err := v.BindPFlag(flagOverwriteConfig, cmd.Flags().Lookup(flagOverwriteConfig)); err != nil {
+		panic(err)
+	}
+	return cmd
+}
+
+func blockTimeUpdateThreshold(v *viper.Viper, cmd *cobra.Command) *cobra.Command {
+	cmd.Flags().Int64(flagThresholdBlock, relayer.DefaultClientUpdateThresholdBlock, "block after previous client update before automatic client update")
+	if err := v.BindPFlag(flagBtpBlockHeight, cmd.Flags().Lookup(flagBtpBlockHeight)); err != nil {
 		panic(err)
 	}
 	return cmd

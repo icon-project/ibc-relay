@@ -96,12 +96,28 @@ type latestClientState map[string]provider.ClientState
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
 
 	existingClientInfo, ok := l[clientInfo.clientID]
+	// var trustingPeriod time.Duration
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
 			// height is less than latest, so no-op
 			return
 		}
+
+		// trustingPeriod = existingClientInfo.TrustingPeriod
 	}
+
+	// if trustingPeriod == 0 {
+	// 	cs, err := icp.chainProvider.queryTMClientState(ctx, 0, clientInfo.clientID)
+	// 	if err != nil {
+	// 		icp.log.Error(
+	// 			"Failed to query client state to get trusting period",
+	// 			zap.String("client_id", clientInfo.clientID),
+	// 			zap.Error(err),
+	// 		)
+	// 		return
+	// 	}
+	// 	trustingPeriod = cs.TrustingPeriod
+	// }
 
 	clientState := clientInfo.ClientState()
 	l[clientInfo.clientID] = clientState
