@@ -762,38 +762,34 @@ func (icp *IconProvider) SendIconTransaction(
 		return err
 	}
 
-	fmt.Println("[icon] mempool", msg.Type())
-	b, _ := msg.MsgBytes()
-	fmt.Printf("[icon] mempool %x \n", b)
+	txParamEst := &types.TransactionParamForEstimate{
+		Version:     types.NewHexInt(types.JsonrpcApiVersion),
+		FromAddress: types.Address(wallet.Address().String()),
+		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
+		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
+		DataType:    "call",
+		Data: types.CallData{
+			Method: m.Method,
+			Params: m.Params,
+		},
+	}
 
-	// txParamEst := &types.TransactionParamForEstimate{
-	// 	Version:     types.NewHexInt(types.JsonrpcApiVersion),
-	// 	FromAddress: types.Address(wallet.Address().String()),
-	// 	ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
-	// 	NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-	// 	DataType:    "call",
-	// 	Data: types.CallData{
-	// 		Method: m.Method,
-	// 		Params: m.Params,
-	// 	},
-	// }
-
-	// step, err := icp.client.EstimateStep(txParamEst)
-	// if err != nil {
-	// 	return fmt.Errorf("failed estimating step: %w", err)
-	// }
-	// stepVal, err := step.Int()
-	// if err != nil {
-	// 	return err
-	// }
-	// stepLimit := types.NewHexInt(int64(stepVal + 200_000))
+	step, err := icp.client.EstimateStep(txParamEst)
+	if err != nil {
+		return fmt.Errorf("failed estimating step: %w", err)
+	}
+	stepVal, err := step.Int()
+	if err != nil {
+		return err
+	}
+	stepLimit := types.NewHexInt(int64(stepVal + 200_000))
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
 		FromAddress: types.Address(wallet.Address().String()),
 		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
 		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-		StepLimit:   types.NewHexInt(200_000_000),
+		StepLimit:   stepLimit,
 		DataType:    "call",
 		Data: types.CallData{
 			Method: m.Method,

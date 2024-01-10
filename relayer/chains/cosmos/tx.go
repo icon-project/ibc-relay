@@ -149,7 +149,7 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	for _, m := range msgs {
 		fmt.Println("[cosmos] from mempool messageType:", m.Type())
 		b, _ := m.MsgBytes()
-		fmt.Printf("[commos] message %x \n ", b)
+		fmt.Printf("[cosmos] message %x \n ", b)
 
 	}
 
@@ -592,7 +592,7 @@ func (cc *CosmosProvider) MsgRecvPacket(
 	}
 	msg := &chantypes.MsgRecvPacket{
 		Packet:          msgTransfer.Packet(),
-		ProofCommitment: proof.Proof,
+		ProofCommitment: common.ChangeProof(proof.Proof, true),
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
@@ -630,7 +630,7 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 	msg := &chantypes.MsgAcknowledgement{
 		Packet:          msgRecvPacket.Packet(),
 		Acknowledgement: msgRecvPacket.Ack,
-		ProofAcked:      proof.Proof,
+		ProofAcked:      common.ChangeProof(proof.Proof, true),
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
@@ -682,7 +682,7 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 	}
 	assembled := &chantypes.MsgTimeout{
 		Packet:           msgTransfer.Packet(),
-		ProofUnreceived:  proof.Proof,
+		ProofUnreceived:  common.ChangeProof(proof.Proof, true),
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
@@ -702,7 +702,7 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
 		Packet:           msgTransfer.Packet(),
-		ProofUnreceived:  proof.Proof,
+		ProofUnreceived:  common.ChangeProof(proof.Proof, true),
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
@@ -810,20 +810,22 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 
 	// if msgOpenTry client is wasm client then we need to incorporate it
 
+	fmt.Println("[cosmos] msgConnectionOpenAck proofHeight.RevisionNumber:  ", proof.ProofHeight.RevisionNumber)
+
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
 		CounterpartyConnectionId: msgOpenTry.ConnID,
 		Version:                  conntypes.DefaultIBCVersion,
 		ClientState:              csAny,
 		ProofHeight: clienttypes.Height{
-			RevisionNumber: 1,
+			RevisionNumber: proof.ProofHeight.RevisionNumber,
 			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
 		},
 		ProofTry:       proof.ConnectionStateProof,
 		ProofClient:    proof.ClientStateProof,
 		ProofConsensus: proof.ConsensusStateProof,
 		ConsensusHeight: clienttypes.Height{
-			RevisionNumber: 1,
+			RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 			RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 		},
 		Signer: signer,
@@ -855,7 +857,7 @@ func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connectio
 	}
 	msg := &conntypes.MsgConnectionOpenConfirm{
 		ConnectionId: msgOpenAck.CounterpartyConnID,
-		ProofAck:     proof.ConnectionStateProof,
+		ProofAck:     common.ChangeProof(proof.ConnectionStateProof, true),
 		ProofHeight:  proof.ProofHeight,
 		Signer:       signer,
 	}
@@ -925,7 +927,7 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 			Version: proof.Version,
 		},
 		CounterpartyVersion: proof.Version,
-		ProofInit:           proof.Proof,
+		ProofInit:           common.ChangeProof(proof.Proof, true),
 		ProofHeight:         proof.ProofHeight,
 		Signer:              signer,
 	}
@@ -989,7 +991,7 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	msg := &chantypes.MsgChannelCloseConfirm{
 		PortId:      msgCloseInit.CounterpartyPortID,
 		ChannelId:   msgCloseInit.CounterpartyChannelID,
-		ProofInit:   proof.Proof,
+		ProofInit:   common.ChangeProof(proof.Proof, true),
 		ProofHeight: proof.ProofHeight,
 		Signer:      signer,
 	}
@@ -1034,21 +1036,8 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 
 	clientHeader = &tmClientHeader
 
-	// TODO: handle case for icon header
-	// if true {
-	// 	wasmLatestHeader := provider.NewWasmIBCHeaderFromLightBlock(latestCosmosHeader.LightBlock())
-	// 	wasmTrustedHeader := provider.NewWasmIBCHeaderFromLightBlock(trustedCosmosHeader.LightBlock())
-
-	// 	clientHeader := itm.TmHeader{
-	// 		SignedHeader:      wasmLatestHeader.SignedHeader,
-	// 		ValidatorSet:      wasmLatestHeader.ValidatorSet,
-	// 		TrustedValidators: wasmTrustedHeader.ValidatorSet,
-	// 		TrustedHeight:     int64(trustedHeight.RevisionHeight),
-	// 	}
-	// 	return &clientHeader, nil
-	// }
-
 	if clientType == exported.Wasm {
+
 		tmClientHeaderBz, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
 			return &wasmclient.Header{}, nil

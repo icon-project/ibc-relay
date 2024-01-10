@@ -9,8 +9,12 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	"github.com/cosmos/relayer/v2/relayer/common"
+
+	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	ics23 "github.com/cosmos/ics23/go"
@@ -211,4 +215,55 @@ func TestProtoBufDecode(t *testing.T) {
 
 	specs := commitmenttypes.GetSDKSpecs()
 	assert.Equal(t, specs, cs.ProofSpecs)
+}
+
+func TestKecca(t *testing.T) {
+
+	d, err := hex.DecodeString("080612087472616e736665721a096368616e6e656c2d3322087472616e736665722a096368616e6e656c2d3132a3017b22616d6f756e74223a22393530303030303030303030222c2264656e6f6d223a22767370222c227265636569766572223a22617263687761793164787979787968797035686b7a676c3372776b6a666b63773530333032636137676539647072222c2273656e646572223a22687862366235373931626530623565663637303633623363313062383430666238313531346462326664222c226d656d6f223a22227d3a06080110a0c21e")
+	assert.NoError(t, err)
+
+	var recvPacket chantypes.Packet
+
+	err = proto.Unmarshal(d, &recvPacket)
+	assert.NoError(t, err)
+
+	pkt := recvPacket
+
+	fmt.Println("pkt is ", pkt)
+
+	key := host.PacketCommitmentKey(pkt.SourcePort, pkt.SourceChannel, pkt.Sequence)
+
+	fmt.Printf("packet commitment key: %x \n", common.Sha3keccak256(key))
+
+	cdc := MakeCodec(ModuleBasics, []string{})
+
+	commitment := chantypes.CommitPacket(cdc.Marshaler, pkt)
+
+	fmt.Printf("commitment: %x \n", commitment)
+
+	k := common.Sha3keccak256(commitment)
+
+	fmt.Printf("keccak hash: %x \n", k)
+
+	// 174c5d4caf630a3177179384fcb937b32ff2b9c9aa1b75baf9d001ca44c8ba1c8abf0ea23d6df15e019beb89069adde801d0b416ad7313dda3b8918dffcee648
+}
+
+func TestCheck(t *testing.T) {
+
+	d, _ := hex.DecodeString("0a0f30372d74656e6465726d696e742d311283070a262f6962632e6c69676874636c69656e74732e74656e6465726d696e742e76312e48656164657212d8060ace040a91030a02080b120a6c6f63616c6e65742d3318df1a220c08c7dfefac0610f8cb8689022a480a209bc206431636d37aaa0620d7104181cfa522c6a638ea94b18b208b345e785eee122408011220333c8c2b0f836e0257ef81e3604b0facf87c464c949918823a99140e26d8afa73220f1e36484f9e67181627dfc77c8c36b6d630aefc7d76ce7d2076fcda3cc09505e3a20e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8554220e06ea33faadb850b5a99dd0d3c278b093e7e04b4e766a6d61f19f1e23c0106e54a20e06ea33faadb850b5a99dd0d3c278b093e7e04b4e766a6d61f19f1e23c0106e55220048091bc7ddc283f77bfbf91d73c44da58c3df8a9cbc867405d8b7f3daada22f5a20dd3c4644a259c0febeba7acdbdd700cd6e6329c7fe49c3c5bf3feec489d387666220e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8556a20e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8557214440ea6739f834de47390081854d31627a334f0ce12b70108df1a1a480a2065d83642db4469b00280176c8fe2d893f5525365537595c2dd4f8f97a181f0e11224080112207f393760e873ee774879a4ab65ae1a19e97c07859a388dd5f95714c7f80ee341226808021214440ea6739f834de47390081854d31627a334f0ce1a0c08ccdfefac0610ecb18e940222408fd31fd6548a5fc0a6d4d4443a725aca5cb8285e566c17c81a287795194d82b5dd540d131ee89ed554c722e1a4ad1ca3ffc7cb3e7a27fca3ed848e1a676e1805127e0a3c0a14440ea6739f834de47390081854d31627a334f0ce12220a20cee457ef07f72b3bdcbbdb3c82777da1dc89d09020a19fc7ffc2e5fef7ce4c34180a123c0a14440ea6739f834de47390081854d31627a334f0ce12220a20cee457ef07f72b3bdcbbdb3c82777da1dc89d09020a19fc7ffc2e5fef7ce4c34180a180a1a05080310d91a227e0a3c0a14440ea6739f834de47390081854d31627a334f0ce12220a20cee457ef07f72b3bdcbbdb3c82777da1dc89d09020a19fc7ffc2e5fef7ce4c34180a123c0a14440ea6739f834de47390081854d31627a334f0ce12220a20cee457ef07f72b3bdcbbdb3c82777da1dc89d09020a19fc7ffc2e5fef7ce4c34180a180a1a2f63656e74617572693167357232766d6e70366c74613963707374346c7a6334737979336b636a326c6a746533746c68")
+
+	var msgUpdateClient clienttypes.MsgUpdateClient
+
+	err := proto.Unmarshal(d, &msgUpdateClient)
+	assert.NoError(t, err)
+
+	fmt.Println(msgUpdateClient.ClientMessage.Value)
+
+	var d2 tmclient.Header
+	err = proto.Unmarshal(msgUpdateClient.ClientMessage.Value, &d2)
+
+	assert.NoError(t, err)
+
+	fmt.Println(d2.SignedHeader.Header.Height)
+
 }

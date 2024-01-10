@@ -249,7 +249,6 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
 
 	h := clienttypes.NewHeight(clientHeight.GetRevisionNumber(), clientHeight.GetRevisionHeight())
-	fmt.Println("[icon] queryClientConsensusState height:  ", h)
 
 	heightBytes, err := icp.codec.Marshaler.Marshal(&h)
 	if err != nil {
@@ -275,8 +274,6 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 	if err != nil {
 		return nil, err
 	}
-
-	fmt.Println("[icon] QueryClientConsensusState height: ", h)
 
 	key := common.GetConsensusStateCommitmentKey(clientid, big.NewInt(int64(h.RevisionNumber)), big.NewInt(int64(h.RevisionHeight)))
 	commitmentHash := getCommitmentHash(key, cnsStateByte)

@@ -67,6 +67,7 @@ type IconProviderConfig struct {
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
+	RevisionNumber       uint64 `json:"revision-number" yaml:"revision-number"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -247,8 +248,6 @@ func (icp *IconProvider) NewClientState(
 	latestHeight := clienttypes.NewHeight(1, dstUpdateHeader.Height())
 
 	if srcWasmCodeID != "" {
-
-		fmt.Println("inside srcWAsmCodeID")
 		tmClientStateBz, err := icp.codec.Marshaler.MarshalInterface(clientState)
 		if err != nil {
 			return &wasmclient.ClientState{}, err
@@ -575,4 +574,12 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 
 func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
+}
+
+// TODO: revisionNumber cannot be zero
+func (icp *IconProvider) IconRevisionNumber() uint64 {
+	if icp.PCfg.RevisionNumber != 0 {
+		return icp.PCfg.RevisionNumber
+	}
+	return 1
 }
