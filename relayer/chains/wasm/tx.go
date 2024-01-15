@@ -736,12 +736,16 @@ func (ap *WasmProvider) SendMessagesToMempool(
 
 		wasmMsg, ok := msg.(*WasmContractMessage)
 		if !ok {
-			return fmt.Errorf("Wasm Message is not valid %s", wasmMsg.Type())
+			return fmt.Errorf("wasm Message is not valid %s", wasmMsg.Type())
 		}
 
 		txBytes, sequence, err := ap.buildMessages(cliCtx, factory, wasmMsg.Msg)
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+				ap.handleAccountSequenceMismatchError(err)
+			} else {
+				return err
+			}
 		}
 
 		if msg.Type() == MethodUpdateClient {
@@ -997,7 +1001,7 @@ func (ap *WasmProvider) BroadcastTx(
 		if isFailed {
 			err = ap.sdkError(res.Codespace, res.Code)
 			if err == nil {
-				err = fmt.Errorf("transaction failed to execute")
+				err = fmt.Errorf("transaction failed to execute: %s", res.RawLog)
 			}
 		}
 		ap.LogFailedTx(rlyResp, err, msgs)

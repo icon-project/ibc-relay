@@ -77,7 +77,7 @@ func NewRootCmd(log *zap.Logger) *cobra.Command {
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		// Inside persistent pre-run because this takes effect after flags are parsed.
 		if log == nil {
-			log, err := newRootLogger(a.viper.GetString("log-format"), a.viper.GetBool("debug"))
+			log, err := newRootLogger(a.viper.GetString(flagHome), a.viper.GetString("log-format"), a.viper.GetBool("debug"))
 			if err != nil {
 				return err
 			}
@@ -180,7 +180,7 @@ type lumberjackSink struct {
 
 func (lumberjackSink) Sync() error { return nil }
 
-func newRootLogger(format string, debug bool) (*zap.Logger, error) {
+func newRootLogger(homepath string, format string, debug bool) (*zap.Logger, error) {
 	config := zap.NewProductionEncoderConfig()
 	config.EncodeTime = func(ts time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(ts.UTC().Format("2006-01-02T15:04:05.000000Z07:00"))
@@ -188,8 +188,8 @@ func newRootLogger(format string, debug bool) (*zap.Logger, error) {
 	config.LevelKey = "lvl"
 
 	ll := lumberjack.Logger{
-		Filename:   path.Join(defaultHome, "relay.log"),
-		MaxSize:    10, //MB
+		Filename:   path.Join(homepath, "relay.log"),
+		MaxSize:    100, //MB
 		MaxBackups: 30,
 		MaxAge:     28, //days
 		Compress:   false,
