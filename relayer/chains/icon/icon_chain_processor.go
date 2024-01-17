@@ -101,7 +101,6 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ic
 			// height is less than latest, so no-op
 			return
 		}
-
 	}
 
 	clientState := clientInfo.ClientState()
