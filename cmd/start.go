@@ -138,11 +138,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
-			clientUpdateThresholdBlock, err := cmd.Flags().GetUint64(flagThresholdBlock)
-			if err != nil {
-				return err
-			}
-
 			flushInterval, err := cmd.Flags().GetDuration(flagFlushInterval)
 			if err != nil {
 				return err
@@ -156,7 +151,6 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				maxMsgLength,
 				a.config.memo(cmd),
 				clientUpdateThresholdTime,
-				clientUpdateThresholdBlock,
 				flushInterval,
 				nil,
 				processorType,
@@ -185,6 +179,5 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
-	cmd = blockTimeUpdateThreshold(a.viper, cmd)
 	return cmd
 }

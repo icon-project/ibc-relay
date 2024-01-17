@@ -61,8 +61,7 @@ type PathProcessor struct {
 
 	memo string
 
-	clientUpdateThresholdTime  time.Duration
-	clientUpdateThresholdBlock uint64
+	clientUpdateThresholdTime time.Duration
 
 	messageLifecycle MessageLifecycle
 
@@ -99,21 +98,19 @@ func NewPathProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
-	clientUpdateThresholdBlock uint64,
 	flushInterval time.Duration,
 	maxMsgs uint64,
 ) *PathProcessor {
 	pp := &PathProcessor{
-		log:                        log,
-		pathEnd1:                   newPathEndRuntime(log, pathEnd1, metrics),
-		pathEnd2:                   newPathEndRuntime(log, pathEnd2, metrics),
-		retryProcess:               make(chan struct{}, 2),
-		memo:                       memo,
-		clientUpdateThresholdTime:  clientUpdateThresholdTime,
-		clientUpdateThresholdBlock: clientUpdateThresholdBlock,
-		flushInterval:              flushInterval,
-		metrics:                    metrics,
-		maxMsgs:                    maxMsgs,
+		log:                       log,
+		pathEnd1:                  newPathEndRuntime(log, pathEnd1, metrics),
+		pathEnd2:                  newPathEndRuntime(log, pathEnd2, metrics),
+		retryProcess:              make(chan struct{}, 2),
+		memo:                      memo,
+		clientUpdateThresholdTime: clientUpdateThresholdTime,
+		flushInterval:             flushInterval,
+		metrics:                   metrics,
+		maxMsgs:                   maxMsgs,
 	}
 	if flushInterval == 0 {
 		pp.disablePeriodicFlush()

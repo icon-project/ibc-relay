@@ -58,7 +58,6 @@ func (c *Chain) CreateOpenChannels(
 		nil,
 		memo,
 		DefaultClientUpdateThreshold,
-		0,
 		DefaultFlushInterval,
 		DefaultMaxMsgLength,
 	)
@@ -132,7 +131,6 @@ func (c *Chain) CloseChannel(
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,
-			0,
 			DefaultFlushInterval,
 			DefaultMaxMsgLength,
 		)).
@@ -171,7 +169,6 @@ func (c *Chain) CloseChannel(
 			nil,
 			memo,
 			DefaultClientUpdateThreshold,
-			0,
 			DefaultFlushInterval,
 			DefaultMaxMsgLength,
 		)).

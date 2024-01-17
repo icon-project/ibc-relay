@@ -22,9 +22,8 @@ type messageProcessor struct {
 
 	memo string
 
-	msgUpdateClient            provider.RelayerMessage
-	clientUpdateThresholdTime  time.Duration
-	clientUpdateThresholdBlock uint64
+	msgUpdateClient           provider.RelayerMessage
+	clientUpdateThresholdTime time.Duration
 
 	pktMsgs       []packetMessageToTrack
 	connMsgs      []connectionMessageToTrack
@@ -68,14 +67,12 @@ func newMessageProcessor(
 	metrics *PrometheusMetrics,
 	memo string,
 	clientUpdateThresholdTime time.Duration,
-	clientUpdateThresholdBlock uint64,
 ) *messageProcessor {
 	return &messageProcessor{
-		log:                        log,
-		metrics:                    metrics,
-		memo:                       memo,
-		clientUpdateThresholdTime:  clientUpdateThresholdTime,
-		clientUpdateThresholdBlock: clientUpdateThresholdBlock,
+		log:                       log,
+		metrics:                   metrics,
+		memo:                      memo,
+		clientUpdateThresholdTime: clientUpdateThresholdTime,
 	}
 }
 
@@ -124,10 +121,27 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		return true, nil
 	}
 
+	// function to get max values of 2 uints
+	max := func(a, b uint64) uint64 {
+		if a > b {
+			return a
+		}
+		return b
+	}
+
 	// for lightClient other than ICON this will be helpful
 	var consensusHeightTime time.Time
 	if dst.clientState.ConsensusTime.IsZero() {
-		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
+		// NOTE: on dst.clientState.ConsensusHeight.RevisionHeight:
+		// last updated height on local client state
+		// initialized once when the processor runs, then left as it is
+
+		// dst.lastClientUpdateHeight should track the latest updated height
+		height := max(dst.clientState.ConsensusHeight.RevisionHeight, dst.lastClientUpdateHeight)
+		if height > src.latestBlock.Height {
+			return false, fmt.Errorf("the client height : %d cannot be greater than the latest height: %d", height, src.latestBlock.Height)
+		}
+		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(height))
 		if err != nil {
 			return false, fmt.Errorf("failed to get header height: %w", err)
 		}
@@ -135,11 +149,10 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	} else {
 		consensusHeightTime = dst.clientState.ConsensusTime
 	}
-
 	clientUpdateThresholdMs := mp.clientUpdateThresholdTime.Milliseconds()
 
 	dst.lastClientUpdateHeightMu.Lock()
-	enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
+	enoughBlocksPassed := (dst.latestBlock.Height - uint64(blocksToRetrySendAfter)) > dst.lastClientUpdateHeight
 	dst.lastClientUpdateHeightMu.Unlock()
 
 	twoThirdsTrustingPeriodMs := float64(dst.clientState.TrustingPeriod.Milliseconds()) * 2 / 3
@@ -151,10 +164,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	pastConfiguredClientUpdateThreshold := clientUpdateThresholdMs > 0 &&
 		time.Since(consensusHeightTime).Milliseconds() > clientUpdateThresholdMs
 
-	// check if it passed threshold block too
-	pastConfiguredClientUpdateThresholdBlock := mp.clientUpdateThresholdBlock > 0 && src.latestBlock.Height > dst.clientState.ConsensusHeight.RevisionHeight+mp.clientUpdateThresholdBlock
-
-	shouldUpdateClientNow := enoughBlocksPassed && (pastTwoThirdsTrustingPeriod || pastConfiguredClientUpdateThreshold || pastConfiguredClientUpdateThresholdBlock)
+	shouldUpdateClientNow := enoughBlocksPassed && (pastConfiguredClientUpdateThreshold || pastTwoThirdsTrustingPeriod)
 
 	if shouldUpdateClientNow {
 		mp.log.Info("Client update threshold condition met",
