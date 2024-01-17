@@ -822,12 +822,3 @@ func TestProtoUnmarshal(t *testing.T) {
 // 	_, err := archwayP.GetCommitmentPrefixFromContract(ctx)
 // 	assert.NoError(t, err)
 // }
-
-func TestHeightConversion(t *testing.T) {
-
-	h := clienttypes.NewHeight(1, 5570)
-	b, err := proto.Marshal(&h)
-	assert.NoError(t, err)
-	fmt.Printf("proto encoded height %x \n", b)
-
-}

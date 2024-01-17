@@ -245,7 +245,7 @@ func (icp *IconProvider) NewClientState(
 	}
 
 	// TODO: arrange better way
-	latestHeight := clienttypes.NewHeight(1, dstUpdateHeader.Height())
+	latestHeight := clienttypes.NewHeight(icp.RevisionNumber(), dstUpdateHeader.Height())
 
 	if srcWasmCodeID != "" {
 		tmClientStateBz, err := icp.codec.Marshaler.MarshalInterface(clientState)
@@ -577,7 +577,7 @@ func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayer
 }
 
 // TODO: revisionNumber cannot be zero
-func (icp *IconProvider) IconRevisionNumber() uint64 {
+func (icp *IconProvider) RevisionNumber() uint64 {
 	if icp.PCfg.RevisionNumber != 0 {
 		return icp.PCfg.RevisionNumber
 	}

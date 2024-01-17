@@ -18,6 +18,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -316,6 +317,10 @@ func (cc *CosmosProvider) setCometVersion(log *zap.Logger, version string) {
 
 func (cc *CosmosProvider) legacyEncodedEvents(log *zap.Logger, version string) bool {
 	return semver.Compare("v"+version, cometEncodingThreshold) < 0
+}
+
+func (cc *CosmosProvider) RevisionNumber() uint64 {
+	return clienttypes.ParseChainID(cc.ChainId())
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

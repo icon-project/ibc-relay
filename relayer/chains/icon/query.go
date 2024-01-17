@@ -204,7 +204,7 @@ func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, heigh
 		return nil, err
 	}
 
-	clientStateRes := clienttypes.NewQueryClientStateResponse(any, nil, common.NewHeightWithRevisionOne(uint64(height)))
+	clientStateRes := clienttypes.NewQueryClientStateResponse(any, nil, clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)))
 	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 		return nil, err
 	}
 
-	return clienttypes.NewQueryClientStateResponse(any, proof, common.NewHeightWithRevisionOne(uint64(height))), nil
+	return clienttypes.NewQueryClientStateResponse(any, proof, clienttypes.NewHeight(icp.RevisionNumber(), uint64(height))), nil
 }
 
 func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
@@ -286,7 +286,7 @@ func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHei
 	return &clienttypes.QueryConsensusStateResponse{
 		ConsensusState: any,
 		Proof:          proof,
-		ProofHeight:    common.NewHeightWithRevisionOne(uint64(chainHeight)),
+		ProofHeight:    clienttypes.NewHeight(icp.RevisionNumber(), uint64(chainHeight)),
 	}, nil
 }
 
@@ -375,7 +375,7 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 		return emptyConnRes, err
 	}
 
-	return conntypes.NewQueryConnectionResponse(conn, proof, common.NewHeightWithRevisionOne(uint64(height))), nil
+	return conntypes.NewQueryConnectionResponse(conn, proof, clienttypes.NewHeight(icp.RevisionNumber(), uint64(height))), nil
 
 }
 
@@ -515,7 +515,7 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 
 	fmt.Println("[icon] got QueryConnection", connResponse)
 
-	return clientState_, clientResponse.Proof, consensusRes.Proof, connResponse.Proof, common.NewHeightWithRevisionOne(uint64(height)), nil
+	return clientState_, clientResponse.Proof, consensusRes.Proof, connResponse.Proof, clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)), nil
 }
 
 // ics 04 - channel
@@ -560,7 +560,7 @@ func (icp *IconProvider) QueryChannel(ctx context.Context, height int64, channel
 		channel.Version,
 	)
 
-	return chantypes.NewQueryChannelResponse(cosmosChan, proof, common.NewHeightWithRevisionOne(uint64(height))), nil
+	return chantypes.NewQueryChannelResponse(cosmosChan, proof, clienttypes.NewHeight(icp.RevisionNumber(), uint64(height))), nil
 }
 
 var emptyChannelRes = chantypes.NewQueryChannelResponse(
@@ -701,7 +701,7 @@ func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, cha
 	return &chantypes.QueryNextSequenceReceiveResponse{
 		NextSequenceReceive: uint64(nextSeq),
 		Proof:               proof,
-		ProofHeight:         common.NewHeightWithRevisionOne(uint64(height)),
+		ProofHeight:         clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -733,7 +733,7 @@ func (icp *IconProvider) QueryPacketCommitment(ctx context.Context, height int64
 	return &chantypes.QueryPacketCommitmentResponse{
 		Commitment:  packetCommitmentBytes,
 		Proof:       proof,
-		ProofHeight: common.NewHeightWithRevisionOne(uint64(height)),
+		ProofHeight: clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -767,7 +767,7 @@ func (icp *IconProvider) QueryPacketAcknowledgement(ctx context.Context, height 
 	return &chantypes.QueryPacketAcknowledgementResponse{
 		Acknowledgement: packetAckBytes,
 		Proof:           proof,
-		ProofHeight:     common.NewHeightWithRevisionOne(uint64(height)),
+		ProofHeight:     clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -796,7 +796,7 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    packetReceipt == 1,
 		Proof:       proof,
-		ProofHeight: common.NewHeightWithRevisionOne(uint64(height)),
+		ProofHeight: clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)),
 	}, nil
 }
 

@@ -20,7 +20,6 @@ import (
 	// itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"go.uber.org/zap"
@@ -586,7 +585,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		return &wasmclient.Header{
 			Data: tmClientHeaderBz,
 			// TODO: forcefully set 1
-			Height: common.NewHeightWithRevisionOne(latestIconHeader.Header.MainHeight),
+			Height: clienttypes.NewHeight(icp.RevisionNumber(), latestIconHeader.Header.MainHeight),
 		}, nil
 
 	}

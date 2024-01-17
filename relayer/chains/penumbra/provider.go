@@ -18,6 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
@@ -341,6 +342,10 @@ func (cc *PenumbraProvider) legacyEncodedEvents(log *zap.Logger, version string)
 
 func (cc *PenumbraProvider) FirstRetryBlockAfter() uint64 {
 	return 1
+}
+
+func (cc *PenumbraProvider) RevisionNumber() uint64 {
+	return clienttypes.ParseChainID(cc.ChainId())
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

@@ -308,7 +308,7 @@ type ChainProvider interface {
 	// [Begin] Connection handshake IBC message assembly
 
 	// ConnectionHandshakeProof queries for proof of an initialized connection handshake.
-	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, height uint64,) (ConnectionProof, error)
+	ConnectionHandshakeProof(ctx context.Context, msgOpenInit ConnectionInfo, height uint64) (ConnectionProof, error)
 
 	// ConnectionProof queries for proof of an acked handshake.
 	ConnectionProof(ctx context.Context, msgOpenAck ConnectionInfo, height uint64) (ConnectionProof, error)
@@ -417,6 +417,7 @@ type ChainProvider interface {
 	TrustingPeriod(ctx context.Context) (time.Duration, error)
 	WaitForNBlocks(ctx context.Context, n int64) error
 	Sprint(toPrint proto.Message) (string, error)
+	RevisionNumber() uint64
 }
 
 // Do we need intermediate types? i.e. can we use the SDK types for both substrate and cosmos?

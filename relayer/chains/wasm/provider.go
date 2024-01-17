@@ -23,6 +23,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
 	"github.com/cosmos/relayer/v2/relayer/processor"
@@ -373,6 +374,10 @@ func (ap *WasmProvider) updateNextAccountSequence(seq uint64) {
 
 func (ap *WasmProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", ap.ChainName(), NOT_IMPLEMENTED))
+}
+
+func (cc *WasmProvider) RevisionNumber() uint64 {
+	return clienttypes.ParseChainID(cc.ChainId())
 }
 
 // keysDir returns a string representing the path on the local filesystem where the keystore will be initialized.

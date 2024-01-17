@@ -7,8 +7,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 )
 
 func MustHexStrToBytes(hex_string string) []byte {
@@ -59,10 +57,6 @@ func LoadSnapshotHeight(chain_id string) (int64, error) {
 		return -1, fmt.Errorf("Failed reading file, %w", err)
 	}
 	return strconv.ParseInt(strings.TrimSuffix(string(content), "\n"), 10, 64)
-}
-
-func NewHeightWithRevisionOne(height uint64) clienttypes.Height {
-	return clienttypes.NewHeight(1, height)
 }
 
 func ChangeProof(proof []byte, shouldNeverBeEmpty bool) []byte {
