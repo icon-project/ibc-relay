@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ Most of these commands take a [path] argument. Make sure:
 		lineBreakCommand(),
 		createClientsCmd(a),
 		createClientCmd(a),
+		updateClientCmd(a),
 		updateClientsCmd(a),
 		upgradeClientsCmd(a),
 		createConnectionCmd(a),
@@ -265,6 +267,53 @@ func createClientCmd(a *appState) *cobra.Command {
 	cmd = memoFlag(a.viper, cmd)
 	cmd = btpBlockHeightFlag(a.viper, cmd)
 	return cmd
+}
+
+func updateClientCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "update-client src_chain_name dst_chain_name path_name [heights]",
+		Short:   "update block [heights] of src_chain on dst_chain",
+		Args:    withUsage(cobra.ExactArgs(4)),
+		Example: strings.TrimSpace(fmt.Sprintf(`$ %s transact update-client icon archway icon-archway 75830974,75830975`, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+			dst, ok := a.config.Chains[args[1]]
+			if !ok {
+				return errChainNotFound(args[1])
+			}
+			_, _, _, err := a.config.ChainsFromPath(args[2])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if exists := src.ChainProvider.KeyExists(src.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on src chain %s", src.ChainProvider.Key(), src.ChainID())
+			}
+			if exists := dst.ChainProvider.KeyExists(dst.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on dst chain %s", dst.ChainProvider.Key(), dst.ChainID())
+			}
+
+			var heights []int64
+
+			numStr := strings.Split(args[3], ",")
+
+			for _, s := range numStr {
+				num, err := strconv.ParseInt(s, 10, 64)
+				if err != nil {
+					return fmt.Errorf("error converting string to int64: %w", err)
+
+				}
+				heights = append(heights, num)
+			}
+
+			return relayer.UpdateClient(cmd.Context(), src, dst, a.config.memo(cmd), heights)
+		},
+	}
+	return memoFlag(a.viper, cmd)
 }
 
 func updateClientsCmd(a *appState) *cobra.Command {
