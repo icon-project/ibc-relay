@@ -908,5 +908,5 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 	if len(heights) == 0 {
 		return nil, fmt.Errorf("consensus state of client %s before %d", clientId, clientHeight)
 	}
-	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
+	return clienttypes.NewHeight(ap.RevisionNumber(), uint64(heights[0])), nil
 }
