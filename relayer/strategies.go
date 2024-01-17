@@ -25,13 +25,12 @@ type ActiveChannel struct {
 }
 
 const (
-	ProcessorEvents                   string = "events"
-	ProcessorLegacy                          = "legacy"
-	DefaultClientUpdateThreshold             = 0 * time.Millisecond
-	DefaultClientUpdateThresholdBlock        = 0
-	DefaultFlushInterval                     = 5 * time.Minute
-	DefaultMaxMsgLength                      = 5
-	TwoMB                                    = 2 * 1024 * 1024
+	ProcessorEvents              string = "events"
+	ProcessorLegacy                     = "legacy"
+	DefaultClientUpdateThreshold        = 0 * time.Millisecond
+	DefaultFlushInterval                = 5 * time.Minute
+	DefaultMaxMsgLength                 = 5
+	TwoMB                               = 2 * 1024 * 1024
 )
 
 func timerChannel(ctx context.Context, log *zap.Logger, timerChan map[string]chan struct{}, chains map[string]*Chain) {
