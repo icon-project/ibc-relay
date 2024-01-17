@@ -1551,17 +1551,8 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 
 func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntime, dst *pathEndRuntime) {
 	srcIsIcon := src.chainProvider.Type() == common.IconModule
-	dstIsBtpClient := IsBTPLightClient(dst.clientState)
 
 	if !srcIsIcon {
-		return
-	}
-
-	if srcIsIcon && !dstIsBtpClient || !srcIsIcon && dstIsBtpClient {
-		pp.log.Error("Src Icon module mismatch with dst btp client",
-			zap.String("Src Chain Type ", src.chainProvider.Type()),
-			zap.String("Dst client Id", dst.clientState.ClientID),
-		)
 		return
 	}
 

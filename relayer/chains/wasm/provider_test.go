@@ -518,7 +518,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 
 // 	ctx := context.Background()
 
-// 	op, err := iconP.QueryClientConsensusState(ctx, 200, "07-tendermint-34", clienttypes.NewHeight(0, 31600))
+// 	op, err := iconP.QueryClientConsensusState(ctx, 200, "07-tendermint-34", clienttypes.NewHeight(ap.RevisionNumber(), 31600))
 // 	assert.NoError(t, err)
 // 	fmt.Println(op)
 // }
