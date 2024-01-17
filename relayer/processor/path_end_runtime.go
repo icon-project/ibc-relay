@@ -54,6 +54,9 @@ type pathEndRuntime struct {
 	lastClientUpdateHeight   uint64
 	lastClientUpdateHeightMu sync.Mutex
 
+	latestClientStateHeight uint64
+	lastClientStateHeightMu sync.Mutex
+
 	metrics        *PrometheusMetrics
 	BTPHeightQueue Queue[BlockInfoHeight]
 }
