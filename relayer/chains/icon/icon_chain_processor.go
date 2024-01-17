@@ -98,6 +98,7 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, ic
 	existingClientInfo, ok := l[clientInfo.clientID]
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
+			// height is less than latest, so no-op
 			return
 		}
 
@@ -717,6 +718,5 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
 	}
 	icp.latestClientState[clientID] = clientState
-	icp.log.Info("Current client state of archway saved on icon should be", zap.Uint64("height", clientState.ConsensusHeight.RevisionHeight))
 	return clientState, nil
 }
