@@ -484,9 +484,9 @@ func (mp *messageProcessor) sendClientUpdate(
 				fmt.Println("error qurying client state", err)
 				return
 			}
-			dst.lastClientStateHeightMu.Lock()
+			dst.latestClientStateHeightMu.Lock()
 			dst.latestClientStateHeight = clientSate.GetLatestHeight().GetRevisionHeight()
-			dst.lastClientStateHeightMu.Unlock()
+			dst.latestClientStateHeightMu.Unlock()
 		}
 	}
 
@@ -535,6 +535,16 @@ func (mp *messageProcessor) sendBatchMessages(
 		// only increment metrics counts for successful packets
 		if err != nil || mp.metrics == nil {
 			return
+		}
+		if !IsBTPLightClient(dst.clientState) {
+			clientSate, err := dst.chainProvider.QueryClientState(ctx, int64(dst.latestHeader.Height()), dst.clientState.ClientID)
+			if err != nil {
+				fmt.Println("error qurying client state", err)
+				return
+			}
+			dst.latestClientStateHeightMu.Lock()
+			dst.latestClientStateHeight = clientSate.GetLatestHeight().GetRevisionHeight()
+			dst.latestClientStateHeightMu.Unlock()
 		}
 		for _, tracker := range batch {
 			t, ok := tracker.(packetMessageToTrack)
@@ -599,6 +609,17 @@ func (mp *messageProcessor) sendSingleMessage(
 			// only increment metrics counts for successful packets
 			if err != nil || mp.metrics == nil {
 				return
+			}
+
+			if !IsBTPLightClient(dst.clientState) {
+				clientSate, err := dst.chainProvider.QueryClientState(ctx, int64(dst.latestHeader.Height()), dst.clientState.ClientID)
+				if err != nil {
+					fmt.Println("error qurying client state", err)
+					return
+				}
+				dst.latestClientStateHeightMu.Lock()
+				dst.latestClientStateHeight = clientSate.GetLatestHeight().GetRevisionHeight()
+				dst.latestClientStateHeightMu.Unlock()
 			}
 			var channel, port string
 			if t.msg.eventType == chantypes.EventTypeRecvPacket {
