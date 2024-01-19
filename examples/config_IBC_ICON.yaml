@@ -1,59 +1,57 @@
 global:
-    api-listen-addr: :5183
-    timeout: 10s
-    memo: ""
-    light-cache-size: 20
+  api-listen-addr: :5183
+  timeout: 10s
+  memo: ""
+  light-cache-size: 20
 chains:
-    archway:
-        type: wasm
-        value:
-            key-directory: /home/user/.relayer/keys
-            key: relayWallet
-            chain-id: localnet
-            rpc-addr: http://localhost:26657
-            account-prefix: archway
-            keyring-backend: test
-            gas-adjustment: 1.5
-            gas-prices: 0.025stake
-            min-gas-amount: 1000000
-            debug: true
-            timeout: 20s
-            block-timeout: ""
-            output-format: json
-            sign-mode: direct
-            extra-codecs: []
-            coin-type: 0
-            broadcast-mode: batch
-            ibc-handler-address: archway1pvrwmjuusn9wh34j7y520g8gumuy9xtl3gvprlljfdpwju3x7ucszwhc7n
-            first-retry-block-after: 0
-            start-height: 0
-            block-interval: 3000
-    icon:
-        type: icon
-        value:
-            key-directory: /home/user/.relayer/keys
-            chain-id: ibc-icon
-            rpc-addr: http://localhost:9082/api/v3/
-            timeout: 30s
-            keystore: godWallet
-            password: gochain
-            icon-network-id: 3
-            btp-network-id: 1
-            btp-network-type-id: 1
-            start-height: 0
-            ibc-handler-address: cxbeb5929616e0dbd2fec1e6e950ab09e45e6fb25a
-            first-retry-block-after: 0
-            block-interval: 2000
+  archway:
+    type: wasm
+    value:
+      key-directory: /home/user/.relayer/keys
+      key: relayWallet
+      chain-id: localnet
+      rpc-addr: http://localhost:26657
+      account-prefix: archway
+      keyring-backend: test
+      gas-adjustment: 1.5
+      gas-prices: 0.025stake
+      min-gas-amount: 1000000
+      debug: true
+      timeout: 20s
+      block-timeout: ""
+      output-format: json
+      sign-mode: direct
+      extra-codecs: []
+      coin-type: 0
+      broadcast-mode: batch
+      ibc-handler-address: archway1pvrwmjuusn9wh34j7y520g8gumuy9xtl3gvprlljfdpwju3x7ucszwhc7n
+      first-retry-block-after: 0
+      block-interval: 3000
+  icon:
+    type: icon
+    value:
+      key-directory: /home/user/.relayer/keys
+      chain-id: ibc-icon
+      rpc-addr: http://localhost:9082/api/v3/
+      timeout: 30s
+      keystore: godWallet
+      password: gochain
+      icon-network-id: 3
+      btp-network-id: 1
+      btp-network-type-id: 1
+      ibc-handler-address: cxbeb5929616e0dbd2fec1e6e950ab09e45e6fb25a
+      first-retry-block-after: 0
+      block-interval: 2000
 paths:
-    icon-archway:
-        src:
-            chain-id: ibc-icon
-            client-id: 07-tendermint-0
-            connection-id: connection-0
-        dst:
-            chain-id: localnet
-            client-id: iconclient-0
-            connection-id: connection-0
-        src-channel-filter:
-            rule: ""
-            channel-list: []
+  icon-archway:
+    src:
+      chain-id: ibc-icon
+      client-id: 07-tendermint-0
+      connection-id: connection-0
+    dst:
+      chain-id: localnet
+      client-id: iconclient-0
+      connection-id: connection-0
+    src-channel-filter:
+      rule: ""
+      channel-list: []

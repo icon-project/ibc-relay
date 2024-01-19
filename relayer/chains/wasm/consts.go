@@ -20,9 +20,31 @@ const (
 	MethodAcknowledgePacket     = "acknowledgement_packet"
 	MethodTimeoutPacket         = "timeout_packet"
 
+	// queryMethods
 	MethodGetNextClientSequence     = "get_next_client_sequence"
 	MethodGetNextChannelSequence    = "get_next_channel_sequence"
 	MethodGetNextConnectionSequence = "get_next_connection_sequence"
+
+	MethodGetNextSequenceSend            = "get_next_sequence_send"
+	MethodGetNextSequenceReceive         = "get_next_sequence_receive"
+	MethodGetNextSequenceAcknowledgement = "get_next_sequence_acknowledgement"
+
+	MethodGetClientState            = "get_client_state"
+	MethodGetChannel                = "get_channel"
+	MethodGetConnection             = "get_connection"
+	MethodGetConsensusStateByHeight = "get_consensus_state_by_height"
+
+	MethodGetPacketCommitment                = "get_packet_commitment"
+	MethodGetPacketAcknowledgementCommitment = "get_packet_acknowledgement_commitment"
+	MethodGetPacketReceipt                   = "get_packet_receipt"
+
+	MethodGetAllPorts         = "get_all_ports"
+	MethodGetCommitmentPrefix = "get_commitment_prefix"
+
+	MethodGetMissingPacketReceipts        = "get_missing_packet_receipts"
+	MethodGetPacketHeights                = "get_packet_heights"
+	MethodGetAckHeights                   = "get_ack_heights"
+	MethodGetPreviousConsensusStateHeight = "get_previous_consensus_state_height"
 )
 
 const (

@@ -6,16 +6,15 @@ import (
 )
 
 var (
-	EventTimeoutRequest   = "TimeoutRequest(bytes)"
-	IconModule            = "icon"
-	WasmModule            = "wasm"
-	ArchwayModule         = "archway"
-	TendermintLightClient = "07-tendermint"
-	IconLightClient       = "iconclient"
-	ConnectionKey         = "connection"
-	ChannelKey            = "channel"
-	ONE_HOUR              = 60 * 60 * 1000
-	NanoToMilliRatio      = 1000_000
+	EventTimeoutRequest              = "TimeoutRequest(bytes)"
+	IconModule                       = "icon"
+	WasmModule                       = "wasm"
+	TendermintLightClient            = "07-tendermint"
+	IconLightClient                  = "iconclient"
+	ConnectionKey                    = "connection"
+	ChannelKey                       = "channel"
+	ONE_HOUR                         = 60 * 60 * 1000
+	IconStartHeightFromPreRunContext = "icon-start-height-from-prerun-context"
 )
 
 var (

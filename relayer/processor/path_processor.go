@@ -49,6 +49,9 @@ const (
 	// made to retrieve the client consensus state in order to assemble a
 	// MsgUpdateClient message.
 	clientConsensusHeightUpdateThresholdBlocks = 2
+
+	// Needed for finding trusting block one week
+	defaultTrustingPeriod = 7 * 24 * time.Hour
 )
 
 // PathProcessor is a process that handles incoming IBC messages from a pair of chains.
@@ -276,7 +279,8 @@ func (pp *PathProcessor) HandleNewData(chainID string, cacheData ChainProcessorC
 
 func (pp *PathProcessor) handleFlush(ctx context.Context) {
 	flushTimer := pp.flushInterval
-	if err := pp.flush(ctx); err != nil {
+
+	if err := pp.flushByCase(ctx); err != nil {
 		pp.log.Warn("Flush not complete", zap.Error(err))
 		flushTimer = flushFailureRetry
 	}
@@ -310,7 +314,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 		// No new data to merge in, just retry handling.
 	case <-pp.flushTimer.C:
 		// Periodic flush to clear out any old packets
-		// pp.handleFlush(ctx)
+		pp.handleFlush(ctx)
 	}
 	return false
 }
@@ -319,7 +323,7 @@ func (pp *PathProcessor) processAvailableSignals(ctx context.Context, cancel fun
 func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 	var retryTimer *time.Timer
 
-	pp.flushTimer = time.NewTimer(time.Hour)
+	pp.flushTimer = time.NewTimer(pp.flushInterval)
 
 	for {
 		// block until we have any signals to process
@@ -339,7 +343,7 @@ func (pp *PathProcessor) Run(ctx context.Context, cancel func()) {
 		}
 
 		if pp.shouldFlush() && !pp.initialFlushComplete {
-			// pp.handleFlush(ctx)
+			pp.handleFlush(ctx)
 			pp.initialFlushComplete = true
 		} else if pp.shouldTerminateForFlushComplete() {
 			cancel()

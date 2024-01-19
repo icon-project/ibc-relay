@@ -29,6 +29,7 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
@@ -69,8 +70,9 @@ type WasmProviderConfig struct {
 	Broadcast            provider.BroadcastMode  `json:"broadcast-mode" yaml:"broadcast-mode"`
 	IbcHandlerAddress    string                  `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
-	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
-	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
+	// StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
+	BlockInterval uint64 `json:"block-interval" yaml:"block-interval"`
+	Concurrency   int64  `json:"concurrency" yaml:"concurrency"`
 }
 
 type WasmIBCHeader struct {
@@ -307,7 +309,7 @@ func (ap *WasmProvider) ChainName() string {
 }
 
 func (ap *WasmProvider) Type() string {
-	return "wasm"
+	return common.WasmModule
 }
 
 func (ap *WasmProvider) Key() string {
@@ -371,7 +373,6 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	if addr != nil {
 		clientCtx = clientCtx.
 			WithFromAddress(addr)
-
 	}
 
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)

@@ -217,6 +217,14 @@ func (r RelayerTxResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+type MessageHeights map[uint64]uint64
+
+type MessageHeightsInfo struct {
+	MessageHeights MessageHeights
+	StartSeq       uint64
+	EndSeq         uint64
+}
+
 type KeyProvider interface {
 	CreateKeystore(path string) error
 	KeystoreCreated(path string) bool
@@ -429,7 +437,7 @@ type QueryProvider interface {
 	// query packet info for sequence
 	QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (PacketInfo, error)
 	QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (PacketInfo, error)
-
+	QueryPacketMessageByEventHeight(ctx context.Context, eventType string, srcChanID, srcPortID string, sequence uint64, height uint64) (PacketInfo, error)
 	// bank
 	QueryBalance(ctx context.Context, keyName string) (sdk.Coins, error)
 	QueryBalanceWithAddress(ctx context.Context, addr string) (sdk.Coins, error)
@@ -467,6 +475,10 @@ type QueryProvider interface {
 	QueryPacketCommitment(ctx context.Context, height int64, channelid, portid string, seq uint64) (comRes *chantypes.QueryPacketCommitmentResponse, err error)
 	QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error)
 	QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error)
+	QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
+	QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights MessageHeights, err error)
+	QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error)
+	QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error)
 
 	// ics 20 - transfer
 	QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error)

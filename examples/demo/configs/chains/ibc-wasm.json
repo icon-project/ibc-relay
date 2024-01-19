@@ -20,7 +20,7 @@
     "broadcast-mode": "batch",
     "ibc-handler-address": "archway1pvrwmjuusn9wh34j7y520g8gumuy9xtl3gvprlljfdpwju3x7ucszwhc7n",
     "first-retry-block-after": 0,
-    "start-height": 0,
-    "block-interval": 3000
+    "block-interval": 3000,
+    "concurrency": 100
   }
 }

@@ -988,3 +988,20 @@ func (cc *PenumbraProvider) QueryICQWithProof(ctx context.Context, msgType strin
 func (cc *PenumbraProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
 	panic("QueryClientPrevConsensusStateHeight not implemented")
 }
+
+func (ap *PenumbraProvider) QueryPacketMessageByEventHeight(ctx context.Context, eventType, srcChanID, srcPortID string, sequence uint64, height uint64) (provider.PacketInfo, error) {
+	panic("QuerySendPacketByHeight not implemented")
+}
+
+func (ap *PenumbraProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights provider.MessageHeights, err error) {
+	panic("QueryPacketHeights not implemented")
+}
+func (ap *PenumbraProvider) QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (packetHeights provider.MessageHeights, err error) {
+	panic("QueryAckHeights not implemented")
+}
+func (ap *PenumbraProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (missingReceipts []uint64, err error) {
+	panic("QueryMissingPacketReceipts not implemented")
+}
+func (ap *PenumbraProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
+	panic("QueryNextSeqSend not implemented")
+}

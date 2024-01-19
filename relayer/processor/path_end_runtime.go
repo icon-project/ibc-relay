@@ -55,7 +55,7 @@ type pathEndRuntime struct {
 	lastClientUpdateHeightMu sync.Mutex
 
 	metrics        *PrometheusMetrics
-	BTPHeightQueue Queue[BlockInfoHeight]
+	BTPHeightQueue *BtpHeightMapQueue
 }
 
 func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetrics) *pathEndRuntime {
@@ -77,7 +77,7 @@ func newPathEndRuntime(log *zap.Logger, pathEnd PathEnd, metrics *PrometheusMetr
 		clientICQProcessing:  make(clientICQProcessingCache),
 		connSubscribers:      make(map[string][]func(provider.ConnectionInfo)),
 		metrics:              metrics,
-		BTPHeightQueue:       NewBlockInfoHeightQueue[BlockInfoHeight](),
+		BTPHeightQueue:       NewBtpHeightMapQueue(),
 	}
 }
 
@@ -434,7 +434,7 @@ func (pathEnd *pathEndRuntime) updateBTPQueue(d ChainProcessorCacheData, counter
 		return
 	}
 
-	btpHeightKey := BlockInfoHeight{Height: int64(d.LatestHeader.Height()), IsProcessing: false}
+	btpHeightKey := d.LatestBlock.Height
 	if d.LatestHeader.ShouldUpdateForProofContextChange() {
 		pathEnd.BTPHeightQueue.Enqueue(btpHeightKey)
 		return
@@ -544,7 +544,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 			)
 			return false
 		}
-		if counterparty.BTPHeightQueue.ItemExist(int64(message.info.Height)) {
+		if counterparty.BTPHeightQueue.ItemExist(uint64(message.info.Height)) {
 			pathEnd.log.Debug("Waiting to relay packet message until clientState is in queue since btp height exist",
 				zap.Inline(message),
 				zap.String("event_type", eventType),

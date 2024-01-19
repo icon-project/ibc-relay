@@ -5,6 +5,7 @@ import (
 
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,4 +43,31 @@ func TestIBCHeaderCachePrune(t *testing.T) {
 	cache.Prune(5)
 	require.Len(t, cache, 5)
 	require.NotNil(t, cache[uint64(15)], cache[uint64(16)], cache[uint64(17)], cache[uint64(18)], cache[uint64(19)])
+}
+
+func TestBtpQueue(t *testing.T) {
+
+	q := processor.NewBtpHeightMapQueue()
+
+	q.Enqueue(20)
+	q.Enqueue(30)
+	q.Enqueue(40)
+
+	assert.Equal(t, q.Size(), 3)
+
+	q.Dequeue()
+	assert.Equal(t, q.Size(), 2)
+
+	// testing getQueue
+	h := uint64(40)
+	hInfo, err := q.GetHeightInfo(h)
+	assert.NoError(t, err)
+	assert.Equal(t, processor.BlockInfoHeight{IsProcessing: false, RetryCount: 0}, hInfo)
+
+	replace := processor.BlockInfoHeight{IsProcessing: true, RetryCount: 2}
+	q.ReplaceQueue(h, replace)
+	hInfo, err = q.GetHeightInfo(h)
+	assert.NoError(t, err)
+	assert.Equal(t, replace, hInfo)
+
 }

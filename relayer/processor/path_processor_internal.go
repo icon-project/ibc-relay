@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
@@ -1569,23 +1570,410 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 	}
 	size := src.BTPHeightQueue.Size()
 	for i := 0; i < size; i++ {
-		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
+		btpHeight, err := src.BTPHeightQueue.GetQueue()
 		if err != nil {
 			continue
 		}
-		if dst.clientState.ConsensusHeight.RevisionHeight < uint64(btpHeightInfo.Height) {
+		if dst.clientState.ConsensusHeight.RevisionHeight < btpHeight {
 			break
 		}
-		if dst.clientState.ConsensusHeight.RevisionHeight == uint64(btpHeightInfo.Height) {
+		if dst.clientState.ConsensusHeight.RevisionHeight == btpHeight {
 			src.BTPHeightQueue.Dequeue()
 			continue
 		}
-		if dst.clientState.ConsensusHeight.RevisionHeight > uint64(btpHeightInfo.Height) {
-			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, uint64(btpHeightInfo.Height)))
+		if dst.clientState.ConsensusHeight.RevisionHeight > btpHeight {
+			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, uint64(btpHeight)))
 			if err == nil && cs != nil {
 				// removing latest height element
 				src.BTPHeightQueue.Dequeue()
 			}
 		}
 	}
+}
+
+func (pp *PathProcessor) flushByCase(ctx context.Context) error {
+	mod1 := pp.pathEnd1.chainProvider.Type()
+	mod2 := pp.pathEnd2.chainProvider.Type()
+	if mod1 == common.IconModule && mod2 == common.WasmModule || mod1 == common.WasmModule && mod2 == common.WasmModule {
+		return pp.ibcContractBasedFlush(ctx)
+	}
+	return pp.flush(ctx)
+
+}
+
+// both source and dst chain is ibc implemented contracts
+func (pp *PathProcessor) ibcContractBasedFlush(ctx context.Context) error {
+
+	var (
+		channelPacketheights1                            = make(map[ChannelKey]provider.MessageHeightsInfo)
+		channelPacketheights2                            = make(map[ChannelKey]provider.MessageHeightsInfo)
+		channelPacketheights1Mu, channelPacketheights2Mu sync.Mutex
+
+		pathEnd1Cache                    = NewIBCMessagesCache()
+		pathEnd2Cache                    = NewIBCMessagesCache()
+		pathEnd1CacheMu, pathEnd2CacheMu sync.Mutex
+	)
+
+	// Query remaining packet commitments on both chains
+	var eg errgroup.Group
+	for k, open := range pp.pathEnd1.channelStateCache {
+		if !open {
+			continue
+		}
+		if !pp.pathEnd1.info.ShouldRelayChannel(ChainChannelKey{
+			ChainID:             pp.pathEnd1.info.ChainID,
+			CounterpartyChainID: pp.pathEnd2.info.ChainID,
+			ChannelKey:          k,
+		}) {
+			continue
+		}
+		eg.Go(QueryPacketHeights(ctx, pp.pathEnd1, pp.pathEnd2, k, channelPacketheights1, &channelPacketheights1Mu))
+	}
+	for k, open := range pp.pathEnd2.channelStateCache {
+		if !open {
+			continue
+		}
+		if !pp.pathEnd2.info.ShouldRelayChannel(ChainChannelKey{
+			ChainID:             pp.pathEnd2.info.ChainID,
+			CounterpartyChainID: pp.pathEnd1.info.ChainID,
+			ChannelKey:          k,
+		}) {
+			continue
+		}
+		eg.Go(QueryPacketHeights(ctx, pp.pathEnd2, pp.pathEnd1, k, channelPacketheights2, &channelPacketheights2Mu))
+	}
+
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("failed to query packet commitments: %w", err)
+	}
+
+	skipped := false
+	for k, seqs := range channelPacketheights1 {
+		k := k
+		seqs := seqs
+		eg.Go(func() error {
+			done, err := pp.queuePendingRecvAndAcksByHeights(ctx, pp.pathEnd1, pp.pathEnd2, k, seqs, pathEnd1Cache.PacketFlow, pathEnd2Cache.PacketFlow, &pathEnd1CacheMu, &pathEnd2CacheMu)
+			if err != nil {
+				return err
+			}
+			if !done {
+				skipped = true
+			}
+			return nil
+		})
+	}
+
+	for k, seqs := range channelPacketheights2 {
+		k := k
+		seqs := seqs
+		eg.Go(func() error {
+			done, err := pp.queuePendingRecvAndAcksByHeights(ctx, pp.pathEnd2, pp.pathEnd1, k, seqs, pathEnd2Cache.PacketFlow, pathEnd1Cache.PacketFlow, &pathEnd2CacheMu, &pathEnd1CacheMu)
+			if err != nil {
+				return err
+			}
+			if !done {
+				skipped = true
+			}
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return fmt.Errorf("failed to enqueue pending messages for flush: %w", err)
+	}
+
+	pp.pathEnd1.mergeMessageCache(pathEnd1Cache, pp.pathEnd2.info.ChainID, pp.pathEnd2.inSync)
+	pp.pathEnd2.mergeMessageCache(pathEnd2Cache, pp.pathEnd1.info.ChainID, pp.pathEnd1.inSync)
+
+	if skipped {
+		return fmt.Errorf("flush was successful, but more packet sequences are still pending")
+	}
+
+	return nil
+}
+
+func QueryPacketHeights(
+	ctx context.Context,
+	src *pathEndRuntime,
+	dst *pathEndRuntime,
+	k ChannelKey,
+	packetHeights map[ChannelKey]provider.MessageHeightsInfo,
+	mu sync.Locker,
+) func() error {
+	return func() error {
+		src.log.Debug("Flushing", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+
+		endSeq, err := src.chainProvider.QueryNextSeqSend(ctx, int64(src.latestBlock.Height), k.ChannelID, k.PortID)
+		if err != nil {
+			return err
+		}
+
+		startSeq := uint64(0)
+		if src.chainProvider.ProviderConfig().GetBlockInterval() > 0 {
+			// blockInterval from provider config will be in milliseconds
+			blockInterval := int64(src.chainProvider.ProviderConfig().GetBlockInterval()) * int64(time.Millisecond)
+			startBlock := int64(src.latestBlock.Height) - defaultTrustingPeriod.Nanoseconds()/blockInterval
+			if startBlock > 0 {
+				startSeq, err = src.chainProvider.QueryNextSeqSend(ctx, startBlock, k.ChannelID, k.PortID)
+				if err != nil {
+					// don't care about error here,
+					// if error start from startSeq 0
+				}
+			}
+
+		}
+
+		c, err := src.chainProvider.QueryPacketHeights(ctx, int64(src.latestBlock.Height), k.ChannelID, k.PortID, startSeq, endSeq)
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		packetHeights[k] = provider.MessageHeightsInfo{
+			MessageHeights: c,
+			StartSeq:       startSeq,
+			EndSeq:         endSeq,
+		}
+		return nil
+	}
+}
+
+// queuePendingRecvAndAcks returns whether flush can be considered complete (none skipped).
+func (pp *PathProcessor) queuePendingRecvAndAcksByHeights(
+	ctx context.Context,
+	src, dst *pathEndRuntime,
+	k ChannelKey,
+	packetHeights provider.MessageHeightsInfo,
+	srcCache ChannelPacketMessagesCache,
+	dstCache ChannelPacketMessagesCache,
+	srcMu sync.Locker,
+	dstMu sync.Locker,
+) (bool, error) {
+
+	if len(packetHeights.MessageHeights) == 0 {
+		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
+		return true, nil
+	}
+
+	dstChan, dstPort := k.CounterpartyChannelID, k.CounterpartyPortID
+
+	unrecv, err := dst.chainProvider.QueryMissingPacketReceipts(ctx, int64(dst.latestBlock.Height), dstChan, dstPort, packetHeights.StartSeq, packetHeights.EndSeq)
+	if err != nil {
+		return false, err
+	}
+
+	dstHeight := int64(dst.latestBlock.Height)
+
+	if len(unrecv) > 0 {
+		channel, err := dst.chainProvider.QueryChannel(ctx, dstHeight, dstChan, dstPort)
+		if err != nil {
+			return false, err
+		}
+
+		if channel.Channel.Ordering == chantypes.ORDERED {
+			nextSeqRecv, err := dst.chainProvider.QueryNextSeqRecv(ctx, dstHeight, dstChan, dstPort)
+			if err != nil {
+				return false, err
+			}
+
+			var newUnrecv []uint64
+
+			for _, seq := range unrecv {
+				if seq >= nextSeqRecv.NextSequenceReceive {
+					newUnrecv = append(newUnrecv, seq)
+				}
+			}
+
+			unrecv = newUnrecv
+
+			sort.SliceStable(unrecv, func(i, j int) bool {
+				return unrecv[i] < unrecv[j]
+			})
+		}
+	}
+
+	var eg errgroup.Group
+
+	skipped := false
+
+	for i, seq := range unrecv {
+		// seq could be only queried if in packetheights
+		seqHeight, ok := packetHeights.MessageHeights[seq]
+		if !ok {
+			continue
+		}
+
+		srcMu.Lock()
+		if srcCache.IsCached(chantypes.EventTypeSendPacket, k, seq) {
+			continue // already cached
+		}
+		srcMu.Unlock()
+
+		if i >= maxPacketsPerFlush {
+			skipped = true
+			break
+		}
+
+		src.log.Debug("Querying send packet",
+			zap.String("channel", k.ChannelID),
+			zap.String("port", k.PortID),
+			zap.Any("Seq", seq),
+		)
+
+		seq := seq
+
+		eg.Go(func() error {
+			sendPacket, err := src.chainProvider.QueryPacketMessageByEventHeight(ctx, chantypes.EventTypeSendPacket, k.ChannelID, k.PortID, seq, seqHeight)
+			if err != nil {
+				return err
+			}
+
+			// save btp block if height is Icon
+			// height+1
+			if src.chainProvider.Type() == common.IconModule {
+				_, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, sendPacket.Height))
+				if err != nil {
+					// could mean update client for the message is not present
+					header, err := src.chainProvider.QueryIBCHeader(ctx, int64(sendPacket.Height))
+					if err != nil {
+						return err
+					}
+					if !header.IsCompleteBlock() {
+						return fmt.Errorf("icon module should have complete block at height: %d because of send packet message: %v", sendPacket.Height, sendPacket)
+					}
+					// enqueuing this height if it doesn't exist
+					if !src.BTPHeightQueue.ItemExist(sendPacket.Height) {
+						src.BTPHeightQueue.Enqueue(sendPacket.Height)
+					}
+				}
+			}
+
+			srcMu.Lock()
+			srcCache.Cache(chantypes.EventTypeSendPacket, k, seq, sendPacket)
+			srcMu.Unlock()
+
+			src.log.Debug("Cached send packet",
+				zap.String("channel", k.ChannelID),
+				zap.String("port", k.PortID),
+				zap.String("ctrpty_channel", k.CounterpartyChannelID),
+				zap.String("ctrpty_port", k.CounterpartyPortID),
+				zap.Uint64("sequence", seq),
+			)
+			return nil
+		})
+		// not trying to enqueue btpBlock height if height is missing
+	}
+
+	if err := eg.Wait(); err != nil {
+		return false, err
+	}
+
+	if len(unrecv) > 0 {
+		src.log.Debug("Will flush MsgRecvPacket",
+			zap.String("channel", k.ChannelID),
+			zap.String("port", k.PortID),
+			zap.Any("PacketHeights", packetHeights),
+		)
+	} else {
+		src.log.Debug("No MsgRecvPacket to flush",
+			zap.String("channel", k.ChannelID),
+			zap.String("port", k.PortID),
+		)
+	}
+
+	var unacked []uint64
+
+	ackHeights, err := dst.chainProvider.QueryAckHeights(ctx, int64(dst.latestBlock.Height), dstChan, dstPort, packetHeights.StartSeq, packetHeights.EndSeq)
+	if err != nil {
+		return false, err
+	}
+
+	counter := 0
+	for seq, height := range ackHeights {
+
+		// Is packetHeights is present then Ack not received
+		// not present means ack already received
+		_, ok := packetHeights.MessageHeights[seq]
+		if !ok {
+			continue
+		}
+
+		dstMu.Lock()
+		ck := k.Counterparty()
+		if dstCache.IsCached(chantypes.EventTypeWriteAck, ck, seq) {
+			continue // already cached
+		}
+		dstMu.Unlock()
+
+		if counter >= maxPacketsPerFlush {
+			skipped = true
+			break
+		}
+
+		dst.log.Debug("Querying write Ack",
+			zap.String("channel", k.CounterpartyChannelID),
+			zap.String("port", k.CounterpartyPortID),
+			zap.Uint64("sequence", seq),
+			zap.Uint64("height", height),
+		)
+
+		seq := seq
+		height := height
+		eg.Go(func() error {
+			ackPacket, err := dst.chainProvider.QueryPacketMessageByEventHeight(ctx, chantypes.EventTypeWriteAck, k.CounterpartyChannelID, k.CounterpartyPortID, seq, height)
+			if err != nil {
+				return err
+			}
+
+			// save btp block if height is Icon
+			// height+1
+			if dst.chainProvider.Type() == common.IconModule {
+				_, err := src.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), src.clientState.ClientID, clienttypes.NewHeight(0, ackPacket.Height))
+				if err != nil {
+					// could mean update client for the message is not present
+					header, err := dst.chainProvider.QueryIBCHeader(ctx, int64(ackPacket.Height))
+					if err != nil {
+						return err
+					}
+					if !header.IsCompleteBlock() {
+						return fmt.Errorf("icon module should have complete block at height:%d because of send packet message: %v",
+							ackPacket.Height, ackPacket)
+					}
+
+					// enqueuing this height
+					if !dst.BTPHeightQueue.ItemExist(ackPacket.Height) {
+						dst.BTPHeightQueue.Enqueue(ackPacket.Height)
+					}
+				}
+			}
+
+			ck := k.Counterparty()
+			dstMu.Lock()
+			dstCache.Cache(chantypes.EventTypeWriteAck, ck, seq, ackPacket)
+			dstMu.Unlock()
+
+			return nil
+		})
+		counter++
+	}
+
+	if err := eg.Wait(); err != nil {
+		return false, err
+	}
+
+	if len(unacked) > 0 {
+		dst.log.Debug(
+			"Will flush MsgAcknowledgement",
+			zap.Object("channel", k),
+			zap.Uint64s("sequences", unacked),
+		)
+	} else {
+		dst.log.Debug(
+			"No MsgAcknowledgement to flush",
+			zap.String("channel", k.CounterpartyChannelID),
+			zap.String("port", k.CounterpartyPortID),
+		)
+	}
+
+	return !skipped, nil
 }

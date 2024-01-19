@@ -51,17 +51,17 @@ var (
  * KeyDirectory/Keystore.json
  */
 type IconProviderConfig struct {
-	KeyDirectory         string `json:"key-directory" yaml:"key-directory"`
-	ChainName            string `json:"-" yaml:"-"`
-	ChainID              string `json:"chain-id" yaml:"chain-id"`
-	RPCAddr              string `json:"rpc-addr" yaml:"rpc-addr"`
-	Timeout              string `json:"timeout" yaml:"timeout"`
-	Keystore             string `json:"keystore" yaml:"keystore"`
-	Password             string `json:"password" yaml:"password"`
-	ICONNetworkID        int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
-	BTPNetworkID         int64  `json:"btp-network-id" yaml:"btp-network-id"`
-	BTPNetworkTypeID     int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
-	StartHeight          int64  `json:"start-height" yaml:"start-height"`
+	KeyDirectory     string `json:"key-directory" yaml:"key-directory"`
+	ChainName        string `json:"-" yaml:"-"`
+	ChainID          string `json:"chain-id" yaml:"chain-id"`
+	RPCAddr          string `json:"rpc-addr" yaml:"rpc-addr"`
+	Timeout          string `json:"timeout" yaml:"timeout"`
+	Keystore         string `json:"keystore" yaml:"keystore"`
+	Password         string `json:"password" yaml:"password"`
+	ICONNetworkID    int64  `json:"icon-network-id" yaml:"icon-network-id" default:"3"`
+	BTPNetworkID     int64  `json:"btp-network-id" yaml:"btp-network-id"`
+	BTPNetworkTypeID int64  `json:"btp-network-type-id" yaml:"btp-network-type-id"`
+	// StartHeight          int64  `json:"start-height" yaml:"start-height"`
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
@@ -76,6 +76,7 @@ func (pp *IconProviderConfig) Validate() error {
 		return fmt.Errorf("Ibc handler Address cannot be empty")
 	}
 
+	// BlockInterval should be in milliseconds
 	if pp.BlockInterval == 0 {
 		return fmt.Errorf("Block interval cannot be zero")
 	}
@@ -103,15 +104,14 @@ func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 		return nil, err
 	}
 
-	codec := MakeCodec(ModuleBasics, []string{})
-
 	return &IconProvider{
-		log:         log.With(zap.String("chain_id", pp.ChainID)),
-		client:      NewClient(pp.getRPCAddr(), log),
-		PCfg:        pp,
-		StartHeight: uint64(pp.StartHeight),
-		codec:       codec,
+		log:    log.With(zap.String("chain_id", pp.ChainID)),
+		client: NewClient(pp.getRPCAddr(), log),
+		PCfg:   pp,
+		// StartHeight: uint64(pp.StartHeight),
+		codec: MakeCodec(ModuleBasics, []string{}),
 	}, nil
+
 }
 
 func (pp IconProviderConfig) getRPCAddr() string {
@@ -192,20 +192,6 @@ func (h IconIBCHeader) ShouldUpdateForProofContextChange() bool {
 //ChainProvider Methods
 
 func (icp *IconProvider) Init(ctx context.Context) error {
-	// if _, err := os.Stat(icp.PCfg.Keystore); err != nil {
-	// 	return err
-	// }
-
-	// ksByte, err := os.ReadFile(icp.PCfg.Keystore)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// wallet, err := wallet.NewFromKeyStore(ksByte, []byte(icp.PCfg.Password))
-	// if err != nil {
-	// 	return err
-	// }
-	// icp.AddWallet(wallet)
 	return nil
 }
 
@@ -226,7 +212,8 @@ func (icp *IconProvider) NewClientState(
 		return nil, fmt.Errorf("Blockinterval cannot be empty in Icon config")
 	}
 
-	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(common.NanoToMilliRatio))
+	// BlockInterval should be in milliseconds
+	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(time.Millisecond))
 
 	return &icon.ClientState{
 		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration

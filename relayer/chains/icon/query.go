@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sort"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -39,12 +41,19 @@ import (
 var _ provider.QueryProvider = &IconProvider{}
 
 const (
-	epoch = 24 * 3600 * 1000
+	epoch           = 24 * 3600 * 1000
+	sequenceLimit   = 2
+	genesisContract = "cx0000000000000000000000000000000000000000"
 )
 
 type CallParamOption func(*types.CallParam)
 
+// if height is less than or zero don't set height
 func callParamsWithHeight(height types.HexInt) CallParamOption {
+	val, _ := height.Value()
+	if val <= 0 {
+		return func(*types.CallParam) {}
+	}
 	return func(cp *types.CallParam) {
 		cp.Height = height
 	}
@@ -306,7 +315,7 @@ func (icp *IconProvider) QueryConsensusState(ctx context.Context, height int64) 
 
 // query all the clients of the chain
 func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
-	seq, err := icp.getNextSequence(ctx, MethodGetNextClientSequence)
+	seq, err := icp.getNextSequence(ctx, MethodGetNextClientSequence, 0, map[string]interface{}{})
 
 	if err != nil {
 		return nil, err
@@ -398,7 +407,8 @@ var emptyConnRes = conntypes.NewQueryConnectionResponse(
 // ics 03 - connection
 func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
 
-	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextConnectionSequence)
+	// sending -1 for latest height
+	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextConnectionSequence, -1, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -440,27 +450,16 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 	return conns, nil
 }
 
-func (icp *IconProvider) getNextSequence(ctx context.Context, methodName string) (uint64, error) {
-
+func (icp *IconProvider) getNextSequence(ctx context.Context, methodName string, height int64, params map[string]interface{}) (uint64, error) {
 	var seq types.HexInt
-	switch methodName {
-	case MethodGetNextClientSequence:
-		callParam := icp.prepareCallParams(MethodGetNextClientSequence, map[string]interface{}{})
-		if err := icp.client.Call(callParam, &seq); err != nil {
-			return 0, err
-		}
-	case MethodGetNextChannelSequence:
-		callParam := icp.prepareCallParams(MethodGetNextChannelSequence, map[string]interface{}{})
-		if err := icp.client.Call(callParam, &seq); err != nil {
-			return 0, err
-		}
-	case MethodGetNextConnectionSequence:
-		callParam := icp.prepareCallParams(MethodGetNextConnectionSequence, map[string]interface{}{})
-		if err := icp.client.Call(callParam, &seq); err != nil {
-			return 0, err
-		}
-	default:
-		return 0, errors.New("Invalid method name")
+	options := make([]CallParamOption, 0)
+	if height > 0 {
+		options = append(options, callParamsWithHeight(types.NewHexInt(height)))
+	}
+
+	callParam := icp.prepareCallParams(methodName, params, options...)
+	if err := icp.client.Call(callParam, &seq); err != nil {
+		return 0, err
 	}
 	val, _ := seq.Value()
 	return uint64(val), nil
@@ -592,7 +591,7 @@ func (icp *IconProvider) QueryConnectionChannels(ctx context.Context, height int
 }
 
 func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
-	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextChannelSequence)
+	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextChannelSequence, 0, map[string]interface{}{})
 	if err != nil {
 		return nil, err
 	}
@@ -670,28 +669,22 @@ func (icp *IconProvider) QueryUnreceivedAcknowledgements(ctx context.Context, he
 }
 
 func (icp *IconProvider) QueryNextSeqRecv(ctx context.Context, height int64, channelid, portid string) (recvRes *chantypes.QueryNextSequenceReceiveResponse, err error) {
-	callParam := icp.prepareCallParams(MethodGetNextSequenceReceive, map[string]interface{}{
+
+	seq, err := icp.getNextSequence(ctx, MethodGetNextSequenceReceive, height, map[string]interface{}{
 		"portId":    portid,
 		"channelId": channelid,
-	}, callParamsWithHeight(types.NewHexInt(height)))
-	var nextSeqRecv types.HexInt
-	if err := icp.client.Call(callParam, &nextSeqRecv); err != nil {
-		return nil, err
-	}
+	})
+
 	key := common.GetNextSequenceRecvCommitmentKey(portid, channelid)
-	keyHash := common.Sha3keccak256(key, []byte(nextSeqRecv))
+	keyHash := common.Sha3keccak256(key, []byte(types.NewHexInt(int64(seq))))
 
 	proof, err := icp.QueryIconProof(ctx, height, keyHash)
 	if err != nil {
 		return nil, err
 	}
 
-	nextSeq, err := nextSeqRecv.Value()
-	if err != nil {
-		return nil, err
-	}
 	return &chantypes.QueryNextSequenceReceiveResponse{
-		NextSequenceReceive: uint64(nextSeq),
+		NextSequenceReceive: seq,
 		Proof:               proof,
 		ProofHeight:         clienttypes.NewHeight(0, uint64(height)),
 	}, nil
@@ -792,6 +785,187 @@ func (icp *IconProvider) QueryPacketReceipt(ctx context.Context, height int64, c
 	}, nil
 }
 
+func (icp *IconProvider) QueryMissingPacketReceipts(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) ([]uint64, error) {
+	receipts := make([]uint64, 0)
+
+	if endSeq <= startSeq {
+		return receipts, fmt.Errorf("start sequence %d is greater than end sequence: %d ", startSeq, endSeq)
+	}
+
+	paginate := common.NewPaginate(startSeq, endSeq, sequenceLimit)
+
+	for paginate.HasNext() {
+		start, end, err := paginate.Next()
+		if err != nil {
+			return nil, err
+		}
+		callParam := icp.prepareCallParams(MethodGetMissingPacketReceipts, map[string]interface{}{
+			"portId":        portId,
+			"channelId":     channelId,
+			"startSequence": types.NewHexInt(int64(start)),
+			"endSequence":   types.NewHexInt(int64(end)),
+		}, callParamsWithHeight(types.NewHexInt(latestHeight)))
+
+		var missingReceipts []types.HexInt
+		if err := icp.client.Call(callParam, &missingReceipts); err != nil {
+			return nil, err
+		}
+
+		for _, h := range missingReceipts {
+			val, err := h.Value()
+			if err != nil {
+				return nil, err
+			}
+			receipts = append(receipts, uint64(val))
+		}
+
+	}
+
+	return receipts, nil
+}
+
+func (icp *IconProvider) QueryPacketHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+	return icp.QueryMessageHeights(ctx, MethodGetPacketHeights, latestHeight, channelId, portId, startSeq, endSeq)
+}
+
+func (icp *IconProvider) QueryAckHeights(ctx context.Context, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+	return icp.QueryMessageHeights(ctx, MethodGetAckHeights, latestHeight, channelId, portId, startSeq, endSeq)
+}
+
+func (icp *IconProvider) QueryMessageHeights(ctx context.Context, methodName string, latestHeight int64, channelId, portId string, startSeq, endSeq uint64) (provider.MessageHeights, error) {
+
+	packetHeights := make(provider.MessageHeights, 0)
+
+	if methodName != MethodGetPacketHeights &&
+		methodName != MethodGetAckHeights {
+		return provider.MessageHeights{}, fmt.Errorf("invalid methodName: %s", methodName)
+	}
+
+	if endSeq <= startSeq {
+		return provider.MessageHeights{}, fmt.Errorf("start sequence %d is greater than end sequence: %d ", startSeq, endSeq)
+	}
+
+	paginate := common.NewPaginate(startSeq, endSeq, sequenceLimit)
+	for paginate.HasNext() {
+		start, end, err := paginate.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		callParam := icp.prepareCallParams(methodName, map[string]interface{}{
+			"portId":        portId,
+			"channelId":     channelId,
+			"startSequence": types.NewHexInt(int64(start)),
+			"endSequence":   types.NewHexInt(int64(end)),
+		}, callParamsWithHeight(types.NewHexInt(latestHeight)))
+
+		var rawPacketHeights map[int64]types.HexInt
+		if err := icp.client.Call(callParam, &rawPacketHeights); err != nil {
+			return nil, err
+		}
+
+		for seq, h := range rawPacketHeights {
+			heightInt, err := h.Value()
+			if err != nil {
+				return nil, err
+			}
+
+			packetHeights[uint64(seq)] = uint64(heightInt)
+		}
+	}
+
+	return packetHeights, nil
+}
+
+func (ap *IconProvider) QueryPacketMessageByEventHeight(ctx context.Context, eventType string, srcChanID, srcPortID string, sequence uint64, seqHeight uint64) (provider.PacketInfo, error) {
+	var eventName = ""
+	switch eventType {
+	case chantypes.EventTypeSendPacket:
+		eventName = EventTypeSendPacket
+	case chantypes.EventTypeWriteAck:
+		eventName = EventTypeWriteAcknowledgement
+	}
+
+	block, err := ap.client.GetBlockByHeight(&types.BlockHeightParam{
+		Height: types.NewHexInt(int64(seqHeight)),
+	})
+	if err != nil {
+		return provider.PacketInfo{}, err
+	}
+
+	for _, res := range block.NormalTransactions {
+
+		txResult, err := ap.client.GetTransactionResult(&types.TransactionHashParam{
+			Hash: res.TxHash,
+		})
+		if err != nil {
+			return provider.PacketInfo{}, err
+		}
+		for _, el := range txResult.EventLogs {
+			if el.Addr != types.Address(ap.PCfg.IbcHandlerAddress) &&
+				// sendPacket will be of index length 2
+				len(el.Indexed) != 2 &&
+				el.Indexed[0] != eventName {
+				continue
+			}
+			// for ack
+			if eventName == EventTypeWriteAcknowledgement {
+				if len(el.Data) == 0 || el.Data[0] == "" {
+					continue
+				}
+			}
+
+			packetStr := el.Indexed[1]
+			packetByte, err := hex.DecodeString(strings.TrimPrefix(packetStr, "0x"))
+			if err != nil {
+				return provider.PacketInfo{}, err
+			}
+			var packet icon.Packet
+			if err := proto.Unmarshal(packetByte, &packet); err != nil {
+				return provider.PacketInfo{}, err
+			}
+
+			if packet.Sequence == sequence && packet.SourceChannel == srcChanID && packet.SourcePort == srcPortID {
+				packet := provider.PacketInfo{
+					// in case of icon we need to consider btp block because of which if a message is send at height h
+					// btp header will be in h + 1
+					Height:           seqHeight + 1,
+					Sequence:         packet.Sequence,
+					SourcePort:       packet.SourcePort,
+					SourceChannel:    packet.SourceChannel,
+					DestPort:         packet.DestinationPort,
+					DestChannel:      packet.DestinationChannel,
+					Data:             packet.Data,
+					TimeoutHeight:    clienttypes.NewHeight(packet.TimeoutHeight.RevisionNumber, packet.TimeoutHeight.RevisionHeight),
+					TimeoutTimestamp: packet.TimeoutTimestamp,
+				}
+				// adding ack bytes
+				if eventName == EventTypeWriteAcknowledgement {
+					packet.Ack, err = hex.DecodeString(strings.TrimPrefix(el.Data[0], "0x"))
+					if err != nil {
+						return provider.PacketInfo{}, err
+					}
+				}
+				return packet, nil
+			}
+
+		}
+
+	}
+
+	return provider.PacketInfo{}, fmt.Errorf(
+		fmt.Sprintf("Packet of seq number : %d, srcchannel:%s, srcPort:%s not found at height %d",
+			sequence, srcChanID, srcPortID, seqHeight))
+
+}
+
+func (ap *IconProvider) QueryNextSeqSend(ctx context.Context, height int64, channelid, portid string) (seq uint64, err error) {
+	return ap.getNextSequence(ctx, MethodGetNextSequenceSend, height, map[string]interface{}{
+		"channelId": channelid,
+		"portId":    portid,
+	})
+}
+
 // ics 20 - transfer
 // not required for icon
 func (icp *IconProvider) QueryDenomTrace(ctx context.Context, denom string) (*transfertypes.DenomTrace, error) {
@@ -859,4 +1033,246 @@ func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Messa
 	}
 	return inputBytes, nil
 
+}
+
+func (ip *IconProvider) GetProofContextChangePeriod() (uint64, error) {
+	// assigning termPeriod
+	prep, err := ip.client.GetPrepTerm()
+	if err != nil {
+		return 0, fmt.Errorf("fail to get prepterm: %v", err)
+	}
+
+	decentralized, err := prep.IsDecentralized.Value()
+	if err != nil {
+		return 0, err
+	}
+
+	// storing  prep-term term only if decentralized
+	if decentralized == 1 {
+		period, err := prep.Period.Value()
+		if err != nil {
+			return 0, err
+		}
+		return uint64(period), nil
+
+	}
+	return 0, nil
+}
+
+func (icp *IconProvider) GetProofContextChangeHeaders(ctx context.Context, afterHeight uint64) ([]provider.IBCHeader, uint64, error) {
+	proofContextChangeHeights := make([]provider.IBCHeader, 0)
+
+	logTicker := time.NewTicker(10 * time.Second)
+
+	errCh := make(chan error)                                            // error channel
+	reconnectCh := make(chan struct{}, 1)                                // reconnect channel
+	btpBlockNotifCh := make(chan *types.BlockNotification, 10)           // block notification channel
+	btpBlockRespCh := make(chan *btpBlockResponse, cap(btpBlockNotifCh)) // block result channel
+
+	// uptoHeight
+	uptoHeight, err := icp.QueryLatestHeight(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("error fetching latest height %v", err)
+	}
+
+	reconnect := func() {
+		select {
+		case reconnectCh <- struct{}{}:
+		default:
+		}
+		for len(btpBlockRespCh) > 0 || len(btpBlockNotifCh) > 0 {
+			select {
+			case <-btpBlockRespCh: // clear block result channel
+			case <-btpBlockNotifCh: // clear block notification channel
+			}
+		}
+	}
+
+	icp.log.Info("Start to check from height", zap.Int64("height", int64(afterHeight)))
+	// subscribe to monitor block
+	ctxMonitorBlock, cancelMonitorBlock := context.WithCancel(ctx)
+	reconnect()
+
+	processedheight := int64(afterHeight) + 1
+
+	blockReq := &types.BlockRequest{
+		Height: types.NewHexInt(processedheight),
+	}
+
+loop:
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, 0, nil
+		case err := <-errCh:
+			return nil, 0, err
+
+		// this ticker is just to show log
+		case <-logTicker.C:
+			// fetching latest height also
+			h, _ := icp.QueryLatestHeight(ctx)
+			if h > 0 {
+				uptoHeight = h
+				icp.log.Info("finding proof context change height continues...",
+					zap.Int64("reached height", processedheight))
+			}
+
+		case <-reconnectCh:
+			cancelMonitorBlock()
+			ctxMonitorBlock, cancelMonitorBlock = context.WithCancel(ctx)
+
+			go func(ctx context.Context, cancel context.CancelFunc) {
+				blockReq.Height = types.NewHexInt(processedheight)
+				err := icp.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
+					if !errors.Is(ctx.Err(), context.Canceled) {
+						btpBlockNotifCh <- v
+					}
+					return nil
+				}, func(conn *websocket.Conn) {
+				}, func(conn *websocket.Conn, err error) {})
+				if err != nil {
+					if errors.Is(err, context.Canceled) {
+						return
+					}
+					time.Sleep(time.Second * 5)
+					reconnect()
+				}
+
+			}(ctxMonitorBlock, cancelMonitorBlock)
+		case br := <-btpBlockRespCh:
+			for ; br != nil; processedheight++ {
+
+				if br.Header.ShouldUpdateForProofContextChange() {
+					icp.log.Info("proof context changed at", zap.Int64("height", int64(br.Header.MainHeight)))
+					proofContextChangeHeights = append(proofContextChangeHeights, br.Header)
+				}
+				// process completed
+				if br.Header.Height() == uint64(uptoHeight) {
+					return proofContextChangeHeights, uint64(uptoHeight), nil
+				}
+
+				if br = nil; len(btpBlockRespCh) > 0 {
+					br = <-btpBlockRespCh
+				}
+			}
+			// remove unprocessed blockResponses
+			for len(btpBlockRespCh) > 0 {
+				<-btpBlockRespCh
+			}
+
+		default:
+			select {
+			default:
+			case bn := <-btpBlockNotifCh:
+				requestCh := make(chan *btpBlockRequest, cap(btpBlockNotifCh))
+				for i := int64(0); bn != nil; i++ {
+					height, err := bn.Height.Value()
+					if err != nil {
+						return nil, 0, err
+					} else if height != processedheight+i {
+						icp.log.Warn("Reconnect: missing block notification",
+							zap.Int64("got", height),
+							zap.Int64("expected", processedheight+i),
+						)
+						reconnect()
+						continue loop
+					}
+
+					requestCh <- &btpBlockRequest{
+						height:  height,
+						hash:    bn.Hash,
+						indexes: bn.Indexes,
+						events:  bn.Events,
+						retry:   queryRetries,
+					}
+					if bn = nil; len(btpBlockNotifCh) > 0 && len(requestCh) < cap(requestCh) {
+						bn = <-btpBlockNotifCh
+					}
+				}
+
+				brs := make([]*btpBlockResponse, 0, len(requestCh))
+				for request := range requestCh {
+					switch {
+					case request.err != nil:
+						if request.retry > 0 {
+							request.retry--
+							request.response, request.err = nil, nil
+							requestCh <- request
+							continue
+						}
+						icp.log.Info("Request error ",
+							zap.Any("height", request.height),
+							zap.Error(request.err))
+						brs = append(brs, nil)
+						if len(brs) == cap(brs) {
+							close(requestCh)
+						}
+					case request.response != nil:
+						brs = append(brs, request.response)
+						if len(brs) == cap(brs) {
+							close(requestCh)
+						}
+					default:
+						go icp.handleBlockRequest(request, requestCh)
+
+					}
+
+				}
+				// filter nil
+				_brs, brs := brs, brs[:0]
+				for _, v := range _brs {
+					if v.IsProcessed == processed {
+						brs = append(brs, v)
+					}
+				}
+
+				// sort and forward notifications
+				if len(brs) > 0 {
+					sort.SliceStable(brs, func(i, j int) bool {
+						return brs[i].Height < brs[j].Height
+					})
+					for i, d := range brs {
+						if d.Height == processedheight+int64(i) {
+							btpBlockRespCh <- d
+						}
+					}
+				}
+
+			}
+		}
+	}
+}
+
+func (icp *IconProvider) handleBlockRequest(
+	request *btpBlockRequest, requestCh chan *btpBlockRequest) {
+	defer func() {
+		time.Sleep(50 * time.Millisecond)
+		requestCh <- request
+	}()
+
+	if request.response == nil {
+		request.response = &btpBlockResponse{
+			IsProcessed: notProcessed,
+			Height:      request.height,
+		}
+	}
+
+	validators, err := icp.GetProofContextByHeight(request.height)
+	if err != nil {
+		request.err = errors.Wrapf(err, "Failed to get proof context: %v", err)
+		return
+	}
+
+	btpHeader, err := icp.GetBtpHeader(request.height)
+	if err != nil {
+		if btpBlockNotPresent(err) {
+			request.response.Header = NewIconIBCHeader(nil, validators, (request.height))
+			request.response.IsProcessed = processed
+			return
+		}
+		request.err = errors.Wrapf(err, "Failed to get btp header: %v", err)
+		return
+	}
+	request.response.Header = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
+	request.response.IsProcessed = processed
 }

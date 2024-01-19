@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/relayer/v2/relayer/common"
@@ -22,11 +21,6 @@ func getKeyLength(data string) string {
 	buf := make([]byte, 2)
 	binary.BigEndian.PutUint16(buf, length)
 	return fmt.Sprintf("%x", buf)
-}
-
-func byteToInt(b []byte) (int, error) {
-	return strconv.Atoi(string(b))
-
 }
 
 func ProcessContractResponse(p *wasmtypes.QuerySmartContractStateResponse) ([]byte, error) {

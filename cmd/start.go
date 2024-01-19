@@ -26,6 +26,7 @@ import (
 	"github.com/cosmos/relayer/v2/internal/relaydebug"
 	"github.com/cosmos/relayer/v2/relayer"
 	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -143,8 +144,24 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				return err
 			}
 
+			btpProofContextUpdateFrom, err := cmd.Flags().GetInt64(flagBTPUpdateProofContextFromHeight)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+			shouldUpdateProofContext, err := cmd.Flags().GetBool(flagBtpUpdateProofContext)
+			// runUsing the flag
+			if shouldUpdateProofContext {
+				iconStartHeight, err := relayer.RunProofContextUpdate(cmd.Context(), a.log, chains, paths, btpProofContextUpdateFrom)
+				if err != nil {
+					return fmt.Errorf("unable to complete proofContextUpdate error: %v", err)
+				}
+				ctx = context.WithValue(ctx, common.IconStartHeightFromPreRunContext, iconStartHeight)
+			}
+
 			rlyErrCh := relayer.StartRelayer(
-				cmd.Context(),
+				ctx,
 				a.log,
 				chains,
 				paths,
@@ -179,5 +196,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 	cmd = initBlockFlag(a.viper, cmd)
 	cmd = flushIntervalFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	cmd = BtpUpdateProofContextFlag(a.viper, cmd)
+	cmd = BtpUpdateProofContextFromHeightFlag(a.viper, cmd)
 	return cmd
 }

@@ -598,105 +598,93 @@ func ConnectionInfoConnectionKey(info provider.ConnectionInfo) ConnectionKey {
 	}
 }
 
-type Queue[T any] interface {
-	Enqueue(item T)
-	Dequeue() (T, error)
-	MustGetQueue() T
-	GetQueue() (T, error)
-	ItemExist(interface{}) bool
-	ReplaceQueue(index int, item T)
-	Size() int
-}
-
 type ExistenceChecker interface {
 	Exists(target interface{}) bool
 }
 
 type BlockInfoHeight struct {
-	Height       int64
 	IsProcessing bool
 	RetryCount   int64
 }
 
-func (bi BlockInfoHeight) Exists(target interface{}) bool {
-	if height, ok := target.(int64); ok {
-		return bi.Height == height
+type BtpHeightMapQueue struct {
+	HeightMap   map[uint64]BlockInfoHeight
+	HeightQueue []uint64
+	mu          *sync.Mutex
+}
+
+func NewBtpHeightMapQueue() *BtpHeightMapQueue {
+	return &BtpHeightMapQueue{
+		HeightMap:   make(map[uint64]BlockInfoHeight, 0),
+		HeightQueue: make([]uint64, 0),
+		mu:          &sync.Mutex{},
 	}
-	return false
 }
 
-type ArrayQueue[T ExistenceChecker] struct {
-	items []T
-	mu    *sync.Mutex
-}
+func (m *BtpHeightMapQueue) Enqueue(height uint64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.HeightQueue = append(m.HeightQueue, height)
+	m.HeightMap[height] = BlockInfoHeight{
+		IsProcessing: false,
+		RetryCount:   0,
+	}
 
-func (q *ArrayQueue[T]) Enqueue(item T) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	q.items = append(q.items, item)
 }
-
-func (q *ArrayQueue[T]) MustGetQueue() T {
+func (q *BtpHeightMapQueue) Dequeue() (BlockInfoHeight, error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if q.Size() == 0 {
+		return BlockInfoHeight{}, fmt.Errorf("all element dequed")
+	}
+	h := q.HeightQueue[0]
+
+	blockInfo := q.HeightMap[h]
+	delete(q.HeightMap, h)
+	q.HeightQueue = q.HeightQueue[1:]
+	return blockInfo, nil
+
+}
+func (m *BtpHeightMapQueue) MustGetQueue() uint64 {
+	if m.Size() == 0 {
 		panic("the size of queue is zero")
 	}
-
-	item := q.items[0]
-	return item
+	return m.HeightQueue[0]
 }
-
-func (q *ArrayQueue[T]) ItemExist(target interface{}) bool {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	for _, item := range q.items {
-		if item.Exists(target) {
-			return true
-		}
+func (m *BtpHeightMapQueue) GetQueue() (uint64, error) {
+	if m.Size() == 0 {
+		return 0, fmt.Errorf("The queue is of empty length")
 	}
-	return false
-}
-
-func (q *ArrayQueue[T]) GetQueue() (T, error) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if q.Size() == 0 {
-		var element T
-		return element, fmt.Errorf("The queue is of empty length")
+	h := m.HeightQueue[0]
+	_, ok := m.HeightMap[h]
+	if !ok {
+		return 0, fmt.Errorf("Btp data of height %d missing from map", h)
 	}
-	item := q.items[0]
-	return item, nil
-
+	return h, nil
 }
 
-func (q *ArrayQueue[T]) ReplaceQueue(index int, element T) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if index >= 0 && index < len(q.items) {
-		q.items[index] = element
+func (m *BtpHeightMapQueue) GetHeightInfo(h uint64) (BlockInfoHeight, error) {
+	b, ok := m.HeightMap[h]
+	if !ok {
+		return BlockInfoHeight{}, fmt.Errorf("Height Info not found %d", h)
 	}
+	return b, nil
 }
 
-func (q *ArrayQueue[T]) Dequeue() (T, error) {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if q.Size() == 0 {
-		var element T
-		return element, fmt.Errorf("all element dequed")
+func (m *BtpHeightMapQueue) ItemExist(height uint64) bool {
+	_, ok := m.HeightMap[height]
+	return ok
+
+}
+func (m *BtpHeightMapQueue) ReplaceQueue(height uint64, b BlockInfoHeight) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if _, ok := m.HeightMap[height]; !ok {
+		return fmt.Errorf("Height Info not found %d", height)
 	}
-	item := q.items[0]
-	q.items = q.items[1:]
-	return item, nil
+	m.HeightMap[height] = b
+	return nil
 }
-
-func (q *ArrayQueue[T]) Size() int {
-	return len(q.items)
-}
-
-func NewBlockInfoHeightQueue[T ExistenceChecker]() *ArrayQueue[T] {
-	return &ArrayQueue[T]{
-		items: make([]T, 0),
-		mu:    &sync.Mutex{},
-	}
+func (m *BtpHeightMapQueue) Size() int {
+	return len(m.HeightQueue)
 }

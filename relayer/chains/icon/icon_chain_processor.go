@@ -76,7 +76,7 @@ type Verifier struct {
 	prevNetworkSectionHash []byte
 }
 
-func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics, heightSnapshot chan struct{}) *IconChainProcessor {
+func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *processor.PrometheusMetrics) *IconChainProcessor {
 	return &IconChainProcessor{
 		log:                  log.With(zap.String("chain_name", provider.ChainName()), zap.String("chain_id", provider.ChainId())),
 		chainProvider:        provider,
@@ -86,7 +86,7 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 		connectionClients:    make(map[string]string),
 		channelConnections:   make(map[string]string),
 		metrics:              metrics,
-		heightSnapshotChan:   heightSnapshot,
+		// heightSnapshotChan:   heightSnapshot,
 	}
 }
 
@@ -135,11 +135,11 @@ type queryCyclePersistence struct {
 }
 
 func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint64) error {
-	persistence := queryCyclePersistence{
-		minQueryLoopDuration: time.Second,
-	}
 
 	var eg errgroup.Group
+
+	// passing the value from the context
+	iconStartHeightFromPreRunContext, _ := rlycommon.AnyToInt64(ctx.Value(rlycommon.IconStartHeightFromPreRunContext))
 
 	eg.Go(func() error {
 		return icp.initializeConnectionState(ctx)
@@ -153,24 +153,24 @@ func (icp *IconChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	// start_query_cycle
 	icp.log.Debug("Starting query cycle")
-	err := icp.monitoring(ctx, &persistence)
+	err := icp.monitoring(ctx, iconStartHeightFromPreRunContext)
 	return err
 }
 
-func (icp *IconChainProcessor) StartFromHeight(ctx context.Context) int64 {
-	cfg := icp.Provider().ProviderConfig().(*IconProviderConfig)
+// func (icp *IconChainProcessor) StartFromHeight(ctx context.Context) int64 {
+// 	cfg := icp.Provider().ProviderConfig().(*IconProviderConfig)
 
-	if cfg.StartHeight != 0 {
-		return cfg.StartHeight
-	}
-	snapshotHeight, err := rlycommon.LoadSnapshotHeight(icp.Provider().ChainId())
-	if err != nil {
-		icp.log.Warn("Failed to load height from snapshot", zap.Error(err))
-	} else {
-		icp.log.Info("Obtained start height from config", zap.Int64("height", snapshotHeight))
-	}
-	return snapshotHeight
-}
+// 	if cfg.StartHeight != 0 {
+// 		return cfg.StartHeight
+// 	}
+// 	snapshotHeight, err := rlycommon.LoadSnapshotHeight(icp.Provider().ChainId())
+// 	if err != nil {
+// 		icp.log.Warn("Failed to load height from snapshot", zap.Error(err))
+// 	} else {
+// 		icp.log.Info("Obtained start height from config", zap.Int64("height", snapshotHeight))
+// 	}
+// 	return snapshotHeight
+// }
 
 func (icp *IconChainProcessor) getLastSavedHeight() int64 {
 	snapshotHeight, err := rlycommon.LoadSnapshotHeight(icp.Provider().ChainId())
@@ -253,7 +253,7 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 	return icp.latestBlock.Height
 }
 
-func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *queryCyclePersistence) error {
+func (icp *IconChainProcessor) monitoring(ctx context.Context, startFromHeight int64) error {
 
 	errCh := make(chan error)                                            // error channel
 	reconnectCh := make(chan struct{}, 1)                                // reconnect channel
@@ -274,7 +274,7 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 	}
 
 	var err error
-	processedheight := icp.StartFromHeight(ctx)
+	processedheight := startFromHeight
 	latestHeight, err := icp.chainProvider.QueryLatestHeight(ctx)
 	if err != nil {
 		icp.log.Error("Error fetching block", zap.Error(err))
@@ -311,8 +311,8 @@ loop:
 		case err := <-errCh:
 			return err
 
-		case <-icp.heightSnapshotChan:
-			icp.SnapshotHeight(icp.getHeightToSave(int64(icp.latestBlock.Height)))
+		// case <-icp.heightSnapshotChan:
+		// 	icp.SnapshotHeight(icp.getHeightToSave(int64(icp.latestBlock.Height)))
 
 		case <-reconnectCh:
 			cancelMonitorBlock()
@@ -329,10 +329,10 @@ loop:
 				}, func(conn *websocket.Conn) {
 				}, func(conn *websocket.Conn, err error) {})
 				if err != nil {
-					ht := icp.getHeightToSave(processedheight)
-					if ht != icp.getLastSavedHeight() {
-						icp.SnapshotHeight(ht)
-					}
+					// ht := icp.getHeightToSave(processedheight)
+					// if ht != icp.getLastSavedHeight() {
+					// 	icp.SnapshotHeight(ht)
+					// }
 					if errors.Is(err, context.Canceled) {
 						return
 					}
@@ -379,9 +379,6 @@ loop:
 					break
 				}
 				time.Sleep(10 * time.Millisecond)
-				if icp.firstTime {
-					time.Sleep(4000 * time.Millisecond)
-				}
 				icp.firstTime = false
 				if br = nil; len(btpBlockRespCh) > 0 {
 					br = <-btpBlockRespCh
@@ -476,22 +473,22 @@ loop:
 	}
 }
 
-func (icp *IconChainProcessor) getHeightToSave(height int64) int64 {
-	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
-	ht := height - int64(retryAfter)
-	if ht < 0 {
-		return 0
-	}
-	return ht
-}
+// func (icp *IconChainProcessor) getHeightToSave(height int64) int64 {
+// 	retryAfter := icp.Provider().ProviderConfig().GetFirstRetryBlockAfter()
+// 	ht := height - int64(retryAfter)
+// 	if ht < 0 {
+// 		return 0
+// 	}
+// 	return ht
+// }
 
-func (icp *IconChainProcessor) SnapshotHeight(height int64) {
-	icp.log.Info("Save height for snapshot", zap.Int64("height", height))
-	err := rlycommon.SnapshotHeight(icp.Provider().ChainId(), height)
-	if err != nil {
-		icp.log.Warn("Failed saving height snapshot for height", zap.Int64("height", height))
-	}
-}
+// func (icp *IconChainProcessor) SnapshotHeight(height int64) {
+// 	icp.log.Info("Save height for snapshot", zap.Int64("height", height))
+// 	err := rlycommon.SnapshotHeight(icp.Provider().ChainId(), height)
+// 	if err != nil {
+// 		icp.log.Warn("Failed saving height snapshot for height", zap.Int64("height", height))
+// 	}
+// }
 
 func (icp *IconChainProcessor) verifyBlock(ctx context.Context, ibcHeader provider.IBCHeader) error {
 	header, ok := ibcHeader.(IconIBCHeader)

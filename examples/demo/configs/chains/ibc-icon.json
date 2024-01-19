@@ -10,7 +10,6 @@
     "icon-network-id": 3,
     "btp-network-id": 2,
     "btp-network-type-id": 1,
-    "start-height": 0,
     "ibc-handler-address": "cxbeb5929616e0dbd2fec1e6e950ab09e45e6fb25a",
     "first-retry-block-after": 0,
     "block-interval": 2000
