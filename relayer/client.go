@@ -376,6 +376,101 @@ func MsgUpdateClient(
 	return dst.ChainProvider.MsgUpdateClient(dst.ClientID(), updateHeader)
 }
 
+func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (provider.RelayerMessage, error) {
+
+	var updateHeader ibcexported.ClientMessage
+	if err := retry.Do(func() error {
+		var err error
+
+		dstHeight, err := dst.ChainProvider.QueryLatestHeight(ctx)
+		if err != nil {
+			return err
+		}
+
+		dstClientState, err := dst.ChainProvider.QueryClientState(ctx, dstHeight, dst.ClientID())
+		if err != nil {
+			return err
+		}
+
+		trustedHdr, err := src.ChainProvider.QueryIBCHeader(ctx, int64(dstClientState.GetLatestHeight().GetRevisionHeight()))
+		if err != nil {
+			return err
+		}
+
+		latestHdr, err := src.ChainProvider.QueryIBCHeader(ctx, height)
+		if err != nil {
+			return err
+		}
+
+		trustedHeight := clienttypes.Height{
+			RevisionNumber: 0,
+			RevisionHeight: trustedHdr.Height(),
+		}
+
+		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(latestHdr, trustedHeight, trustedHdr)
+		return err
+	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
+		dst.log.Info(
+			"Failed to build update message",
+			zap.String("client_id", dst.ClientID()),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", RtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, err
+	}
+
+	return dst.ChainProvider.MsgUpdateClient(dst.ClientID(), updateHeader)
+}
+
+func UpdateClient(ctx context.Context, src, dst *Chain, memo string, heights []int64) error {
+	eg, egCtx := errgroup.WithContext(ctx)
+	for _, height := range heights {
+
+		var dstMsgUpdateClient provider.RelayerMessage
+		eg.Go(func() error {
+			var err error
+			dstMsgUpdateClient, err = msgUpdateClientOneWay(egCtx, src, dst, height)
+			return err
+		})
+
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		clients := &RelayMsgs{
+			Src: []provider.RelayerMessage{},
+			Dst: []provider.RelayerMessage{dstMsgUpdateClient},
+		}
+
+		result := clients.Send(ctx, src.log, AsRelayMsgSender(src), AsRelayMsgSender(dst), memo)
+
+		if err := result.Error(); err != nil {
+			if result.PartiallySent() {
+				src.log.Info(
+					"Partial success when updating clients",
+					zap.String("src_chain_id", src.ChainID()),
+					zap.String("dst_chain_id", dst.ChainID()),
+					zap.Object("send_result", result),
+				)
+			}
+			return err
+		}
+
+		src.log.Info(
+			"Client updated",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_client", src.PathEnd.ClientID),
+
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_client", dst.PathEnd.ClientID),
+		)
+	}
+
+	return nil
+}
+
 // UpdateClients updates clients for src on dst and dst on src given the configured paths.
 func UpdateClients(
 	ctx context.Context,

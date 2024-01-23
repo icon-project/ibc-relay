@@ -155,7 +155,6 @@ type TxResult struct {
 	ScoreAddress       []byte
 	EventLogsHash      common.HexBytes
 	TxIndex            HexInt
-	BlockHeight        HexInt
 }
 
 type CallData struct {

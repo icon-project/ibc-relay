@@ -740,28 +740,32 @@ func (ap *WasmProvider) SendMessagesToMempool(
 
 		wasmMsg, ok := msg.(*WasmContractMessage)
 		if !ok {
-			return fmt.Errorf("Wasm Message is not valid %s", wasmMsg.Type())
+			return fmt.Errorf("wasm Message is not valid %s", wasmMsg.Type())
 		}
 
 		txBytes, sequence, err := ap.buildMessages(cliCtx, factory, wasmMsg.Msg)
 		if err != nil {
-			return err
+			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+				ap.handleAccountSequenceMismatchError(err)
+			} else {
+				return err
+			}
 		}
 
-		// if msg.Type() == MethodUpdateClient {
-		// 	if err := retry.Do(func() error {
-		// 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
-		// 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
-		// 				ap.handleAccountSequenceMismatchError(err)
-		// 			}
-		// 		}
-		// 		return err
-		// 	}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
-		// 		ap.log.Error("Failed to update client", zap.Any("Message", msg))
-		// 		return err
-		// 	}
-		// 	continue
-		// }
+		if msg.Type() == MethodUpdateClient {
+			if err := retry.Do(func() error {
+				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+						ap.handleAccountSequenceMismatchError(err)
+					}
+				}
+				return err
+			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
+				ap.log.Error("Failed to update client", zap.Any("Message", msg))
+				return err
+			}
+			continue
+		}
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 				ap.handleAccountSequenceMismatchError(err)
@@ -1001,7 +1005,7 @@ func (ap *WasmProvider) BroadcastTx(
 		if isFailed {
 			err = ap.sdkError(res.Codespace, res.Code)
 			if err == nil {
-				err = fmt.Errorf("transaction failed to execute")
+				err = fmt.Errorf("transaction failed to execute: %s", res.RawLog)
 			}
 		}
 		ap.LogFailedTx(rlyResp, err, msgs)

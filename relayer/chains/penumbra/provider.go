@@ -143,7 +143,7 @@ func (h PenumbraIBCHeader) IsCompleteBlock() bool {
 	return true
 }
 
-func (h PenumbraIBCHeader) ShouldUpdateWithZeroMessage() bool {
+func (h PenumbraIBCHeader) ShouldUpdateForProofContextChange() bool {
 	return false
 }
 

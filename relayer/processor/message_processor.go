@@ -446,12 +446,12 @@ func (mp *messageProcessor) sendClientUpdate(
 	msgs := []provider.RelayerMessage{mp.msgUpdateClient}
 
 	callback := func(rtr *provider.RelayerTxResponse, err error) {
-
-		mp.log.Debug("Executing callback of sendClientUpdate ",
-			zap.Any("Transaction Status", rtr.Code),
-			zap.Any("Response", rtr),
-			zap.Any("LastClientUpdateHeight", dst.lastClientUpdateHeight))
-
+		if rtr != nil {
+			mp.log.Debug("Executing callback of sendClientUpdate",
+				zap.Any("response", rtr),
+				zap.Uint64("last_client_update_height", dst.lastClientUpdateHeight),
+				zap.Error(err))
+		}
 		if IsBTPLightClient(dst.clientState) {
 			if src.BTPHeightQueue.Size() == 0 {
 				return
@@ -460,12 +460,14 @@ func (mp *messageProcessor) sendClientUpdate(
 			if err != nil {
 				return
 			}
-			if rtr.Code == 0 {
+
+			if rtr != nil && rtr.Code == 0 {
 				if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
 					src.BTPHeightQueue.Dequeue()
 				}
 				return
 			}
+
 			// this would represent a failure case in that case isProcessing should be false
 			if blockHeightInfo.Height == int64(dst.lastClientUpdateHeight) {
 				if blockHeightInfo.RetryCount >= 5 {
@@ -473,7 +475,6 @@ func (mp *messageProcessor) sendClientUpdate(
 					src.BTPHeightQueue.Dequeue()
 					return
 				}
-
 				src.BTPHeightQueue.ReplaceQueue(zeroIndex, BlockInfoHeight{
 					Height:       int64(dst.lastClientUpdateHeight),
 					IsProcessing: false,
@@ -493,6 +494,7 @@ func (mp *messageProcessor) sendClientUpdate(
 			zap.String("dst_client_id", dst.info.ClientID),
 			zap.Error(err),
 		)
+		callback(nil, err)
 		return
 	}
 	dst.log.Debug("Client update broadcast completed")
