@@ -628,6 +628,9 @@ func (a WasmIBCHeader) NextValidatorsHash() []byte {
 func (a WasmIBCHeader) ShouldUpdateWithZeroMessage() bool {
 	return false
 }
+func (a WasmIBCHeader) ShouldUpdateForProofContextChange() bool {
+	return false
+}
 
 func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHeader {
 	vSets := make([]*itm.Validator, 0)

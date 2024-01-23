@@ -35,7 +35,6 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -151,15 +150,15 @@ func (pc *WasmProviderConfig) SignMode() signing.SignMode {
 }
 
 func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, srcWasmCodeID string, srcChainId string) (ibcexported.ClientState, error) {
-	revisionNumber := clienttypes.ParseChainID(dstChainID)
-	latestHeight := icon.NewHeight(revisionNumber, dstIBCHeader.Height())
+	// revisionNumber := clienttypes.ParseChainID(dstChainID)
+	// latestHeight := icon.NewHeight(revisionNumber, )
 	return &itm.ClientState{
 		ChainId:                      dstChainID,
 		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
 		TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
 		UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
-		FrozenHeight:                 &icon.Height{},
-		LatestHeight:                 &latestHeight,
+		FrozenHeight:                 int64(dstIBCHeader.Height()),
+		LatestHeight:                 int64(dstIBCHeader.Height()),
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
 	}, nil
@@ -401,7 +400,6 @@ func (ap *WasmProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo
 		Prefix:       msgOpenInit.CommitmentPrefix,
 	}
 
-
 	params := &conntypes.MsgConnectionOpenTry{
 		ClientId:             msgOpenInit.CounterpartyClientID,
 		PreviousConnectionId: msgOpenInit.CounterpartyConnID,
@@ -431,7 +429,6 @@ func (ap *WasmProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo,
 	if err != nil {
 		return nil, err
 	}
-
 
 	params := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,

@@ -42,10 +42,8 @@ func TestClientState(t *testing.T) {
 func TestCodecEncode(t *testing.T) {
 
 	testData := tendermint_client.ClientState{
-		ChainId: "tendermint",
-		LatestHeight: &icon.Height{
-			RevisionHeight: 40,
-		},
+		ChainId:      "tendermint",
+		LatestHeight: 40,
 	}
 
 	codec := MakeCodec(ModuleBasics, []string{})

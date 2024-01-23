@@ -407,7 +407,7 @@ func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (
 			RevisionHeight: trustedHdr.Height(),
 		}
 
-		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(latestHdr, trustedHeight, trustedHdr)
+		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(latestHdr, trustedHeight, trustedHdr, dstClientState.ClientType())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		dst.log.Info(
