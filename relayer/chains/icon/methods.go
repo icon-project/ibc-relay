@@ -42,4 +42,6 @@ const (
 	MethodTimeoutPacket  = "timeoutPacket"
 
 	MethodGetAllPorts = "getAllPorts"
+
+	MethodClaimFees = "claimFees"
 )

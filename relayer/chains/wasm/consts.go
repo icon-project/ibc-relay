@@ -23,6 +23,8 @@ const (
 	MethodGetNextClientSequence     = "get_next_client_sequence"
 	MethodGetNextChannelSequence    = "get_next_channel_sequence"
 	MethodGetNextConnectionSequence = "get_next_connection_sequence"
+
+	MethodClaimFees = "claim_fees"
 )
 
 const (
