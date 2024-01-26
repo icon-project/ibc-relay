@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -245,7 +246,6 @@ func (icp *IconProvider) NewClientState(
 		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
 	}
 
-	// TODO: arrange better way
 	latestHeight := clienttypes.NewHeight(icp.RevisionNumber(), dstUpdateHeader.Height())
 
 	if srcWasmCodeID != "" {
@@ -459,8 +459,11 @@ func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
 	return icp.PCfg
 }
 
-func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
-	return commitmenttypes.NewMerklePrefix([]byte("ibc"))
+func (icp *IconProvider) CommitmentPrefix(clientId string) commitmenttypes.MerklePrefix {
+	if strings.Contains(clientId, common.WasmLightClient) {
+		return commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	}
+	return commitmenttypes.NewMerklePrefix(nil)
 }
 
 func (icp *IconProvider) Key() string {

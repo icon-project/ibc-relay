@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cosmos/gogoproto/proto"
+	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
@@ -497,5 +499,14 @@ func TestGetBala(t *testing.T) {
 func TestIconConsensusState(t *testing.T) {
 	consensusState := icon.ConsensusState{}
 	fmt.Println(consensusState.GetTimestamp())
+
+}
+
+func TestMarhsal(t *testing.T) {
+
+	h := clienttypes.NewHeight(1, 14758)
+
+	b, _ := proto.Marshal(&h)
+	fmt.Printf("encoded heiht %x \n", b)
 
 }

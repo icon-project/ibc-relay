@@ -208,7 +208,7 @@ func (ap *WasmProvider) legacyEncodedEvents(log *zap.Logger, version string) boo
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
-func (ap *WasmProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (ap *WasmProvider) CommitmentPrefix(clientId string) commitmenttypes.MerklePrefix {
 	ctx := context.Background()
 	b, _ := ap.GetCommitmentPrefixFromContract(ctx)
 	return commitmenttypes.NewMerklePrefix(b)

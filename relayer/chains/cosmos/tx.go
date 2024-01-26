@@ -451,6 +451,7 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
 func (cc *CosmosProvider) MsgCreateClient(
 	clientState ibcexported.ClientState,
 	consensusState ibcexported.ConsensusState,
+
 ) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
@@ -1338,9 +1339,6 @@ func (cc *CosmosProvider) NewClientState(
 	srcChainType string,
 ) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
-
-	fmt.Println("[cosmos] srcWasmCodeId", srcWasmCodeID)
-	fmt.Println("revision number", revisionNumber)
 
 	var clientState ibcexported.ClientState
 

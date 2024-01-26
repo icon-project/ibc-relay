@@ -73,7 +73,7 @@ func (c *Chain) CreateOpenConnections(
 				Info: provider.ConnectionInfo{
 					ClientID:                     c.PathEnd.ClientID,
 					CounterpartyClientID:         dst.PathEnd.ClientID,
-					CounterpartyCommitmentPrefix: dst.ChainProvider.CommitmentPrefix(),
+					CounterpartyCommitmentPrefix: dst.ChainProvider.CommitmentPrefix(dst.PathEnd.ClientID),
 				},
 			},
 			Termination: &processor.ConnectionMessage{
@@ -82,7 +82,7 @@ func (c *Chain) CreateOpenConnections(
 				Info: provider.ConnectionInfo{
 					ClientID:                     dst.PathEnd.ClientID,
 					CounterpartyClientID:         c.PathEnd.ClientID,
-					CounterpartyCommitmentPrefix: c.ChainProvider.CommitmentPrefix(),
+					CounterpartyCommitmentPrefix: c.ChainProvider.CommitmentPrefix(c.PathEnd.ClientID),
 				},
 			},
 		}).

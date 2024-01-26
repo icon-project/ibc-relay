@@ -159,7 +159,7 @@ func (cc *CosmosProvider) Timeout() string {
 }
 
 // CommitmentPrefix returns the commitment prefix for Cosmos
-func (cc *CosmosProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (cc *CosmosProvider) CommitmentPrefix(clientId string) commitmenttypes.MerklePrefix {
 	return defaultChainPrefix
 }
 

@@ -1307,7 +1307,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, 
 	return cosmos.NewCosmosMessage(msg), nil
 }
 
-func (cc *PenumbraProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64 ) (provider.ConnectionProof, error) {
+func (cc *PenumbraProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
 	clientState, clientStateProof, consensusStateProof, connStateProof, proofHeight, err := cc.GenerateConnHandshakeProof(ctx, int64(height), msgOpenInit.ClientID, msgOpenInit.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err

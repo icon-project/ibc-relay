@@ -188,7 +188,7 @@ func (cc *PenumbraProvider) Timeout() string {
 	return cc.PCfg.Timeout
 }
 
-func (cc *PenumbraProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (cc *PenumbraProvider) CommitmentPrefix(clientId string) commitmenttypes.MerklePrefix {
 	return commitmenttypes.NewMerklePrefix([]byte("PenumbraAppHash"))
 }
 

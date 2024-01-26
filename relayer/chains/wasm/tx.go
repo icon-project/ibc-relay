@@ -150,14 +150,12 @@ func (pc *WasmProviderConfig) SignMode() signing.SignMode {
 }
 
 func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, srcWasmCodeID string, srcChainId string) (ibcexported.ClientState, error) {
-	// revisionNumber := clienttypes.ParseChainID(dstChainID)
-	// latestHeight := icon.NewHeight(revisionNumber, )
 	return &itm.ClientState{
 		ChainId:                      dstChainID,
 		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
 		TrustingPeriod:               &itm.Duration{Seconds: int64(dstTrustingPeriod.Seconds())},
 		UnbondingPeriod:              &itm.Duration{Seconds: int64(dstUbdPeriod.Seconds())},
-		FrozenHeight:                 int64(dstIBCHeader.Height()),
+		FrozenHeight:                 0,
 		LatestHeight:                 int64(dstIBCHeader.Height()),
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,

@@ -24,7 +24,20 @@ func (icp *IconProvider) ClientToAny(clientId string, clientStateB []byte) (*cod
 		}
 		return clienttypes.PackClientState(&clientState)
 	}
+
+	// 07-tendermint decode
 	if strings.Contains(clientId, common.TendermintLightClient) {
+		var clientState itm.ClientState
+		err := proto.Unmarshal(clientStateB, &clientState)
+		if err != nil {
+			return nil, err
+		}
+
+		return clienttypes.PackClientState(&clientState)
+	}
+
+	// wasm ics08 tendermint lightClient
+	if strings.Contains(clientId, common.TendermintWasmLightClient) {
 		var clientState tendermint.ClientState
 		err := proto.Unmarshal(clientStateB, &clientState)
 		if err != nil {
@@ -47,6 +60,16 @@ func (icp *IconProvider) ConsensusToAny(clientId string, cb []byte) (*codectypes
 	}
 	if strings.Contains(clientId, common.TendermintLightClient) {
 		var consensusState itm.ConsensusState
+		err := icp.codec.Marshaler.Unmarshal(cb, &consensusState)
+		if err != nil {
+			return nil, err
+		}
+
+		return clienttypes.PackConsensusState(&consensusState)
+	}
+
+	if strings.Contains(clientId, common.TendermintWasmLightClient) {
+		var consensusState tendermint.ConsensusState
 		err := icp.codec.Marshaler.Unmarshal(cb, &consensusState)
 		if err != nil {
 			return nil, err

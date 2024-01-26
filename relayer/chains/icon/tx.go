@@ -15,11 +15,13 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 
 	// itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"go.uber.org/zap"
@@ -46,11 +48,19 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
+	clientType := clientState.ClientType()
+
+	_, ok := clientState.(*tendermint.ClientState)
+	//hack: done to seperately handle ics08-tendermint client
+	if ok {
+		clientType = common.TendermintWasmLightClient
+	}
+
 	clS := &types.GenericClientParams[types.MsgCreateClient]{
 		Msg: types.MsgCreateClient{
 			ClientState:    types.NewHexBytes(clientStateBytes),
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
-			ClientType:     clientState.ClientType(),
+			ClientType:     clientType,
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
 		},
 	}
@@ -235,18 +245,21 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 
 	// client is 08-wasm then
 	// then the client state that could be proved is any type byte
-	// if strings.Split(msgOpenInit.ClientID, "-")[0]==exported.Wasm{
-	anyCs, err := clienttypes.PackClientState(proof.ClientState)
-	if err != nil {
-		return nil, err
-	}
-	anyCsByte, err := proto.Marshal(anyCs)
-	if err != nil {
-		return nil, err
-	}
+	splitClientId := strings.Split(msgOpenInit.ClientID, "-")
+	clientType := strings.Join(splitClientId[:len(splitClientId)-1], "-")
 
-	clientStateEncode = anyCsByte
-	// }
+	if clientType == exported.Wasm {
+		anyCs, err := clienttypes.PackClientState(proof.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		anyCsByte, err := proto.Marshal(anyCs)
+		if err != nil {
+			return nil, err
+		}
+
+		clientStateEncode = anyCsByte
+	}
 
 	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
@@ -304,20 +317,21 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 		return nil, err
 	}
 
-	// client is 08-wasm then
+	splitClientId := strings.Split(msgOpenTry.ClientID, "-")
+	clientType := strings.Join(splitClientId[:len(splitClientId)-1], "-")
 	// then the client state that could be proved is any type byte
-	// if strings.Split(msgOpenTry.ClientID, "-")[0]==exported.Wasm{
-	anyCs, err := clienttypes.PackClientState(proof.ClientState)
-	if err != nil {
-		return nil, err
-	}
-	anyCsByte, err := proto.Marshal(anyCs)
-	if err != nil {
-		return nil, err
-	}
+	if clientType == exported.Wasm {
+		anyCs, err := clienttypes.PackClientState(proof.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		anyCsByte, err := proto.Marshal(anyCs)
+		if err != nil {
+			return nil, err
+		}
 
-	clientStateEncode = anyCsByte
-	// }
+		clientStateEncode = anyCsByte
+	}
 
 	ht := &icon.Height{
 		RevisionNumber: proof.ProofHeight.RevisionNumber,
@@ -761,27 +775,31 @@ func (icp *IconProvider) SendIconTransaction(
 		return err
 	}
 
-	txParamEst := &types.TransactionParamForEstimate{
-		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-		FromAddress: types.Address(wallet.Address().String()),
-		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
-		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-		DataType:    "call",
-		Data: types.CallData{
-			Method: m.Method,
-			Params: m.Params,
-		},
-	}
+	msgByte, _ := msg.MsgBytes()
+	fmt.Printf("[icon] messagebyte  %x \n", msgByte)
 
-	step, err := icp.client.EstimateStep(txParamEst)
-	if err != nil {
-		return fmt.Errorf("failed estimating step: %w", err)
-	}
-	stepVal, err := step.Int()
-	if err != nil {
-		return err
-	}
-	stepLimit := types.NewHexInt(int64(stepVal + 200_000))
+	// txParamEst := &types.TransactionParamForEstimate{
+	// 	Version:     types.NewHexInt(types.JsonrpcApiVersion),
+	// 	FromAddress: types.Address(wallet.Address().String()),
+	// 	ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
+	// 	NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
+	// 	DataType:    "call",
+	// 	Data: types.CallData{
+	// 		Method: m.Method,
+	// 		Params: m.Params,
+	// 	},
+	// }
+
+	// step, err := icp.client.EstimateStep(txParamEst)
+	// if err != nil {
+	// 	return fmt.Errorf("failed estimating step: %w", err)
+	// }
+	// stepVal, err := step.Int()
+	// if err != nil {
+	// 	return err
+	// }
+	// stepLimit := types.NewHexInt(int64(stepVal + 200_000))
+	stepLimit := types.NewHexInt(int64(20_000_000))
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),

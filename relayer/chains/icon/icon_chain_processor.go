@@ -95,8 +95,6 @@ type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
 
-	fmt.Println("clientInfo::", clientInfo)
-
 	existingClientInfo, ok := l[clientInfo.clientID]
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {

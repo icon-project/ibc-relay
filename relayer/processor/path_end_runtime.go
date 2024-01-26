@@ -391,14 +391,17 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 	pathEnd.latestHeader = d.LatestHeader
 	pathEnd.clientState = d.ClientState
 
-	terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
-	if err != nil {
-		pathEnd.log.Error(
-			"Failed to check for misbehaviour",
-			zap.String("client_id", pathEnd.info.ClientID),
-			zap.Error(err),
-		)
-	}
+	// TODO: find a better way if any
+	// Centaurid dont have registered icon header and clientType
+	// so,  misbehaviour cannot find those type
+	// terminate, err := pathEnd.checkForMisbehaviour(ctx, pathEnd.clientState, counterParty)
+	// if err != nil {
+	// 	pathEnd.log.Error(
+	// 		"Failed to check for misbehaviour",
+	// 		zap.String("client_id", pathEnd.info.ClientID),
+	// 		zap.Error(err),
+	// 	)
+	// }
 
 	if d.ClientState.ConsensusHeight != pathEnd.clientState.ConsensusHeight {
 		pathEnd.clientState = d.ClientState
@@ -410,7 +413,9 @@ func (pathEnd *pathEndRuntime) mergeCacheData(ctx context.Context, cancel func()
 
 	pathEnd.handleCallbacks(d.IBCMessagesCache)
 
-	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) || terminate {
+	// TODO: cannot check for misbehaviour because of Icon ClientTypeHeader and all not registered on centauri chain
+	// if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) || terminate {
+	if pathEnd.shouldTerminate(d.IBCMessagesCache, messageLifecycle) {
 		cancel()
 		return
 	}
