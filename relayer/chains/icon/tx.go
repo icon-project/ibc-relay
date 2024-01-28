@@ -588,7 +588,6 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		CurrentValidators: currentValidatorList.Validators,
 	}
 
-	fmt.Println("[icon] msgUpdateClientHeader client type", clientType)
 	// wrap with wasm client
 	if clientType == exported.Wasm {
 

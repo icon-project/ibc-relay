@@ -223,9 +223,6 @@ func (cc *CosmosProvider) broadcastTx(
 			}
 		}
 
-		for _, m := range msgs {
-			fmt.Printf("msg: %x", m)
-		}
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
 	}
@@ -713,7 +710,6 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	fmt.Println("[cosmos] msgconnectionOpenInit")
 
 	signer, err := cc.Address()
 	if err != nil {
@@ -762,7 +758,6 @@ func (cc *CosmosProvider) ConnectionHandshakeProof(
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-	fmt.Println("[cosmos] msgconnectionOpenTry")
 
 	signer, err := cc.Address()
 	if err != nil {
@@ -810,8 +805,6 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 	}
 
 	// if msgOpenTry client is wasm client then we need to incorporate it
-
-	fmt.Println("[cosmos] msgConnectionOpenAck proofHeight.RevisionNumber:  ", proof.ProofHeight.RevisionNumber)
 
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
@@ -1311,7 +1304,6 @@ func (cc *CosmosProvider) queryProviderClientState(ctx context.Context, srch int
 			}, nil
 		}
 
-		fmt.Println("chain type ", clientStateExported.ClientType())
 		return provider.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
@@ -1378,7 +1370,6 @@ func (cc *CosmosProvider) NewClientState(
 		}
 	}
 
-	fmt.Println("[cosmos] newclientState", clientState)
 	return clientState, nil
 }
 

@@ -365,8 +365,6 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 		return emptyConnRes, err
 	}
 
-	fmt.Println("connection::::", conn)
-
 	key := common.GetConnectionCommitmentKey(connectionid)
 	commitmentHash := getCommitmentHash(key, connectionBytes)
 
@@ -482,15 +480,11 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 	[]byte, []byte, []byte,
 	ibcexported.Height, error) {
 
-	fmt.Println("[icon] generateConnHandshakeProof")
-
 	// clientProof
 	clientResponse, err := icp.QueryClientStateResponse(ctx, height, clientId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
-
-	fmt.Println("[icon] got clientResponse ")
 
 	// clientState
 	anyClientState := clientResponse.ClientState
@@ -505,15 +499,11 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
 
-	fmt.Println("[icon] got QueryClientConsensusState", consensusRes)
-
 	// connectionProof
 	connResponse, err := icp.QueryConnection(ctx, height, connId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
 	}
-
-	fmt.Println("[icon] got QueryConnection", connResponse)
 
 	return clientState_, clientResponse.Proof, consensusRes.Proof, connResponse.Proof, clienttypes.NewHeight(icp.RevisionNumber(), uint64(height)), nil
 }

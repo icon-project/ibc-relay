@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/cosmos/gogoproto/proto"
-	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
@@ -480,33 +478,33 @@ func TestHash(t *testing.T) {
 //		assert.True(t, isValid)
 //	}
 
-func TestGetBala(t *testing.T) {
+// func TestGetBala(t *testing.T) {
 
-	prov := GetMockIconProvider(2, "cx4f79451103e51baba633e10e4d355f28ceda3103")
+// 	prov := GetMockIconProvider(2, "cx4f79451103e51baba633e10e4d355f28ceda3103")
 
-	// ctx := context.Background()
-	// bal, err := prov.QueryBalanceWithAddress(ctx, "hxb6b5791be0b5ef67063b3c10b840fb81514db2fd")
-	// assert.NoError(t, err)
-	// fmt.Println("balance ", bal)
-	b, _ := hex.DecodeString("0a1063656e74617572692d746573746e65741204080110031a0408c0ba1222040880df6e32003a0310cb0240014801")
+// 	// ctx := context.Background()
+// 	// bal, err := prov.QueryBalanceWithAddress(ctx, "hxb6b5791be0b5ef67063b3c10b840fb81514db2fd")
+// 	// assert.NoError(t, err)
+// 	// fmt.Println("balance ", bal)
+// 	b, _ := hex.DecodeString("0a1063656e74617572692d746573746e65741204080110031a0408c0ba1222040880df6e32003a0310cb0240014801")
 
-	data, err := prov.ClientToAny("07-tendermint-4", b)
-	assert.NoError(t, err)
+// 	data, err := prov.ClientToAny("07-tendermint-4", b)
+// 	assert.NoError(t, err)
 
-	fmt.Println("data is ", data.Value)
-}
+// 	fmt.Println("data is ", data.Value)
+// }
 
-func TestIconConsensusState(t *testing.T) {
-	consensusState := icon.ConsensusState{}
-	fmt.Println(consensusState.GetTimestamp())
+// func TestIconConsensusState(t *testing.T) {
+// 	consensusState := icon.ConsensusState{}
+// 	fmt.Println(consensusState.GetTimestamp())
 
-}
+// }
 
-func TestMarhsal(t *testing.T) {
+// func TestMarhsal(t *testing.T) {
 
-	h := clienttypes.NewHeight(1, 14758)
+// 	h := clienttypes.NewHeight(1, 14758)
 
-	b, _ := proto.Marshal(&h)
-	fmt.Printf("encoded heiht %x \n", b)
+// 	b, _ := proto.Marshal(&h)
+// 	fmt.Printf("encoded heiht %x \n", b)
 
-}
+// }
