@@ -306,13 +306,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 
-	// proof from chainB should return clientState of chainB tracking chainA
-	iconClientState, err := icp.MustReturnIconClientState(proof.ClientState)
-	if err != nil {
-		return nil, err
-	}
-
-	clientStateEncode, err := proto.Marshal(iconClientState)
+	clientStateEncode, err := proto.Marshal(proof.ClientState)
 	if err != nil {
 		return nil, err
 	}
