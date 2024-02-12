@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
@@ -705,6 +706,101 @@ func (ap *WasmProvider) SendMessages(ctx context.Context, msgs []provider.Relaye
 	}
 
 	return rlyResp, true, callbackErr
+}
+
+func (ap *WasmProvider) SendCustomMessage(ctx context.Context, contract string, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+	var (
+		rlyResp     *provider.RelayerTxResponse
+		callbackErr error
+		wg          sync.WaitGroup
+	)
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		callbackErr = err
+
+		if err != nil {
+			wg.Done()
+			return
+		}
+
+		for i, e := range rtr.Events {
+			if startsWithWasm(e.EventType) {
+				rtr.Events[i].EventType = findEventType(e.EventType)
+			}
+		}
+		rlyResp = rtr
+		wg.Done()
+	}
+
+	wg.Add(1)
+
+	if err := retry.Do(func() error {
+		return ap.SendTransactionCosmWasm(ctx, contract, msg, ctx, callback)
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		ap.log.Info(
+			"Error building or broadcasting transaction",
+			zap.String("chain_id", ap.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", rtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, false, err
+	}
+
+	wg.Wait()
+
+	if callbackErr != nil {
+		return rlyResp, false, callbackErr
+	}
+
+	if rlyResp.Code != 0 {
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", rlyResp.Code)
+	}
+
+	return rlyResp, true, callbackErr
+
+}
+
+func (ap *WasmProvider) SendTransactionCosmWasm(
+	ctx context.Context,
+	contract string,
+	msg provider.RelayerMessage,
+
+	asyncCtx context.Context,
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
+	ap.txMu.Lock()
+	defer ap.txMu.Unlock()
+
+	cliCtx := ap.ClientContext()
+	factory, err := ap.PrepareFactory(ap.TxFactory())
+	if err != nil {
+		return err
+	}
+	msgByte, err := msg.MsgBytes()
+	if err != nil {
+		return err
+	}
+
+	signer, _ := ap.Address()
+	params := &wasmtypes.MsgExecuteContract{
+		Sender:   signer,
+		Contract: contract,
+		Msg:      msgByte,
+	}
+
+	txBytes, sequence, err := ap.buildMessages(cliCtx, factory, params)
+	if err != nil {
+		return err
+	}
+	if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
+		if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
+			ap.handleAccountSequenceMismatchError(err)
+		}
+	}
+	ap.updateNextAccountSequence(sequence + 1)
+	return nil
 }
 
 func (ap *WasmProvider) SendMessagesToMempool(

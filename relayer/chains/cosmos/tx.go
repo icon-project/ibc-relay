@@ -1110,6 +1110,14 @@ func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ib
 	return NewCosmosMessage(msg), nil
 }
 
+func (ap *CosmosProvider) SendCustomMessage(ctx context.Context, contract string, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+	panic("Not implemented for Cosmos")
+}
+
+func (cc *CosmosProvider) MsgClaimFees(dstChainID, dstAddress string) (provider.RelayerMessage, error) {
+	panic("Not implemented for Cosmos")
+}
+
 // RelayPacketFromSequence relays a packet with a given seq on src and returns recvPacket msgs, timeoutPacketmsgs and error
 func (cc *CosmosProvider) RelayPacketFromSequence(
 	ctx context.Context,

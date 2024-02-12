@@ -53,6 +53,8 @@ Most of these commands take a [path] argument. Make sure:
 		closeChannelCmd(a),
 		lineBreakCommand(),
 		registerCounterpartyCmd(a),
+		lineBreakCommand(),
+		claimFeesCmd(a),
 	)
 
 	return cmd
@@ -1204,6 +1206,50 @@ $ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny48
 			res, success, err := chain.ChainProvider.SendMessage(cmd.Context(), msg, "")
 			fmt.Println(res, success, err)
 			return nil
+		},
+	}
+	return cmd
+}
+
+func claimFeesCmd(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "claim-fees src_chain dst_chain dst_connection_address src_network_id ",
+		Aliases: []string{"cf"},
+		Short:   "claim fees of src_chain on dst_chain. dst_chain.claimFees(src_network_id, src_relayer_address)",
+		Args:    withUsage(cobra.MatchAll(cobra.ExactArgs(4))),
+		Example: strings.TrimSpace(fmt.Sprintf(`
+$ %s claim-fees archway icon cx6f86ed848f9f0d03ba1220811d95d864c72da88c archway-1
+$ %s claim-fees icon archway archway1f68v03g2646z7wk9h9sy5uxhztajcrdgwvdrsftyp4448h067v0shn6l5w 0x1.icon`,
+			appName, appName)),
+		RunE: func(cmd *cobra.Command, args []string) error {
+
+			src, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+			dst, ok := a.config.Chains[args[1]]
+			if !ok {
+				return errChainNotFound(args[1])
+			}
+
+			keyName := src.ChainProvider.Key()
+			relayAddress, err := src.ChainProvider.ShowAddress(keyName)
+			if err != nil {
+				return errKeyDoesntExist(keyName)
+			}
+
+			connectionAdd := args[2]
+			srcNetworkId := args[3]
+
+			msg, err := dst.ChainProvider.MsgClaimFees(srcNetworkId, relayAddress)
+			if err != nil {
+				return err
+			}
+			_, success, err := dst.ChainProvider.SendCustomMessage(cmd.Context(), connectionAdd, msg, "")
+			if success {
+				fmt.Println("Fee claim request successful---")
+			}
+			return err
 		},
 	}
 	return cmd

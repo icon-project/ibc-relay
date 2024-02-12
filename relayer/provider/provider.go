@@ -239,6 +239,8 @@ type ChainProvider interface {
 
 	Init(ctx context.Context) error
 
+	MsgClaimFees(dstChainID string, dstAddress string) (RelayerMessage, error)
+
 	// [Begin] Client IBC message assembly functions
 	NewClientState(dstChainID string, dstIBCHeader IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, srcWasmCodeID string, srcChainId string) (ibcexported.ClientState, error)
 
@@ -395,6 +397,7 @@ type ChainProvider interface {
 	AcknowledgementFromSequence(ctx context.Context, dst ChainProvider, dsth, seq uint64, dstChanID, dstPortID, srcChanID, srcPortID string) (RelayerMessage, error)
 
 	SendMessage(ctx context.Context, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
+	SendCustomMessage(ctx context.Context, contract string, msg RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 	SendMessages(ctx context.Context, msgs []RelayerMessage, memo string) (*RelayerTxResponse, bool, error)
 	SendMessagesToMempool(
 		ctx context.Context,

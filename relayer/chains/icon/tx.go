@@ -746,7 +746,7 @@ func (icp *IconProvider) SendMessagesToMempool(
 
 	for _, msg := range msgs {
 		if msg != nil {
-			err := icp.SendIconTransaction(ctx, msg, asyncCtx, asyncCallback)
+			err := icp.SendIconTransaction(ctx, types.Address(icp.PCfg.IbcHandlerAddress), msg, asyncCtx, asyncCallback)
 			if err != nil {
 				icp.log.Warn("Send Icon Transaction Error", zap.String("method", msg.Type()), zap.Error(err))
 				continue
@@ -757,8 +757,73 @@ func (icp *IconProvider) SendMessagesToMempool(
 	return nil
 }
 
+func (icp *IconProvider) SendCustomMessage(ctx context.Context, contract string, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+	var (
+		rlyResp     *provider.RelayerTxResponse
+		callbackErr error
+		wg          sync.WaitGroup
+	)
+
+	callback := func(rtr *provider.RelayerTxResponse, err error) {
+		rlyResp = rtr
+		callbackErr = err
+		wg.Done()
+	}
+
+	wg.Add(1)
+	if err := retry.Do(func() error {
+		return icp.SendCustomMessageToMempool(ctx, types.Address(contract), msg, memo, ctx, callback)
+	}, retry.Context(ctx), rtyAtt, rtyDel, rtyErr, retry.OnRetry(func(n uint, err error) {
+		icp.log.Info(
+			"Error building or broadcasting transaction",
+			zap.String("chain_id", icp.PCfg.ChainID),
+			zap.Uint("attempt", n+1),
+			zap.Uint("max_attempts", rtyAttNum),
+			zap.Error(err),
+		)
+	})); err != nil {
+		return nil, false, err
+	}
+
+	wg.Wait()
+
+	if callbackErr != nil {
+		return rlyResp, false, callbackErr
+	}
+
+	if rlyResp.Code != 1 {
+		return rlyResp, false, fmt.Errorf("transaction failed with code: %d", rlyResp.Code)
+	}
+
+	return rlyResp, true, callbackErr
+
+}
+
+func (icp *IconProvider) SendCustomMessageToMempool(
+	ctx context.Context,
+	contract types.Address,
+	msg provider.RelayerMessage,
+	memo string,
+	asyncCtx context.Context,
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
+	icp.txMu.Lock()
+	defer icp.txMu.Unlock()
+
+	if msg != nil {
+		err := icp.SendIconTransaction(ctx, contract, msg, asyncCtx, asyncCallback)
+		if err != nil {
+			icp.log.Warn("Send Icon Transaction Error", zap.String("method", msg.Type()), zap.Error(err))
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (icp *IconProvider) SendIconTransaction(
 	ctx context.Context,
+	contract types.Address,
 	msg provider.RelayerMessage,
 	asyncCtx context.Context,
 	asyncCallback func(*provider.RelayerTxResponse, error)) error {
@@ -797,7 +862,7 @@ func (icp *IconProvider) SendIconTransaction(
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),
 		FromAddress: types.Address(wallet.Address().String()),
-		ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
+		ToAddress:   contract,
 		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
 		StepLimit:   stepLimit,
 		DataType:    "call",

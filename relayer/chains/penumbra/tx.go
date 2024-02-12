@@ -437,6 +437,14 @@ func parseEventsFromTxResponse(resp *sdk.TxResponse) []provider.RelayerEvent {
 	return events
 }
 
+func (cc *PenumbraProvider) MsgClaimFees(dstChainID, dstAddress string) (provider.RelayerMessage, error) {
+	panic("Not implemented for Penumbra")
+}
+
+func (ap *PenumbraProvider) SendCustomMessage(ctx context.Context, contract string, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
+	panic("Not implemented for Penumbra")
+}
+
 // CreateClient creates an sdk.Msg to update the client on src with consensus state from dst
 func (cc *PenumbraProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
