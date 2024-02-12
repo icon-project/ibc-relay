@@ -26,7 +26,6 @@ import (
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
-	// integration_types "github.com/icon-project/ibc-integration/libraries/go/common/icon"
 )
 
 var (
@@ -580,7 +579,6 @@ func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayer
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
 
-// TODO: revisionNumber cannot be zero
 func (icp *IconProvider) RevisionNumber() uint64 {
 	if icp.PCfg.RevisionNumber != 0 {
 		return icp.PCfg.RevisionNumber
