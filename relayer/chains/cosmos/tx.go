@@ -801,15 +801,14 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		return nil, err
 	}
 
-	// if msgOpenTry client is wasm client then we need to incorporate it
-
+	//TODO if msgOpenTry client is wasm client then we need to incorporate it
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
 		CounterpartyConnectionId: msgOpenTry.ConnID,
 		Version:                  conntypes.DefaultIBCVersion,
 		ClientState:              csAny,
 		ProofHeight: clienttypes.Height{
-			RevisionNumber: proof.ProofHeight.RevisionNumber,
+			RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
 			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
 		},
 		ProofTry:       proof.ConnectionStateProof,
@@ -1029,7 +1028,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 
 	if clientType == exported.Wasm {
 
-		tmClientHeaderBz, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
+		clientHeaderData, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
 			return &wasmclient.Header{}, nil
 		}
@@ -1038,7 +1037,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
 		}
 		clientHeader = &wasmclient.Header{
-			Data:   tmClientHeaderBz,
+			Data:   clientHeaderData,
 			Height: height,
 		}
 	}
@@ -1273,8 +1272,7 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	return h, nil
 }
 
-// queryTMClientState retrieves the latest consensus state for a client in state at a given height
-// and unpacks/cast it to tendermint clientstate
+// queryProviderClientState retrieves the clientState of cosmos chain
 func (cc *CosmosProvider) queryProviderClientState(ctx context.Context, srch int64, srcClientId string) (provider.ClientState, error) {
 	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
