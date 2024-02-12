@@ -834,29 +834,9 @@ func (icp *IconProvider) SendIconTransaction(
 	}
 
 	msgByte, _ := msg.MsgBytes()
-	fmt.Printf("[icon] messagebyte  %x \n", msgByte)
 
-	// txParamEst := &types.TransactionParamForEstimate{
-	// 	Version:     types.NewHexInt(types.JsonrpcApiVersion),
-	// 	FromAddress: types.Address(wallet.Address().String()),
-	// 	ToAddress:   types.Address(icp.PCfg.IbcHandlerAddress),
-	// 	NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-	// 	DataType:    "call",
-	// 	Data: types.CallData{
-	// 		Method: m.Method,
-	// 		Params: m.Params,
-	// 	},
-	// }
+	icp.log.Info("sending msg to icon", zap.Binary("message-bytes", msgByte))
 
-	// step, err := icp.client.EstimateStep(txParamEst)
-	// if err != nil {
-	// 	return fmt.Errorf("failed estimating step: %w", err)
-	// }
-	// stepVal, err := step.Int()
-	// if err != nil {
-	// 	return err
-	// }
-	// stepLimit := types.NewHexInt(int64(stepVal + 200_000))
 	stepLimit := types.NewHexInt(int64(20_000_000))
 
 	txParam := &types.TransactionParam{
