@@ -38,7 +38,6 @@ import (
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
@@ -1343,7 +1342,7 @@ func (cc *CosmosProvider) NewClientState(
 	var clientState ibcexported.ClientState
 
 	// Create the ClientState we want on 'c' tracking 'dst'
-	tmClientState := tendermint.ClientState{
+	tmClientState := tmclient.ClientState{
 		ChainId:         dstChainID,
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
