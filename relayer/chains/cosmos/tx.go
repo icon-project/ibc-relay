@@ -587,7 +587,7 @@ func (cc *CosmosProvider) MsgRecvPacket(
 	}
 	msg := &chantypes.MsgRecvPacket{
 		Packet:          msgTransfer.Packet(),
-		ProofCommitment: common.ChangeProof(proof.Proof, true),
+		ProofCommitment: common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
@@ -625,7 +625,7 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 	msg := &chantypes.MsgAcknowledgement{
 		Packet:          msgRecvPacket.Packet(),
 		Acknowledgement: msgRecvPacket.Ack,
-		ProofAcked:      common.ChangeProof(proof.Proof, true),
+		ProofAcked:      common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
@@ -677,7 +677,7 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 	}
 	assembled := &chantypes.MsgTimeout{
 		Packet:           msgTransfer.Packet(),
-		ProofUnreceived:  common.ChangeProof(proof.Proof, true),
+		ProofUnreceived:  common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
@@ -697,7 +697,7 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
 		Packet:           msgTransfer.Packet(),
-		ProofUnreceived:  common.ChangeProof(proof.Proof, true),
+		ProofUnreceived:  common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
@@ -848,7 +848,7 @@ func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connectio
 	}
 	msg := &conntypes.MsgConnectionOpenConfirm{
 		ConnectionId: msgOpenAck.CounterpartyConnID,
-		ProofAck:     common.ChangeProof(proof.ConnectionStateProof, true),
+		ProofAck:     common.EnsureNonEmptyProof(proof.ConnectionStateProof),
 		ProofHeight:  proof.ProofHeight,
 		Signer:       signer,
 	}
@@ -918,7 +918,7 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 			Version: proof.Version,
 		},
 		CounterpartyVersion: proof.Version,
-		ProofInit:           common.ChangeProof(proof.Proof, true),
+		ProofInit:           common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:         proof.ProofHeight,
 		Signer:              signer,
 	}
@@ -936,7 +936,7 @@ func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pro
 		ChannelId:             msgOpenTry.CounterpartyChannelID,
 		CounterpartyChannelId: msgOpenTry.ChannelID,
 		CounterpartyVersion:   proof.Version,
-		ProofTry:              common.ChangeProof(proof.Proof, true),
+		ProofTry:              common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:           proof.ProofHeight,
 		Signer:                signer,
 	}
@@ -952,7 +952,7 @@ func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo,
 	msg := &chantypes.MsgChannelOpenConfirm{
 		PortId:      msgOpenAck.CounterpartyPortID,
 		ChannelId:   msgOpenAck.CounterpartyChannelID,
-		ProofAck:    common.ChangeProof(proof.Proof, true),
+		ProofAck:    common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight: proof.ProofHeight,
 		Signer:      signer,
 	}
@@ -982,7 +982,7 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	msg := &chantypes.MsgChannelCloseConfirm{
 		PortId:      msgCloseInit.CounterpartyPortID,
 		ChannelId:   msgCloseInit.CounterpartyChannelID,
-		ProofInit:   common.ChangeProof(proof.Proof, true),
+		ProofInit:   common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight: proof.ProofHeight,
 		Signer:      signer,
 	}

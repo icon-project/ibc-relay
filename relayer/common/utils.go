@@ -59,8 +59,8 @@ func LoadSnapshotHeight(chain_id string) (int64, error) {
 	return strconv.ParseInt(strings.TrimSuffix(string(content), "\n"), 10, 64)
 }
 
-func ChangeProof(proof []byte, shouldNeverBeEmpty bool) []byte {
-	if proof == nil && shouldNeverBeEmpty {
+func EnsureNonEmptyProof(proof []byte) []byte {
+	if proof == nil {
 		return EmptyProofConst
 	}
 	return proof
