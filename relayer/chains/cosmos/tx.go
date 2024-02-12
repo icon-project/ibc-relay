@@ -146,10 +146,8 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	defer cc.txMu.Unlock()
 
 	for _, m := range msgs {
-		fmt.Println("[cosmos] from mempool messageType:", m.Type())
-		b, _ := m.MsgBytes()
-		fmt.Printf("[cosmos] message %x \n ", b)
-
+		msgbytes, _ := m.MsgBytes()
+		cc.log.Info("sending msg to mempool", zap.String("message-type", m.Type()), zap.Binary("message-bytes", msgbytes))
 	}
 
 	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo)
