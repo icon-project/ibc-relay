@@ -173,6 +173,13 @@ func (p *Path) String() string {
 	return fmt.Sprintf("%s -> %s", p.Src.String(), p.Dst.String())
 }
 
+func (p *Path) IsInvalid() error {
+	if p.Src.ChainID == "" || p.Src.ClientID == "" || p.Src.ConnectionID == "" || p.Dst.ChainID == "" || p.Dst.ClientID == "" || p.Dst.ConnectionID == "" {
+		return fmt.Errorf("chain-id, client-id and connection-id for src and dst cannot be empty for path")
+	}
+	return nil
+}
+
 // GenPath generates a path with unspecified client, connection and channel identifiers
 // given chainIDs and portIDs.
 func GenPath(srcChainID, dstChainID string) *Path {
