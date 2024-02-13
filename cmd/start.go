@@ -45,19 +45,16 @@ $ %s start demo-path --max-msgs 3
 $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			chains := make(map[string]*relayer.Chain)
-			paths := make([]relayer.NamedPath, len(args))
+
+			var paths []relayer.NamedPath
 
 			if len(args) > 0 {
-				for i, pathName := range args {
+				for _, pathName := range args {
 					path := a.config.Paths.MustGet(pathName)
-					paths[i] = relayer.NamedPath{
+					paths = append(paths, relayer.NamedPath{
 						Name: pathName,
 						Path: path,
-					}
-
-					// collect unique chain IDs
-					chains[path.Src.ChainID] = nil
-					chains[path.Dst.ChainID] = nil
+					})
 				}
 			} else {
 				for n, path := range a.config.Paths {
@@ -65,22 +62,27 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 						Name: n,
 						Path: path,
 					})
-
-					// collect unique chain IDs
-					chains[path.Src.ChainID] = nil
-					chains[path.Dst.ChainID] = nil
 				}
 			}
 
-			chainIDs := make([]string, 0, len(chains))
-			for chainID := range chains {
-				chainIDs = append(chainIDs, chainID)
-			}
+			for _, p := range paths {
+				srcChainID := p.Path.Src.ChainID
+				if _, ok := chains[srcChainID]; !ok {
+					chain, err := a.config.Chains.Get(srcChainID)
+					if err != nil {
+						return err
+					}
+					chains[srcChainID] = chain
+				}
 
-			// get chain configurations
-			chains, err := a.config.Chains.Gets(chainIDs...)
-			if err != nil {
-				return err
+				dstChainID := p.Path.Dst.ChainID
+				if _, ok := chains[dstChainID]; !ok {
+					chain, err := a.config.Chains.Get(dstChainID)
+					if err != nil {
+						return err
+					}
+					chains[dstChainID] = chain
+				}
 			}
 
 			if err := ensureKeysExist(chains); err != nil {
