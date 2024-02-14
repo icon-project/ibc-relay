@@ -52,7 +52,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 				for _, pathName := range args {
 					path := a.config.Paths.MustGet(pathName)
 					if err := path.IsInvalid(); err != nil {
-						a.log.Warn(fmt.Sprintf("Skipping invalid path: %s", err.Error()))
+						a.log.Warn(fmt.Sprintf("Skipping invalid path: [%s] : %s", pathName, err.Error()))
 					} else {
 						paths = append(paths, relayer.NamedPath{
 							Name: pathName,
@@ -63,7 +63,7 @@ $ %s start demo-path2 --max-tx-size 10`, appName, appName, appName, appName)),
 			} else {
 				for n, path := range a.config.Paths {
 					if err := path.IsInvalid(); err != nil {
-						a.log.Warn(fmt.Sprintf("Skipping invalid path: %s", err.Error()))
+						a.log.Warn(fmt.Sprintf("Skipping invalid path: [%s] : %s", n, err.Error()))
 					} else {
 						paths = append(paths, relayer.NamedPath{
 							Name: n,
