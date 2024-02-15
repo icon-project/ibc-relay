@@ -5,7 +5,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/ibc-go/v7/modules/core/exported"
+	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"github.com/icon-project/ibc-integration/libraries/go/common/tendermint"

@@ -9,7 +9,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/auth/tx"
-	ibc "github.com/cosmos/ibc-go/v7/modules/core"
+	ibc "github.com/cosmos/ibc-go/v8/modules/core"
 	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
 	wasm_module "github.com/cosmos/relayer/v2/relayer/chains/wasm/module"
 	"github.com/cosmos/relayer/v2/relayer/codecs/injective"

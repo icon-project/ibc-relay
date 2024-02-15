@@ -5,7 +5,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	ibc "github.com/cosmos/ibc-go/v7/modules/core"
+	ibc "github.com/cosmos/ibc-go/v8/modules/core"
 	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
 )
 
