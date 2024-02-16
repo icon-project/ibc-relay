@@ -114,8 +114,7 @@ func parseIBCMessageFromEvent(
 	attrs := event.Attributes[1:]
 	switch eventType {
 	case chantypes.EventTypeSendPacket, chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck,
-		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket,
-		chantypes.EventTypeTimeoutPacketOnClose:
+		chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		pi := &packetInfo{Height: height}
 		pi.parseAttrs(log, attrs)
 		return &ibcMessage{
@@ -142,8 +141,7 @@ func parseIBCMessageFromEvent(
 		}
 
 	case clienttypes.EventTypeCreateClient, clienttypes.EventTypeUpdateClient,
-		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour,
-		clienttypes.EventTypeUpdateClientProposal:
+		clienttypes.EventTypeUpgradeClient, clienttypes.EventTypeSubmitMisbehaviour:
 		ci := new(clientInfo)
 		ci.parseAttrs(log, attrs)
 		return &ibcMessage{

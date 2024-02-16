@@ -366,7 +366,7 @@ func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *
 		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		blockMsgs := pcp.ibcMessagesFromBlockEvents(blockRes.BeginBlockEvents, blockRes.EndBlockEvents, heightUint64, true)
+		blockMsgs := ibcMessagesFromEvents(pcp.log, blockRes.FinalizeBlockEvents, chainID, heightUint64, true)
 		for _, m := range blockMsgs {
 			pcp.handleMessage(m, ibcMessagesCache)
 		}

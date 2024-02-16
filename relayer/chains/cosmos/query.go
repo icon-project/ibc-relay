@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -17,7 +18,6 @@ import (
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
 	bankTypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/cosmos/cosmos-sdk/x/params/types/proposal"
@@ -77,9 +77,7 @@ func (cc *CosmosProvider) queryIBCMessages(ctx context.Context, log *zap.Logger,
 
 				mu.Lock()
 				defer mu.Unlock()
-				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.BeginBlockEvents, chainID, 0, base64Encoded)...)
-				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.EndBlockEvents, chainID, 0, base64Encoded)...)
-
+				ibcMsgs = append(ibcMsgs, ibcMessagesFromEvents(log, block.FinalizeBlockEvents, chainID, 0, base64Encoded)...)
 				return nil
 			})
 		}
@@ -168,7 +166,7 @@ func (cc *CosmosProvider) QueryTxs(ctx context.Context, page, limit int, events 
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
-func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+func parseEventsFromResponseDeliverTx(resp abci.ExecTxResult) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
 	for _, event := range resp.Events {
@@ -327,7 +325,7 @@ func (cc *CosmosProvider) QueryClientStateResponse(ctx context.Context, height i
 
 	// check if client exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrClientNotFound, srcClientId)
+		return nil, errors.Wrap(clienttypes.ErrClientNotFound, srcClientId)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -376,7 +374,7 @@ func (cc *CosmosProvider) QueryClientConsensusState(ctx context.Context, chainHe
 
 	// check if consensus state exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
+		return nil, errors.Wrap(clienttypes.ErrConsensusStateNotFound, clientid)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -573,7 +571,7 @@ func (cc *CosmosProvider) queryConnectionABCI(ctx context.Context, height int64,
 
 	// check if connection exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(conntypes.ErrConnectionNotFound, connectionID)
+		return nil, errors.Wrap(conntypes.ErrConnectionNotFound, connectionID)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -723,7 +721,7 @@ func (cc *CosmosProvider) queryChannelABCI(ctx context.Context, height int64, po
 
 	// check if channel exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portID, channelID)
+		return nil, errors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portID, channelID)
 	}
 
 	cdc := codec.NewProtoCodec(cc.Cdc.InterfaceRegistry)
@@ -994,7 +992,7 @@ func (cc *CosmosProvider) QueryNextSeqRecv(ctx context.Context, height int64, ch
 
 	// check if next sequence receive exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
+		return nil, errors.Wrapf(chantypes.ErrChannelNotFound, "portID (%s), channelID (%s)", portid, channelid)
 	}
 
 	sequence := binary.BigEndian.Uint64(value)
@@ -1017,7 +1015,7 @@ func (cc *CosmosProvider) QueryPacketCommitment(ctx context.Context, height int6
 
 	// check if packet commitment exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrPacketCommitmentNotFound, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
+		return nil, errors.Wrapf(chantypes.ErrPacketCommitmentNotFound, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
 	}
 
 	return &chantypes.QueryPacketCommitmentResponse{
@@ -1037,7 +1035,7 @@ func (cc *CosmosProvider) QueryPacketAcknowledgement(ctx context.Context, height
 	}
 
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrapf(chantypes.ErrInvalidAcknowledgement, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
+		return nil, errors.Wrapf(chantypes.ErrInvalidAcknowledgement, "portID (%s), channelID (%s), sequence (%d)", portid, channelid, seq)
 	}
 
 	return &chantypes.QueryPacketAcknowledgementResponse{
@@ -1148,7 +1146,7 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 
 	// check if consensus state exists
 	if len(value) == 0 {
-		return nil, sdkerrors.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
+		return nil, errors.Wrap(clienttypes.ErrConsensusStateNotFound, clientID)
 	}
 
 	// TODO do we really want to create a new codec? ChainClient exposes proto.Marshaler

@@ -3,6 +3,7 @@ package penumbra
 import (
 	"reflect"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	typestx "github.com/cosmos/cosmos-sdk/types/tx"
@@ -93,7 +94,7 @@ func (cc *PenumbraProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Re
 	if err := ir.UnpackAny(res.Tx, &m); err == nil {
 		if tx, ok := m.(*typestx.Tx); ok {
 			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
-			if feePayer := getFeePayer(tx); feePayer != "" {
+			if feePayer := getFeePayer(cc.Codec.Marshaler, tx); feePayer != "" {
 				fields = append(fields, zap.String("fee_payer", feePayer))
 			}
 		} else {
@@ -131,7 +132,7 @@ func msgTypesField(msgs []provider.RelayerMessage) zap.Field {
 // getFeePayer returns the bech32 address of the fee payer of a transaction.
 // This uses the fee payer field if set,
 // otherwise falls back to the address of whoever signed the first message.
-func getFeePayer(tx *typestx.Tx) string {
+func getFeePayer(cdc codec.Codec, tx *typestx.Tx) string {
 	payer := tx.AuthInfo.Fee.Payer
 	if payer != "" {
 		return payer
@@ -152,6 +153,10 @@ func getFeePayer(tx *typestx.Tx) string {
 		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
 	default:
-		return firstMsg.GetSigners()[0].String()
+		signers, _, err := tx.GetSigners(cdc)
+		if err != nil || len(signers) < 1 {
+			return ""
+		}
+		return string(signers[0])
 	}
 }

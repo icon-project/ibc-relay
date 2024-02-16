@@ -572,7 +572,7 @@ func PacketInfoChannelKey(eventType string, info provider.PacketInfo) (ChannelKe
 	switch eventType {
 	case chantypes.EventTypeRecvPacket, chantypes.EventTypeWriteAck, common.EventTimeoutRequest:
 		return packetInfoChannelKey(info).Counterparty(), nil
-	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeSendPacket, chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		return packetInfoChannelKey(info), nil
 	}
 	return ChannelKey{}, fmt.Errorf("eventType not expected for packetIBCMessage channelKey: %s", eventType)

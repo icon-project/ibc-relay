@@ -10,7 +10,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	wasmclient "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/types"
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 )
@@ -33,7 +32,7 @@ func ClientsMatch(ctx context.Context, src, dst ChainProvider, existingClient cl
 		return "", err
 	}
 
-	if newClient.ClientType() == exported.Wasm {
+	if newClient.ClientType() == wasmclient.Wasm {
 		wasmClientState := newClient.(*wasmclient.ClientState)
 		newClient, err = clienttypes.UnmarshalClientState(tendermintClientCodec, wasmClientState.Data) // Does this need to be UnmarshalInterface?
 		if err != nil {
@@ -74,13 +73,7 @@ func CheckForMisbehaviour(
 		return nil, err
 	}
 
-	switch wasmHeader := clientMsg.(type) {
-	case *wasmclient.Header:
-		clientMsg, err = clienttypes.UnmarshalClientMessage(tendermintClientCodec, wasmHeader.Data)
-		if err != nil {
-			return nil, err
-		}
-	}
+	//Todo check misbehavior for wasm client
 
 	switch header := clientMsg.(type) {
 	case *tmclient.Header:

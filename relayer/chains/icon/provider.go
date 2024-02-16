@@ -258,7 +258,7 @@ func (icp *IconProvider) NewClientState(
 		}
 		clientState = &wasmclient.ClientState{
 			Data:         tmClientStateBz,
-			CodeId:       codeID,
+			Checksum:     codeID,
 			LatestHeight: latestHeight,
 		}
 	}

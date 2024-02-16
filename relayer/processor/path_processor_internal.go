@@ -242,7 +242,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 		if err := pathEndPacketFlowMessages.Dst.chainProvider.ValidatePacket(info, pathEndPacketFlowMessages.Dst.latestBlock); err != nil {
 			var timeoutHeightErr *provider.TimeoutHeightError
 			var timeoutTimestampErr *provider.TimeoutTimestampError
-			var timeoutOnCloseErr *provider.TimeoutOnCloseError
 
 			if pathEndPacketFlowMessages.Dst.chainProvider.Type() == common.IconModule {
 
@@ -270,12 +269,6 @@ func (pp *PathProcessor) unrelayedPacketFlowMessages(
 					info:      info,
 				}
 				msgs = append(msgs, timeoutMsg)
-			case errors.As(err, &timeoutOnCloseErr):
-				timeoutOnCloseMsg := packetIBCMessage{
-					eventType: chantypes.EventTypeTimeoutPacketOnClose,
-					info:      info,
-				}
-				msgs = append(msgs, timeoutOnCloseMsg)
 			default:
 				pp.log.Error("Packet is invalid",
 					zap.String("chain_id", pathEndPacketFlowMessages.Src.info.ChainID),
@@ -1007,7 +1000,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			DstMsgWriteAcknowledgementPacket: pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeWriteAck],
 			SrcMsgAcknowledgement:            pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:                    pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 			DstMsgRequestTimeout:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][common.EventTimeoutRequest],
 		}
 
@@ -1021,7 +1013,6 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 			DstMsgWriteAcknowledgementPacket: pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][chantypes.EventTypeWriteAck],
 			SrcMsgAcknowledgement:            pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeAcknowledgePacket],
 			SrcMsgTimeout:                    pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacket],
-			SrcMsgTimeoutOnClose:             pp.pathEnd2.messageCache.PacketFlow[pair.pathEnd2ChannelKey][chantypes.EventTypeTimeoutPacketOnClose],
 			DstMsgRequestTimeout:             pp.pathEnd1.messageCache.PacketFlow[pair.pathEnd1ChannelKey][common.EventTimeoutRequest],
 		}
 

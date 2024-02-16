@@ -78,14 +78,6 @@ func (msg packetIBCMessage) assemble(
 		assembleMessage = dst.chainProvider.MsgTimeoutRequest
 		packetProof = src.chainProvider.PacketCommitment
 
-	case chantypes.EventTypeTimeoutPacketOnClose:
-		if msg.info.ChannelOrder == chantypes.ORDERED.String() {
-			packetProof = src.chainProvider.NextSeqRecv
-		} else {
-			packetProof = src.chainProvider.PacketReceipt
-		}
-
-		assembleMessage = dst.chainProvider.MsgTimeoutOnClose
 	default:
 		return nil, fmt.Errorf("unexepected packet message eventType for message assembly: %s", msg.eventType)
 	}

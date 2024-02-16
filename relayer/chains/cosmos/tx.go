@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	cosmoserrors "cosmossdk.io/errors"
+
 	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -26,6 +28,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
@@ -37,7 +40,6 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
@@ -178,7 +180,7 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 func (cc *CosmosProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	err := errors.Unwrap(cosmoserrors.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
@@ -397,7 +399,7 @@ func (cc *CosmosProvider) buildMessages(ctx context.Context, msgs []provider.Rel
 	done := cc.SetSDKContext()
 
 	if err := retry.Do(func() error {
-		if err := tx.Sign(txf, cc.PCfg.Key, txb, false); err != nil {
+		if err := tx.Sign(ctx, txf, cc.PCfg.Key, txb, false); err != nil {
 			return err
 		}
 		return nil
@@ -778,7 +780,7 @@ func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionIn
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight:          proof.ProofHeight,
 		ProofInit:            proof.ConnectionStateProof,
 		ProofClient:          proof.ClientStateProof,
@@ -1026,19 +1028,19 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 
 	clientHeader = &tmClientHeader
 
-	if clientType == exported.Wasm {
+	if clientType == wasmclient.Wasm {
 
 		clientHeaderData, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
-			return &wasmclient.Header{}, nil
+			return &wasmclient.ClientMessage{}, nil
 		}
-		height, ok := tmClientHeader.GetHeight().(clienttypes.Height)
-		if !ok {
-			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
-		}
-		clientHeader = &wasmclient.Header{
-			Data:   clientHeaderData,
-			Height: height,
+		// height, ok := tmClientHeader.GetHeight().(clienttypes.Height)
+		// if !ok {
+		// 	return &wasmclient.ClientMessage{}, fmt.Errorf("error converting tm client header height")
+		// }
+		clientHeader = &wasmclient.ClientMessage{
+			Data: clientHeaderData,
+			// Height: height,
 		}
 	}
 
@@ -1083,12 +1085,12 @@ func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provide
 }
 
 func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	if strings.Contains(clientID, exported.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
+	if strings.Contains(clientID, wasmclient.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
 		wasmData, err := cc.Cdc.Marshaler.MarshalInterface(misbehaviour)
 		if err != nil {
 			return nil, err
 		}
-		misbehaviour = &wasmclient.Misbehaviour{
+		misbehaviour = &wasmclient.ClientMessage{
 			Data: wasmData,
 		}
 	}
@@ -1368,7 +1370,7 @@ func (cc *CosmosProvider) NewClientState(
 		}
 		clientState = &wasmclient.ClientState{
 			Data:         tmClientStateBz,
-			CodeId:       codeID,
+			Checksum:     codeID,
 			LatestHeight: tmClientState.LatestHeight,
 		}
 	}

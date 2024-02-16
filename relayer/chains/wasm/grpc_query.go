@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"cosmossdk.io/errors"
 	abci "github.com/cometbft/cometbft/abci/types"
 	gogogrpc "github.com/cosmos/gogoproto/grpc"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -37,17 +38,17 @@ func (ap *WasmProvider) Invoke(ctx context.Context, method string, req, reply in
 
 	// In both cases, we don't allow empty request req (it will panic unexpectedly).
 	if reflect.ValueOf(req).IsNil() {
-		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
+		return errors.Wrap(sdkerrors.ErrInvalidRequest, "request cannot be nil")
 	}
 
 	// Case 1. Broadcasting a Tx.
 	if reqProto, ok := req.(*tx.BroadcastTxRequest); ok {
 		if !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxRequest)(nil), req)
+			return errors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxRequest)(nil), req)
 		}
 		resProto, ok := reply.(*tx.BroadcastTxResponse)
 		if !ok {
-			return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxResponse)(nil), req)
+			return errors.Wrapf(sdkerrors.ErrInvalidRequest, "expected %T, got %T", (*tx.BroadcastTxResponse)(nil), req)
 		}
 
 		broadcastRes, err := ap.TxServiceBroadcast(ctx, reqProto)
@@ -107,7 +108,7 @@ func (ap *WasmProvider) RunGRPCQuery(ctx context.Context, method string, req int
 			return abci.ResponseQuery{}, nil, err
 		}
 		if height < 0 {
-			return abci.ResponseQuery{}, nil, sdkerrors.Wrapf(
+			return abci.ResponseQuery{}, nil, errors.Wrapf(
 				sdkerrors.ErrInvalidRequest,
 				"client.Context.Invoke: height (%d) from %q must be >= 0", height, grpctypes.GRPCBlockHeightHeader)
 		}

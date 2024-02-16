@@ -14,7 +14,6 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v8/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v8/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tendermint "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 
@@ -248,7 +247,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	splitClientId := strings.Split(msgOpenInit.ClientID, "-")
 	clientType := strings.Join(splitClientId[:len(splitClientId)-1], "-")
 
-	if clientType == exported.Wasm {
+	if clientType == wasmclient.Wasm {
 		anyCs, err := clienttypes.PackClientState(proof.ClientState)
 		if err != nil {
 			return nil, err
@@ -314,7 +313,7 @@ func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo
 	splitClientId := strings.Split(msgOpenTry.ClientID, "-")
 	clientType := strings.Join(splitClientId[:len(splitClientId)-1], "-")
 	// then the client state that could be proved is any type byte
-	if clientType == exported.Wasm {
+	if clientType == wasmclient.Wasm {
 		anyCs, err := clienttypes.PackClientState(proof.ClientState)
 		if err != nil {
 			return nil, err
@@ -583,16 +582,13 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 	}
 
 	// wrap with wasm client
-	if clientType == exported.Wasm {
-
+	if clientType == wasmclient.Wasm {
 		tmClientHeaderBz, err := icp.codec.Marshaler.MarshalInterface(signedHeader)
 		if err != nil {
-			return &wasmclient.Header{}, nil
+			return nil, err
 		}
-		return &wasmclient.Header{
+		return &wasmclient.ClientMessage{
 			Data: tmClientHeaderBz,
-			// TODO: forcefully set 1
-			Height: clienttypes.NewHeight(icp.RevisionNumber(), latestIconHeader.Header.MainHeight),
 		}, nil
 
 	}

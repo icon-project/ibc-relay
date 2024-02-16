@@ -239,17 +239,8 @@ func CreateClient(
 			return "", fmt.Errorf("failed to marshal consensus state for wasm client: %w", err)
 		}
 
-		// TODO: the consensus state of Icon dont have timestamp
-		// this is dont to escape validation in Icon side escape validation
-		// find a better way for icon
-		timeStamp := consensusState.GetTimestamp()
-		if consensusState.ClientType() == common.IconModule {
-			timeStamp = 1
-		}
-
 		consensusState = &wasmclient.ConsensusState{
-			Data:      consensusStateBz,
-			Timestamp: timeStamp,
+			Data: consensusStateBz,
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"cosmossdk.io/math"
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
@@ -255,7 +256,7 @@ func QueryBalance(ctx context.Context, chain *Chain, address string, showDenoms 
 
 	var out sdk.Coins
 	for _, c := range coins {
-		if c.Amount.Equal(sdk.NewInt(0)) {
+		if c.Amount.Equal(math.NewInt(0)) {
 			continue
 		}
 

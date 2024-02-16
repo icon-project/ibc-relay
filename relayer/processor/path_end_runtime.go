@@ -365,7 +365,7 @@ func (pathEnd *pathEndRuntime) checkForMisbehaviour(
 	if err != nil {
 		return false, err
 	}
-	if misbehaviour == nil && err == nil {
+	if misbehaviour == nil {
 		return false, nil
 	}
 
@@ -517,8 +517,7 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	}
 
 	pathEndForHeight := counterparty
-	if eventType == chantypes.EventTypeTimeoutPacket ||
-		eventType == chantypes.EventTypeTimeoutPacketOnClose {
+	if eventType == chantypes.EventTypeTimeoutPacket {
 		pathEndForHeight = pathEnd
 	}
 
@@ -636,7 +635,7 @@ func (pathEnd *pathEndRuntime) removePacketRetention(
 	case common.EventTimeoutRequest:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeSendPacket] = []uint64{sequence}
-	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket, chantypes.EventTypeTimeoutPacketOnClose:
+	case chantypes.EventTypeAcknowledgePacket, chantypes.EventTypeTimeoutPacket:
 		toDelete[eventType] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeRecvPacket] = []uint64{sequence}
 		toDeleteCounterparty[chantypes.EventTypeWriteAck] = []uint64{sequence}

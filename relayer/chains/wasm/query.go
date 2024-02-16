@@ -102,7 +102,7 @@ func (ap *WasmProvider) QueryTxs(ctx context.Context, page, limit int, events []
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
 // of provider.RelayerEvent's.
 // TODO: Comet check needed?
-func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+func parseEventsFromResponseDeliverTx(resp abci.ExecTxResult) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
 	for _, event := range resp.Events {

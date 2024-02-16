@@ -423,12 +423,12 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 
 		base64Encoded := ccp.chainProvider.cometLegacyEncoding
 
-		blockMsgs := ccp.ibcMessagesFromBlockEvents(
-			blockRes.BeginBlockEvents,
-			blockRes.EndBlockEvents,
+		blockMsgs := ibcMessagesFromEvents(
+			ccp.log,
+			blockRes.FinalizeBlockEvents,
+			chainID,
 			heightUint64,
-			base64Encoded,
-		)
+			base64Encoded)
 		for _, m := range blockMsgs {
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}

@@ -15,11 +15,13 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	cosmoscdc "github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 
 	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 
+	cosmoserrors "cosmossdk.io/errors"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"go.uber.org/zap"
@@ -405,7 +407,7 @@ func (ap *WasmProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight:          proof.ProofHeight,
 		ProofInit:            proof.ConnectionStateProof,
 		ProofClient:          proof.ClientStateProof,
@@ -918,7 +920,7 @@ func (ap *WasmProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Relaye
 	if err := ir.UnpackAny(res.Tx, &m); err == nil {
 		if tx, ok := m.(*txtypes.Tx); ok {
 			fields = append(fields, zap.Stringer("fees", tx.GetFee()))
-			if feePayer := getFeePayer(tx); feePayer != "" {
+			if feePayer := getFeePayer(ap.Cdc.Marshaler, tx); feePayer != "" {
 				fields = append(fields, zap.String("fee_payer", feePayer))
 			}
 		} else {
@@ -949,13 +951,12 @@ func (ap *WasmProvider) LogSuccessTx(res *sdk.TxResponse, msgs []provider.Relaye
 // getFeePayer returns the bech32 address of the fee payer of a transaction.
 // This uses the fee payer field if set,
 // otherwise falls back to the address of whoever signed the first message.
-func getFeePayer(tx *txtypes.Tx) string {
+func getFeePayer(cdc cosmoscdc.Codec, tx *txtypes.Tx) string {
 	payer := tx.AuthInfo.Fee.Payer
 	if payer != "" {
 		return payer
 	}
 	switch firstMsg := tx.GetMsgs()[0].(type) {
-
 	case *clienttypes.MsgCreateClient:
 		// Without this particular special case, there is a panic in ibc-go
 		// due to the sdk config singleton expecting one bech32 prefix but seeing another.
@@ -964,7 +965,11 @@ func getFeePayer(tx *txtypes.Tx) string {
 		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
 	default:
-		return firstMsg.GetSigners()[0].String()
+		signers, _, err := tx.GetSigners(cdc)
+		if err != nil || len(signers) < 1 {
+			return ""
+		}
+		return string(signers[0])
 	}
 
 }
@@ -972,7 +977,7 @@ func getFeePayer(tx *txtypes.Tx) string {
 func (ap *WasmProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	err := errors.Unwrap(cosmoserrors.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
@@ -982,12 +987,6 @@ func (ap *WasmProvider) sdkError(codespace string, code uint32) error {
 func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, msgs ...sdk.Msg) ([]byte, uint64, error) {
 	done := ap.SetSDKContext()
 	defer done()
-
-	for _, msg := range msgs {
-		if err := msg.ValidateBasic(); err != nil {
-			return nil, 0, err
-		}
-	}
 
 	// If the --aux flag is set, we simply generate and print the AuxSignerData.
 	// tf is aux? do we need it? prolly not
@@ -1058,7 +1057,7 @@ func (ap *WasmProvider) buildMessages(clientCtx client.Context, txf tx.Factory, 
 		}
 	}
 
-	err = tx.Sign(txf, clientCtx.GetFromName(), txn, true)
+	err = tx.Sign(context.Background(), txf, clientCtx.GetFromName(), txn, true)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1304,7 +1303,7 @@ func makeAuxSignerData(clientCtx client.Context, f tx.Factory, msgs ...sdk.Msg) 
 		return txtypes.AuxSignerData{}, err
 	}
 
-	sig, _, err := clientCtx.Keyring.Sign(name, signBz)
+	sig, _, err := clientCtx.Keyring.Sign(name, signBz, f.SignMode())
 	if err != nil {
 		return txtypes.AuxSignerData{}, err
 	}

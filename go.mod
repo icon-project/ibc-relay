@@ -19,7 +19,7 @@ require (
 	github.com/cosmos/go-bip39 v1.0.0
 	github.com/cosmos/gogoproto v1.4.11
 	github.com/cosmos/ibc-go/modules/capability v1.0.0
-	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.0.0-20240215142521-055a3e39c3da
+	github.com/cosmos/ibc-go/modules/light-clients/08-wasm v0.1.1-0.20231213092650-57fcdb9a9a9d
 	github.com/cosmos/ibc-go/v8 v8.0.1
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/ethereum/go-ethereum v1.12.1

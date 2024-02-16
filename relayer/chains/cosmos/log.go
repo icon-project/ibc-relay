@@ -155,6 +155,6 @@ func getFeePayer(tx *typestx.Tx) string {
 		// Same failure mode as MsgCreateClient.
 		return firstMsg.Signer
 	default:
-		return firstMsg.GetSigners()[0].String()
+		return ""
 	}
 }

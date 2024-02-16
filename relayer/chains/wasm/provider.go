@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/CosmWasm/wasmd/app"
 	provtypes "github.com/cometbft/cometbft/light/provider"
 	"golang.org/x/mod/semver"
 
@@ -241,7 +240,7 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	clientCtx := client.Context{}.
 		WithClient(rpcClient).
 		WithFromName(ap.PCfg.Key).
-		WithTxConfig(app.MakeEncodingConfig().TxConfig).
+		WithTxConfig(ap.Cdc.TxConfig).
 		WithSkipConfirmation(true).
 		WithBroadcastMode("sync").
 		WithCodec(ap.Cdc.Marshaler).

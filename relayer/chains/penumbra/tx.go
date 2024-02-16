@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	cosmoserrors "cosmossdk.io/errors"
 	"cosmossdk.io/store/rootmulti"
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -32,7 +33,6 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v8/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v8/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v8/modules/core/24-host"
-	"github.com/cosmos/ibc-go/v8/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v8/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v8/modules/light-clients/07-tendermint"
 	ics23 "github.com/cosmos/ics23/go"
@@ -282,7 +282,7 @@ func (cc *PenumbraProvider) getAnchor(ctx context.Context) (*penumbracrypto.Merk
 	return &penumbracrypto.MerkleRoot{Inner: res.Value[2:]}, nil
 }
 
-func parseEventsFromABCIResponse(resp abci.ResponseDeliverTx) []provider.RelayerEvent {
+func parseEventsFromABCIResponse(resp abci.ExecTxResult) []provider.RelayerEvent {
 	var events []provider.RelayerEvent
 
 	for _, event := range resp.Events {
@@ -594,7 +594,7 @@ func (cc *PenumbraProvider) ConnectionOpenTry(ctx context.Context, dstQueryProvi
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight: clienttypes.Height{
 			RevisionNumber: proofHeight.GetRevisionNumber(),
 			RevisionHeight: proofHeight.GetRevisionHeight(),
@@ -905,12 +905,12 @@ func (cc *PenumbraProvider) MsgUpgradeClient(srcClientId string, consRes *client
 }
 
 func (cc *PenumbraProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-	if strings.Contains(clientID, exported.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
+	if strings.Contains(clientID, wasmclient.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
 		wasmData, err := cc.Codec.Marshaler.MarshalInterface(misbehaviour)
 		if err != nil {
 			return nil, err
 		}
-		misbehaviour = &wasmclient.Misbehaviour{
+		misbehaviour = &wasmclient.ClientMessage{
 			Data: wasmData,
 		}
 	}
@@ -1361,7 +1361,7 @@ func (cc *PenumbraProvider) MsgConnectionOpenTry(msgOpenInit provider.Connection
 		ClientState:          csAny,
 		Counterparty:         counterparty,
 		DelayPeriod:          defaultDelayPeriod,
-		CounterpartyVersions: conntypes.ExportedVersionsToProto(conntypes.GetCompatibleVersions()),
+		CounterpartyVersions: conntypes.GetCompatibleVersions(),
 		ProofHeight:          proof.ProofHeight,
 		ProofInit:            proof.ConnectionStateProof,
 		ProofClient:          proof.ClientStateProof,
@@ -1616,18 +1616,13 @@ func (cc *PenumbraProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeade
 
 	clientHeader = &tmClientHeader
 
-	if clientType == exported.Wasm {
+	if clientType == wasmclient.Wasm {
 		tmClientHeaderBz, err := cc.Codec.Marshaler.MarshalInterface(clientHeader)
 		if err != nil {
-			return &wasmclient.Header{}, nil
+			return nil, err
 		}
-		height, ok := tmClientHeader.GetHeight().(clienttypes.Height)
-		if !ok {
-			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
-		}
-		clientHeader = &wasmclient.Header{
-			Data:   tmClientHeaderBz,
-			Height: height,
+		clientHeader = &wasmclient.ClientMessage{
+			Data: tmClientHeaderBz,
 		}
 	}
 
@@ -2066,7 +2061,7 @@ func (cc *PenumbraProvider) NewClientState(
 		}
 		clientState = &wasmclient.ClientState{
 			Data:         tmClientStateBz,
-			CodeId:       codeID,
+			Checksum:     codeID,
 			LatestHeight: tmClientState.LatestHeight,
 		}
 	}
@@ -2152,7 +2147,7 @@ func isQueryStoreWithProof(path string) bool {
 func (cc *PenumbraProvider) sdkError(codespace string, code uint32) error {
 	// ABCIError will return an error other than "unknown" if syncRes.Code is a registered error in syncRes.Codespace
 	// This catches all of the sdk errors https://github.com/cosmos/cosmos-sdk/blob/f10f5e5974d2ecbf9efc05bc0bfe1c99fdeed4b6/types/errors/errors.go
-	err := errors.Unwrap(sdkerrors.ABCIError(codespace, code, "error broadcasting transaction"))
+	err := errors.Unwrap(cosmoserrors.ABCIError(codespace, code, "error broadcasting transaction"))
 	if err.Error() != errUnknown {
 		return err
 	}
