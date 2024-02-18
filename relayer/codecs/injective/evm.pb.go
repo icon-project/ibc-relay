@@ -5,7 +5,7 @@ package injective
 
 import (
 	fmt "fmt"
-	github_com_cosmos_cosmos_sdk_types "github.com/cosmos/cosmos-sdk/types"
+	cosmosmath "cosmossdk.io/math"
 	_ "github.com/cosmos/gogoproto/gogoproto"
 	proto "github.com/cosmos/gogoproto/proto"
 	io "io"
@@ -110,34 +110,34 @@ func (m *Params) GetExtraEIPs() []int64 {
 // values, use an software upgrade procedure.
 type ChainConfig struct {
 	// Homestead switch block (< 0 no fork, 0 = already homestead)
-	HomesteadBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,1,opt,name=homestead_block,json=homesteadBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"homestead_block" yaml:"homestead_block"`
+	HomesteadBlock cosmosmath.Int `protobuf:"bytes,1,opt,name=homestead_block,json=homesteadBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"homestead_block" yaml:"homestead_block"`
 	// TheDAO hard-fork switch block (< 0 no fork)
-	DAOForkBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,2,opt,name=dao_fork_block,json=daoForkBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"dao_fork_block" yaml:"dao_fork_block"`
+	DAOForkBlock cosmosmath.Int `protobuf:"bytes,2,opt,name=dao_fork_block,json=daoForkBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"dao_fork_block" yaml:"dao_fork_block"`
 	// Whether the nodes supports or opposes the DAO hard-fork
 	DAOForkSupport bool `protobuf:"varint,3,opt,name=dao_fork_support,json=daoForkSupport,proto3" json:"dao_fork_support,omitempty" yaml:"dao_fork_support"`
 	// EIP150 implements the Gas price changes
 	// (https://github.com/ethereum/EIPs/issues/150) EIP150 HF block (< 0 no fork)
-	EIP150Block github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,4,opt,name=eip150_block,json=eip150Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"eip150_block" yaml:"eip150_block"`
+	EIP150Block cosmosmath.Int `protobuf:"bytes,4,opt,name=eip150_block,json=eip150Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"eip150_block" yaml:"eip150_block"`
 	// EIP150 HF hash (needed for header only clients as only gas pricing changed)
 	EIP150Hash string `protobuf:"bytes,5,opt,name=eip150_hash,json=eip150Hash,proto3" json:"eip150_hash,omitempty" yaml:"byzantium_block"`
 	// EIP155Block HF block
-	EIP155Block github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,6,opt,name=eip155_block,json=eip155Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"eip155_block" yaml:"eip155_block"`
+	EIP155Block cosmosmath.Int `protobuf:"bytes,6,opt,name=eip155_block,json=eip155Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"eip155_block" yaml:"eip155_block"`
 	// EIP158 HF block
-	EIP158Block github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,7,opt,name=eip158_block,json=eip158Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"eip158_block" yaml:"eip158_block"`
+	EIP158Block cosmosmath.Int `protobuf:"bytes,7,opt,name=eip158_block,json=eip158Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"eip158_block" yaml:"eip158_block"`
 	// Byzantium switch block (< 0 no fork, 0 = already on byzantium)
-	ByzantiumBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,8,opt,name=byzantium_block,json=byzantiumBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"byzantium_block" yaml:"byzantium_block"`
+	ByzantiumBlock cosmosmath.Int `protobuf:"bytes,8,opt,name=byzantium_block,json=byzantiumBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"byzantium_block" yaml:"byzantium_block"`
 	// Constantinople switch block (< 0 no fork, 0 = already activated)
-	ConstantinopleBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,9,opt,name=constantinople_block,json=constantinopleBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"constantinople_block" yaml:"constantinople_block"`
+	ConstantinopleBlock cosmosmath.Int `protobuf:"bytes,9,opt,name=constantinople_block,json=constantinopleBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"constantinople_block" yaml:"constantinople_block"`
 	// Petersburg switch block (< 0 same as Constantinople)
-	PetersburgBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,10,opt,name=petersburg_block,json=petersburgBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"petersburg_block" yaml:"petersburg_block"`
+	PetersburgBlock cosmosmath.Int `protobuf:"bytes,10,opt,name=petersburg_block,json=petersburgBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"petersburg_block" yaml:"petersburg_block"`
 	// Istanbul switch block (< 0 no fork, 0 = already on istanbul)
-	IstanbulBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,11,opt,name=istanbul_block,json=istanbulBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"istanbul_block" yaml:"istanbul_block"`
+	IstanbulBlock cosmosmath.Int `protobuf:"bytes,11,opt,name=istanbul_block,json=istanbulBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"istanbul_block" yaml:"istanbul_block"`
 	// Eip-2384 (bomb delay) switch block (< 0 no fork, 0 = already activated)
-	MuirGlacierBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,12,opt,name=muir_glacier_block,json=muirGlacierBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"muir_glacier_block" yaml:"muir_glacier_block"`
+	MuirGlacierBlock cosmosmath.Int `protobuf:"bytes,12,opt,name=muir_glacier_block,json=muirGlacierBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"muir_glacier_block" yaml:"muir_glacier_block"`
 	// YOLO v2: https://github.com/ethereum/EIPs/pull/2657 (Ephemeral testnet)
-	YoloV2Block github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,13,opt,name=yolo_v2_block,json=yoloV2Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"yolo_v2_block" yaml:"yolo_v2_block"`
+	YoloV2Block cosmosmath.Int `protobuf:"bytes,13,opt,name=yolo_v2_block,json=yoloV2Block,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"yolo_v2_block" yaml:"yolo_v2_block"`
 	// EWASM switch block (< 0 no fork, 0 = already activated)
-	EWASMBlock github_com_cosmos_cosmos_sdk_types.Int `protobuf:"bytes,14,opt,name=ewasm_block,json=ewasmBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"ewasm_block" yaml:"ewasm_block"`
+	EWASMBlock cosmosmath.Int `protobuf:"bytes,14,opt,name=ewasm_block,json=ewasmBlock,proto3,customtype=github.com/cosmos/cosmos-sdk/types.Int" json:"ewasm_block" yaml:"ewasm_block"`
 }
 
 func (m *ChainConfig) Reset()         { *m = ChainConfig{} }
