@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -249,6 +250,12 @@ func (cc *CosmosProvider) waitForTx(
 	waitTimeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
 ) {
+	defer func() {
+		if r := recover(); r != nil {
+			cc.log.Error("Panic occurred", zap.Any("panic", r), zap.Any("trace", string(debug.Stack())))
+		}
+	}()
+
 	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
 	if err != nil {
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
