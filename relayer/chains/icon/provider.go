@@ -321,7 +321,7 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 		return fmt.Errorf("refuse to relay packet with empty data")
 	}
 	// This should not be possible, as it violates IBC spec
-	if msgTransfer.TimeoutHeight.IsZero() {
+	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
 		return fmt.Errorf("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 

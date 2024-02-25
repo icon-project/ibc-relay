@@ -441,6 +441,7 @@ func (ccp *CosmosChainProcessor) queryCycle(ctx context.Context, persistence *qu
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, base64Encoded)
 
 			for _, m := range messages {
+				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", heightUint64))
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 		}
