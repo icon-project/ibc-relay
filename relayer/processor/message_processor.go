@@ -127,7 +127,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 		if dst.lastClientUpdateHeight == 0 {
 			clientState, err := dst.chainProvider.QueryClientState(ctx, int64(dst.latestBlock.Height), dst.info.ClientID)
 			if err != nil {
-				return false, fmt.Errorf("failed to query client state: %w", err)
+				return false, fmt.Errorf("failed to query client state at destination chain: %w", err)
 			}
 			dst.lastClientUpdateHeightMu.Lock()
 			dst.lastClientUpdateHeight = clientState.GetLatestHeight().GetRevisionHeight()
