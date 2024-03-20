@@ -240,10 +240,10 @@ func (msg connectionIBCMessage) assemble(
 	switch msg.eventType {
 	case conntypes.EventTypeConnectionOpenInit:
 		// don't need proof for this message
-		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix()
+		msg.info.CounterpartyCommitmentPrefix = src.chainProvider.CommitmentPrefix(msg.info.ClientID)
 		assembleMessage = dst.chainProvider.MsgConnectionOpenInit
 	case conntypes.EventTypeConnectionOpenTry:
-		msg.info.CommitmentPrefix = src.chainProvider.CommitmentPrefix()
+		msg.info.CommitmentPrefix = src.chainProvider.CommitmentPrefix(msg.info.ClientID)
 		connProof = src.chainProvider.ConnectionHandshakeProof
 		assembleMessage = dst.chainProvider.MsgConnectionOpenTry
 	case conntypes.EventTypeConnectionOpenAck:

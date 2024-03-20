@@ -10,7 +10,7 @@ import (
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/gogoproto/proto"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
@@ -42,7 +42,7 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 		Key:               "testWallet",
 		ChainName:         "archway",
 		ChainID:           "localnet",
-		RPCAddr:           "http://localhost:26657",
+		RPCAddr:           "http://localhost:13357",
 		AccountPrefix:     "archway",
 		KeyringBackend:    "test",
 		GasAdjustment:     1.5,
@@ -518,7 +518,7 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 
 // 	ctx := context.Background()
 
-// 	op, err := iconP.QueryClientConsensusState(ctx, 200, "07-tendermint-34", clienttypes.NewHeight(0, 31600))
+// 	op, err := iconP.QueryClientConsensusState(ctx, 200, "07-tendermint-34", clienttypes.NewHeight(ap.RevisionNumber(), 31600))
 // 	assert.NoError(t, err)
 // 	fmt.Println(op)
 // }
@@ -595,26 +595,6 @@ func TestDecodeProto(t *testing.T) {
 
 // 		}
 // 	}
-
-// }
-
-// func TestDecodeMerkleProof(t *testing.T) {
-
-// 	v := common.MustHexStrToBytes("0x0ac90612c6060a7b03ade4a5f5803a439835c636395a8d648dee57b2fc90d98dc17fa887159b69638b30303062363336663665366536353633373436393666366537336230326433663334643963373863663565353734396637373131373861386361663034653731303432636366336636396165656430356230383066333336373712f5020a4503ade4a5f5803a439835c636395a8d648dee57b2fc90d98dc17fa887159b69638b0016636c69656e745f696d706c656d656e746174696f6e7369636f6e636c69656e742d3012442261726368776179316e633574617461667636657971376c6c6b7232677635306666396532326d6e66373071676a6c763733376b746d74346573777271676a33336736221a0b0801180120012a03000238222b0801120402043e201a2120a30ef45adecacce36447237e218f8cf3ad48357e82cae6aeea7df465573854cb22290801122504083e20fd6187d3aeb814e2a15d3987fd093b63aae12f9a04ba1c871e8a06c9f85a710b2022290801122508163e2064cfaa6db5902310f5d7255b7e8733f455699291f73d3988a17dc47348d63323202229080112250a2a3e2090d36297ce6f62cdb1110921e2482c20cd630e2817648bb0b95a42ce9fe081a420222b080112040c403e201a2120a8753c7dfe3f41e2bb9936721c8e0547e2c74a46a6d25c3f144d784204ceb86e1ace020a2e03ade4a5f5803a439835c636395a8d648dee57b2fc90d98dc17fa887159b69638b636f6e74726163745f696e666f12367b22636f6e7472616374223a226372617465732e696f3a63772d6962632d636f7265222c2276657273696f6e223a22302e312e30227d1a0b0801180120012a0300021422290801122502043e205a76cca2d1f3103d95080d98bf27abb862829151eb227f6be56d3dc8990d47182022290801122504083e20fd6187d3aeb814e2a15d3987fd093b63aae12f9a04ba1c871e8a06c9f85a710b2022290801122508163e2064cfaa6db5902310f5d7255b7e8733f455699291f73d3988a17dc47348d63323202229080112250a2a3e2090d36297ce6f62cdb1110921e2482c20cd630e2817648bb0b95a42ce9fe081a420222b080112040c403e201a2120a8753c7dfe3f41e2bb9936721c8e0547e2c74a46a6d25c3f144d784204ceb86e0a84010a81010a047761736d122031710a6b9c07bb7f1d7816f5b76f65d48e53ea30ad6d8138322f31374e8733321a090801180120012a0100222508011221011107704879ce264af2b8ca54a7ad461538067d296f22b7de0482e4fdf43314b922250801122101efb0c2cf8ed06dea231b3f0f26942e24623f13012e6297b343e7e1afc3863d6d")
-
-// 	var op commitmenttypes.MerkleProof
-// 	err := proto.Unmarshal(v, &op)
-// 	assert.NoError(t, err)
-
-// 	for i, v := range op.Proofs {
-// 		fmt.Printf("index %d \n ", i)
-// 		fmt.Printf("existence proof %x  : \n ", v.GetExist())
-// 		fmt.Printf("Non-existence proof %x :  \n", v.GetNonexist())
-
-// 	}
-
-// 	// err = op.VerifyMembership([]*ics23.ProofSpec{ics23.IavlSpec, ics23.TendermintSpec}, root, path, result.Response.Value)
-// 	assert.NoError(t, err)
 
 // }
 

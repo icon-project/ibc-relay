@@ -19,7 +19,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"go.uber.org/zap"
 
 	querytypes "github.com/cosmos/cosmos-sdk/types/query"
@@ -139,7 +139,7 @@ func (ap *WasmProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.I
 		return nil, err
 	}
 
-	return NewWasmIBCHeaderFromLightBlock(lightBlock), nil
+	return provider.NewWasmIBCHeaderFromLightBlock(lightBlock), nil
 }
 
 func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.IBCHeader, *tmtypes.LightBlock, error) {
@@ -151,7 +151,7 @@ func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.
 		return nil, nil, err
 	}
 
-	return NewWasmIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
+	return provider.NewWasmIBCHeaderFromLightBlock(lightBlock), lightBlock, nil
 }
 
 // query packet info for sequence
@@ -248,7 +248,7 @@ func (ap *WasmProvider) QueryClientStateResponse(ctx context.Context, height int
 	return &clienttypes.QueryClientStateResponse{
 		ClientState: anyClientState,
 		Proof:       proof,
-		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight: clienttypes.NewHeight(ap.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -336,7 +336,7 @@ func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeig
 	if err != nil {
 		return nil, err
 	}
-	return clienttypes.NewQueryConsensusStateResponse(anyConsensusState, nil, clienttypes.NewHeight(0, uint64(chainHeight))), nil
+	return clienttypes.NewQueryConsensusStateResponse(anyConsensusState, nil, clienttypes.NewHeight(ap.RevisionNumber(), uint64(chainHeight))), nil
 }
 
 func (ap *WasmProvider) QueryIBCHandlerContract(ctx context.Context, param wasmtypes.RawContractMessage) (op *wasmtypes.QuerySmartContractStateResponse, err error) {
@@ -526,7 +526,7 @@ func (ap *WasmProvider) QueryConnection(ctx context.Context, height int64, conne
 		return nil, err
 	}
 
-	return conntypes.NewQueryConnectionResponse(conn, connProof, clienttypes.NewHeight(0, uint64(height))), nil
+	return conntypes.NewQueryConnectionResponse(conn, connProof, clienttypes.NewHeight(ap.RevisionNumber(), uint64(height))), nil
 }
 
 func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, height int64) ([]byte, error) {
@@ -641,7 +641,7 @@ func (ap *WasmProvider) GenerateConnHandshakeProof(ctx context.Context, height i
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	return clientState_, clientResponse.GetProof(), proofConsensusBytes, proofConnBytes, clienttypes.NewHeight(0, uint64(height)), nil
+	return clientState_, clientResponse.GetProof(), proofConsensusBytes, proofConnBytes, clienttypes.NewHeight(ap.RevisionNumber(), uint64(height)), nil
 }
 
 // ics 04 - channel
@@ -671,7 +671,7 @@ func (ap *WasmProvider) QueryChannel(ctx context.Context, height int64, channeli
 		return nil, err
 	}
 
-	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(0, uint64(height))), nil
+	return chantypes.NewQueryChannelResponse(channelS, proof, clienttypes.NewHeight(ap.RevisionNumber(), uint64(height))), nil
 }
 
 func (ap *WasmProvider) QueryChannelClient(ctx context.Context, height int64, channelid, portid string) (*clienttypes.IdentifiedClientState, error) {
@@ -772,7 +772,7 @@ func (ap *WasmProvider) QueryNextSeqRecv(ctx context.Context, height int64, chan
 	return &chantypes.QueryNextSequenceReceiveResponse{
 		NextSequenceReceive: seq,
 		Proof:               proof,
-		ProofHeight:         clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight:         clienttypes.NewHeight(ap.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -794,7 +794,7 @@ func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64,
 	return &chantypes.QueryPacketCommitmentResponse{
 		Commitment:  pktCommitment.Data.Bytes(),
 		Proof:       proof,
-		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight: clienttypes.NewHeight(ap.RevisionNumber(), uint64(height)),
 	}, nil
 
 }
@@ -814,7 +814,7 @@ func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height i
 	return &chantypes.QueryPacketAcknowledgementResponse{
 		Acknowledgement: pktAcknowledgement.Data.Bytes(),
 		Proof:           proof,
-		ProofHeight:     clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight:     clienttypes.NewHeight(ap.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -840,7 +840,7 @@ func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, ch
 	return &chantypes.QueryPacketReceiptResponse{
 		Received:    pktReceipt != nil, // TODO: Bytes to boolean
 		Proof:       proof,
-		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
+		ProofHeight: clienttypes.NewHeight(ap.RevisionNumber(), uint64(height)),
 	}, nil
 }
 
@@ -908,5 +908,5 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 	if len(heights) == 0 {
 		return nil, fmt.Errorf("consensus state of client %s before %d", clientId, clientHeight)
 	}
-	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
+	return clienttypes.NewHeight(ap.RevisionNumber(), uint64(heights[0])), nil
 }

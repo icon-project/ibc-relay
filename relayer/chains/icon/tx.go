@@ -13,14 +13,17 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
+	tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 
-	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	// itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 	"go.uber.org/zap"
 )
 
@@ -45,11 +48,19 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 		return nil, err
 	}
 
+	clientType := clientState.ClientType()
+
+	_, ok := clientState.(*tendermint.ClientState)
+	//hack: done to seperately handle ics08-tendermint client
+	if ok {
+		clientType = common.TendermintWasmLightClient
+	}
+
 	clS := &types.GenericClientParams[types.MsgCreateClient]{
 		Msg: types.MsgCreateClient{
 			ClientState:    types.NewHexBytes(clientStateBytes),
 			ConsensusState: types.NewHexBytes(consensusStateBytes),
-			ClientType:     clientState.ClientType(),
+			ClientType:     clientType,
 			BtpNetworkId:   types.NewHexInt(icp.PCfg.BTPNetworkID),
 		},
 	}
@@ -226,9 +237,28 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	if err != nil {
 		return nil, err
 	}
+
 	clientStateEncode, err := proto.Marshal(proof.ClientState)
 	if err != nil {
 		return nil, err
+	}
+
+	// client is 08-wasm then
+	// then the client state that could be proved is any type byte
+	splitClientId := strings.Split(msgOpenInit.ClientID, "-")
+	clientType := strings.Join(splitClientId[:len(splitClientId)-1], "-")
+
+	if clientType == exported.Wasm {
+		anyCs, err := clienttypes.PackClientState(proof.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		anyCsByte, err := proto.Marshal(anyCs)
+		if err != nil {
+			return nil, err
+		}
+
+		clientStateEncode = anyCsByte
 	}
 
 	ht := &icon.Height{
@@ -241,7 +271,7 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 	}
 
 	consHt := &icon.Height{
-		RevisionNumber: 0,
+		RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
 		RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
 	}
 	consHtEncode, err := proto.Marshal(consHt)
@@ -276,15 +306,25 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
 
-	// proof from chainB should return clientState of chainB tracking chainA
-	iconClientState, err := icp.MustReturnIconClientState(proof.ClientState)
+	clientStateEncode, err := proto.Marshal(proof.ClientState)
 	if err != nil {
 		return nil, err
 	}
 
-	clientStateEncode, err := icp.codec.Marshaler.Marshal(iconClientState)
-	if err != nil {
-		return nil, err
+	splitClientId := strings.Split(msgOpenTry.ClientID, "-")
+	clientType := strings.Join(splitClientId[:len(splitClientId)-1], "-")
+	// then the client state that could be proved is any type byte
+	if clientType == exported.Wasm {
+		anyCs, err := clienttypes.PackClientState(proof.ClientState)
+		if err != nil {
+			return nil, err
+		}
+		anyCsByte, err := proto.Marshal(anyCs)
+		if err != nil {
+			return nil, err
+		}
+
+		clientStateEncode = anyCsByte
 	}
 
 	ht := &icon.Height{
@@ -488,21 +528,21 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 	return icp.NewIconMessage(channelCloseConfirmMsg, MethodChannelCloseConfirm), nil
 }
 
-func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
 
 	latestIconHeader, ok := latestHeader.(IconIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("Unsupported IBC Header type. Expected: IconIBCHeader,actual: %T", latestHeader)
 	}
 
-	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Header.MainHeight))
+	btp_proof, err := icp.GetBTPProof(int64(latestIconHeader.Height()))
 	if err != nil {
 		return nil, err
 	}
 
 	var currentValidatorList types.ValidatorList
 	// subtract 1 because it is a current validator not last validator
-	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight-1), icp.PCfg.BTPNetworkTypeID)
+	info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Height()-1), icp.PCfg.BTPNetworkTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -514,7 +554,7 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 
 	var nextValidators types.ValidatorList
 	// subtract 1 because it is a current validator not last validator
-	next_info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Header.MainHeight), icp.PCfg.BTPNetworkTypeID)
+	next_info, err := icp.client.GetNetworkTypeInfo(int64(latestIconHeader.Height()), icp.PCfg.BTPNetworkTypeID)
 	if err != nil {
 		return nil, err
 	}
@@ -542,14 +582,28 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 		CurrentValidators: currentValidatorList.Validators,
 	}
 
+	// wrap with wasm client
+	if clientType == exported.Wasm {
+
+		tmClientHeaderBz, err := icp.codec.Marshaler.MarshalInterface(signedHeader)
+		if err != nil {
+			return &wasmclient.Header{}, nil
+		}
+		return &wasmclient.Header{
+			Data: tmClientHeaderBz,
+			// TODO: forcefully set 1
+			Height: clienttypes.NewHeight(icp.RevisionNumber(), latestIconHeader.Header.MainHeight),
+		}, nil
+
+	}
+
 	return signedHeader, nil
 
 }
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
 
-	cs := counterpartyHeader.(*itm.TmHeader)
-	clientMsg, err := proto.Marshal(cs)
+	clientMsg, err := proto.Marshal(counterpartyHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -779,27 +833,11 @@ func (icp *IconProvider) SendIconTransaction(
 		return err
 	}
 
-	txParamEst := &types.TransactionParamForEstimate{
-		Version:     types.NewHexInt(types.JsonrpcApiVersion),
-		FromAddress: types.Address(wallet.Address().String()),
-		ToAddress:   contract,
-		NetworkID:   types.NewHexInt(icp.PCfg.ICONNetworkID),
-		DataType:    "call",
-		Data: types.CallData{
-			Method: m.Method,
-			Params: m.Params,
-		},
-	}
+	msgByte, _ := msg.MsgBytes()
 
-	step, err := icp.client.EstimateStep(txParamEst)
-	if err != nil {
-		return fmt.Errorf("failed estimating step: %w", err)
-	}
-	stepVal, err := step.Int()
-	if err != nil {
-		return err
-	}
-	stepLimit := types.NewHexInt(int64(stepVal + 200_000))
+	icp.log.Info("sending msg to icon", zap.Binary("message-bytes", msgByte))
+
+	stepLimit := types.NewHexInt(int64(20_000_000))
 
 	txParam := &types.TransactionParam{
 		Version:     types.NewHexInt(types.JsonrpcApiVersion),

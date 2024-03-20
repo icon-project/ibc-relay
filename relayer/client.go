@@ -10,6 +10,8 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
+	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
@@ -18,7 +20,7 @@ import (
 )
 
 // CreateClients creates clients for src on dst and dst on src if the client ids are unspecified.
-func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string, iconStartHeight int64) (string, string, error) {
+func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override bool, customClientTrustingPeriod time.Duration, memo string, iconStartHeight int64, srcWasmCodeID, dstWasmCodeID string) (string, string, error) {
 	// Query the latest heights on src and dst and retry if the query fails
 	var srch, dsth int64
 	if err := retry.Do(func() error {
@@ -62,7 +64,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on src for dst if the client id is unspecified
-		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
+		clientSrc, err = CreateClient(egCtx, c, dst, srcUpdateHeader, dstUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight, srcWasmCodeID)
 		if err != nil {
 			return fmt.Errorf("failed to create client on src chain{%s}: %w", c.ChainID(), err)
 		}
@@ -72,7 +74,7 @@ func (c *Chain) CreateClients(ctx context.Context, dst *Chain, allowUpdateAfterE
 	eg.Go(func() error {
 		var err error
 		// Create client on dst for src if the client id is unspecified
-		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight)
+		clientDst, err = CreateClient(egCtx, dst, c, dstUpdateHeader, srcUpdateHeader, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour, override, customClientTrustingPeriod, memo, iconStartHeight, dstWasmCodeID)
 		if err != nil {
 			return fmt.Errorf("failed to create client on dst chain{%s}: %w", dst.ChainID(), err)
 		}
@@ -106,6 +108,7 @@ func CreateClient(
 	customClientTrustingPeriod time.Duration,
 	memo string,
 	iconStartHeight int64,
+	srcWasmCodeID string,
 ) (string, error) {
 	var err error
 	// If a client ID was specified in the path and override is not set, ensure the client exists.
@@ -188,7 +191,8 @@ func CreateClient(
 
 	// We want to create a light client on the src chain which tracks the state of the dst chain.
 	// So we build a new client state from dst and attempt to use this for creating the light client on src.
-	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour)
+	clientState, err := dst.ChainProvider.NewClientState(dst.ChainID(), dstUpdateHeader, tp, ubdPeriod, allowUpdateAfterExpiry,
+		allowUpdateAfterMisbehaviour, srcWasmCodeID, src.ChainProvider.Type())
 	if err != nil {
 		return "", fmt.Errorf("failed to create new client state for chain{%s}: %w", dst.ChainID(), err)
 	}
@@ -226,7 +230,30 @@ func CreateClient(
 	// the dst chains implementation of CreateClient, to ensure the proper client/header
 	// logic is executed, but the message gets submitted on the src chain which means
 	// we need to sign with the address from src.
-	createMsg, err := src.ChainProvider.MsgCreateClient(clientState, dstUpdateHeader.ConsensusState())
+	consensusState := dstUpdateHeader.ConsensusState()
+	switch clientState.(type) {
+	case *wasmclient.ClientState:
+		cp := src.ChainProvider.(*cosmos.CosmosProvider)
+		consensusStateBz, err := cp.Cdc.Marshaler.MarshalInterface(consensusState)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal consensus state for wasm client: %w", err)
+		}
+
+		// TODO: the consensus state of Icon dont have timestamp
+		// this is dont to escape validation in Icon side escape validation
+		// find a better way for icon
+		timeStamp := consensusState.GetTimestamp()
+		if consensusState.ClientType() == common.IconModule {
+			timeStamp = 1
+		}
+
+		consensusState = &wasmclient.ConsensusState{
+			Data:      consensusStateBz,
+			Timestamp: timeStamp,
+		}
+	}
+
+	createMsg, err := src.ChainProvider.MsgCreateClient(clientState, consensusState)
 	if err != nil {
 		return "", fmt.Errorf("failed to compose CreateClient msg for chain{%s} tracking the state of chain{%s}: %w",
 			src.ChainID(), dst.ChainID(), err)
@@ -339,7 +366,8 @@ func MsgUpdateClient(
 	var updateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
-		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader)
+		clientType := dstClientState.ClientType()
+		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(srcHeader, dstClientState.GetLatestHeight().(clienttypes.Height), dstTrustedHeader, clientType)
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		src.log.Info(
@@ -388,7 +416,7 @@ func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (
 			RevisionHeight: trustedHdr.Height(),
 		}
 
-		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(latestHdr, trustedHeight, trustedHdr)
+		updateHeader, err = src.ChainProvider.MsgUpdateClientHeader(latestHdr, trustedHeight, trustedHdr, dstClientState.ClientType())
 		return err
 	}, retry.Context(ctx), RtyAtt, RtyDel, RtyErr, retry.OnRetry(func(n uint, err error) {
 		dst.log.Info(

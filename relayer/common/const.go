@@ -6,16 +6,20 @@ import (
 )
 
 var (
-	EventTimeoutRequest   = "TimeoutRequest(bytes)"
-	IconModule            = "icon"
-	WasmModule            = "wasm"
-	ArchwayModule         = "archway"
-	TendermintLightClient = "07-tendermint"
-	IconLightClient       = "iconclient"
-	ConnectionKey         = "connection"
-	ChannelKey            = "channel"
-	ONE_HOUR              = 60 * 60 * 1000
-	NanoToMilliRatio      = 1000_000
+	EventTimeoutRequest = "TimeoutRequest(bytes)"
+	IconModule          = "icon"
+	WasmModule          = "wasm"
+	ArchwayModule       = "archway"
+
+	TendermintLightClient     = "07-tendermint"
+	TendermintWasmLightClient = "ics08-tendermint"
+	IconLightClient           = "iconclient"
+	WasmLightClient           = "08-wasm"
+	ConnectionKey             = "connection"
+	ChannelKey                = "channel"
+	ONE_HOUR                  = 60 * 60 * 1000
+	NanoToMilliRatio          = 1000_000
+	EmptyProofConst           = []byte("empty")
 )
 
 var (

@@ -712,9 +712,14 @@ func (icp *IconChainProcessor) clientState(ctx context.Context, clientID string)
 		return provider.ClientState{}, err
 	}
 
+	//clientState should be of icon
+
 	clientState := provider.ClientState{
-		ClientID:        clientID,
-		ConsensusHeight: cs.GetLatestHeight().(clienttypes.Height),
+		ClientID: clientID,
+		ConsensusHeight: clienttypes.Height{
+			RevisionNumber: cs.GetLatestHeight().GetRevisionNumber(),
+			RevisionHeight: cs.GetLatestHeight().GetRevisionHeight(),
+		},
 	}
 	icp.latestClientState[clientID] = clientState
 	return clientState, nil

@@ -3,7 +3,9 @@ package icon
 import (
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,8 +14,8 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/ibc-integration/libraries/go/common/icon"
 
 	"go.uber.org/zap"
 
@@ -23,7 +25,7 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	// integration_types "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 )
 
 var (
@@ -65,6 +67,7 @@ type IconProviderConfig struct {
 	IbcHandlerAddress    string `json:"ibc-handler-address" yaml:"ibc-handler-address"`
 	FirstRetryBlockAfter uint64 `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	BlockInterval        uint64 `json:"block-interval" yaml:"block-interval"`
+	RevisionNumber       uint64 `json:"revision-number" yaml:"revision-number"`
 }
 
 func (pp *IconProviderConfig) Validate() error {
@@ -216,7 +219,11 @@ func (icp *IconProvider) NewClientState(
 	dstUbdPeriod time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
+	srcWasmCodeID string,
+	srcChainId string,
 ) (ibcexported.ClientState, error) {
+
+	var clientState ibcexported.ClientState
 
 	if !dstUpdateHeader.IsCompleteBlock() {
 		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
@@ -228,8 +235,7 @@ func (icp *IconProvider) NewClientState(
 
 	trustingBlockPeriod := uint64(dstTrustingPeriod) / (icp.PCfg.BlockInterval * uint64(common.NanoToMilliRatio))
 
-	return &icon.ClientState{
-		// In case of Icon: Trusting Period is block Difference // see: light.proto in ibc-integration
+	clientState = &icon.ClientState{
 		TrustingPeriod: trustingBlockPeriod,
 		FrozenHeight:   0,
 		MaxClockDrift:  3600,
@@ -237,7 +243,27 @@ func (icp *IconProvider) NewClientState(
 		SrcNetworkId:   getSrcNetworkId(icp.PCfg.ICONNetworkID),
 		NetworkId:      uint64(icp.PCfg.BTPNetworkID),
 		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
-	}, nil
+	}
+
+	latestHeight := clienttypes.NewHeight(icp.RevisionNumber(), dstUpdateHeader.Height())
+
+	if srcWasmCodeID != "" {
+		tmClientStateBz, err := icp.codec.Marshaler.MarshalInterface(clientState)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		codeID, err := hex.DecodeString(srcWasmCodeID)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		clientState = &wasmclient.ClientState{
+			Data:         tmClientStateBz,
+			CodeId:       codeID,
+			LatestHeight: latestHeight,
+		}
+	}
+
+	return clientState, nil
 
 }
 
@@ -295,7 +321,7 @@ func (icp *IconProvider) ValidatePacket(msgTransfer provider.PacketInfo, latestB
 		return fmt.Errorf("refuse to relay packet with empty data")
 	}
 	// This should not be possible, as it violates IBC spec
-	if msgTransfer.TimeoutHeight.IsZero() {
+	if msgTransfer.TimeoutHeight.IsZero() && msgTransfer.TimeoutTimestamp == 0 {
 		return fmt.Errorf("refusing to relay packet without a timeout (height or timestamp must be set)")
 	}
 
@@ -432,7 +458,10 @@ func (icp *IconProvider) ProviderConfig() provider.ProviderConfig {
 	return icp.PCfg
 }
 
-func (icp *IconProvider) CommitmentPrefix() commitmenttypes.MerklePrefix {
+func (icp *IconProvider) CommitmentPrefix(clientId string) commitmenttypes.MerklePrefix {
+	if strings.Contains(clientId, common.WasmLightClient) {
+		return commitmenttypes.NewMerklePrefix([]byte("ibc"))
+	}
 	return commitmenttypes.NewMerklePrefix(nil)
 }
 
@@ -548,4 +577,11 @@ func (icp *IconProvider) GetCurrentBtpNetworkStartHeight() (int64, error) {
 
 func (icp *IconProvider) MsgRegisterCounterpartyPayee(portID, channelID, relayerAddr, counterpartyPayeeAddr string) (provider.RelayerMessage, error) {
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
+}
+
+func (icp *IconProvider) RevisionNumber() uint64 {
+	if icp.PCfg.RevisionNumber != 0 {
+		return icp.PCfg.RevisionNumber
+	}
+	return 1
 }
