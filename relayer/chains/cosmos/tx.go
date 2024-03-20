@@ -3,7 +3,6 @@ package cosmos
 import (
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -44,6 +43,7 @@ import (
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -200,13 +200,12 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
-	isErr := err != nil
-	isFailed := res != nil && res.Code != 0
-	if isErr || isFailed {
-		if isErr && res == nil {
-			// There are some cases where BroadcastTxSync will return an error but the associated
-			// ResultBroadcastTx will be nil.
-			return err
+
+	if res != nil && res.Code != 0 {
+		if err == nil {
+			err = errors.New(res.Log)
+		} else {
+			err = errors.Wrap(err, res.Log)
 		}
 		rlyResp := &provider.RelayerTxResponse{
 			TxHash:    res.Hash.String(),
@@ -214,16 +213,14 @@ func (cc *CosmosProvider) broadcastTx(
 			Code:      res.Code,
 			Data:      res.Data.String(),
 		}
-		if isFailed {
-			err = cc.sdkError(res.Codespace, res.Code)
-			if err == nil {
-				err = fmt.Errorf("transaction failed to execute")
-			}
-		}
-
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
 	}
+
+	if res == nil {
+		return err
+	}
+
 	address, err := cc.Address()
 	if err != nil {
 		cc.log.Error(
