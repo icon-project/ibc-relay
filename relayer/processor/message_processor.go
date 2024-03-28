@@ -124,7 +124,16 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	// for lightClient other than ICON this will be helpful
 	var consensusHeightTime time.Time
 	if dst.clientState.ConsensusTime.IsZero() {
-		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.clientState.ConsensusHeight.RevisionHeight))
+		if dst.lastClientUpdateHeight == 0 {
+			clientState, err := dst.chainProvider.QueryClientState(ctx, int64(dst.latestBlock.Height), dst.info.ClientID)
+			if err != nil {
+				return false, fmt.Errorf("failed to query client state at destination chain: %w", err)
+			}
+			dst.lastClientUpdateHeightMu.Lock()
+			dst.lastClientUpdateHeight = clientState.GetLatestHeight().GetRevisionHeight()
+			dst.lastClientUpdateHeightMu.Unlock()
+		}
+		h, err := src.chainProvider.QueryIBCHeader(ctx, int64(dst.lastClientUpdateHeight))
 		if err != nil {
 			return false, fmt.Errorf("failed to get header height: %w", err)
 		}
@@ -136,7 +145,7 @@ func (mp *messageProcessor) shouldUpdateClientNow(ctx context.Context, src, dst 
 	clientUpdateThresholdMs := mp.clientUpdateThresholdTime.Milliseconds()
 
 	dst.lastClientUpdateHeightMu.Lock()
-	enoughBlocksPassed := (dst.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
+	enoughBlocksPassed := (src.latestBlock.Height - blocksToRetrySendAfter) > dst.lastClientUpdateHeight
 	dst.lastClientUpdateHeightMu.Unlock()
 
 	twoThirdsTrustingPeriodMs := float64(dst.clientState.TrustingPeriod.Milliseconds()) * 2 / 3
@@ -432,7 +441,7 @@ func (mp *messageProcessor) sendClientUpdate(
 
 	} else {
 		dst.lastClientUpdateHeightMu.Lock()
-		dst.lastClientUpdateHeight = dst.latestBlock.Height
+		dst.lastClientUpdateHeight = src.latestBlock.Height
 		dst.lastClientUpdateHeightMu.Unlock()
 	}
 

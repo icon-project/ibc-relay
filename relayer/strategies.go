@@ -27,7 +27,7 @@ type ActiveChannel struct {
 const (
 	ProcessorEvents              string = "events"
 	ProcessorLegacy                     = "legacy"
-	DefaultClientUpdateThreshold        = 0 * time.Millisecond
+	DefaultClientUpdateThreshold        = 86400000 * time.Millisecond //1 day
 	DefaultFlushInterval                = 5 * time.Minute
 	DefaultMaxMsgLength                 = 5
 	TwoMB                               = 2 * 1024 * 1024
@@ -69,6 +69,9 @@ func StartRelayer(
 	initialBlockHistory uint64,
 	metrics *processor.PrometheusMetrics,
 ) chan error {
+	if clientUpdateThresholdTime == 0 {
+		clientUpdateThresholdTime = DefaultClientUpdateThreshold
+	}
 	errorChan := make(chan error, 1)
 	chans := make(map[string]chan struct{})
 
