@@ -861,6 +861,7 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, false); err != nil {
 			if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 				ap.handleAccountSequenceMismatchError(err)
+				return err
 			}
 		}
 		ap.updateNextAccountSequence(sequence + 1)
