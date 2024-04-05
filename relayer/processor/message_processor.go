@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -293,10 +294,12 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 			trustedConsensusHeight.RevisionHeight)
 	}
 
+	lastInd := strings.LastIndex(clientID, "-")
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		src.latestHeader,
 		trustedConsensusHeight,
 		dst.clientTrustedState.IBCHeader,
+		clientID[:lastInd],
 	)
 	if err != nil {
 		return fmt.Errorf("error assembling new client header: %w", err)
@@ -355,10 +358,12 @@ func (mp *messageProcessor) handleMsgUpdateClientForBTPClient(ctx context.Contex
 		}
 	}
 
+	lastInd := strings.LastIndex(clientID, "-")
 	msgUpdateClientHeader, err := src.chainProvider.MsgUpdateClientHeader(
 		header,
 		latestConsensusHeight,
 		nil,
+		clientID[:lastInd],
 	)
 	if err != nil {
 		return fmt.Errorf("error assembling new client header: %w", err)

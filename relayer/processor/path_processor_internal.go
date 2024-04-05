@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -1550,23 +1551,15 @@ func (pp *PathProcessor) shouldTerminateForFlushComplete() bool {
 
 func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntime, dst *pathEndRuntime) {
 	srcIsIcon := src.chainProvider.Type() == common.IconModule
-	dstIsBtpClient := IsBTPLightClient(dst.clientState)
 
-	if !srcIsIcon && !dstIsBtpClient {
-		return
-	}
-
-	if srcIsIcon && !dstIsBtpClient || !srcIsIcon && dstIsBtpClient {
-		pp.log.Error("Src Icon module mismatch with dst btp client",
-			zap.String("Src Chain Type ", src.chainProvider.Type()),
-			zap.String("Dst client Id", dst.clientState.ClientID),
-		)
+	if !srcIsIcon {
 		return
 	}
 
 	if src.BTPHeightQueue.Size() == 0 {
 		return
 	}
+
 	size := src.BTPHeightQueue.Size()
 	for i := 0; i < size; i++ {
 		btpHeightInfo, err := src.BTPHeightQueue.GetQueue()
@@ -1581,7 +1574,7 @@ func (pp *PathProcessor) UpdateBTPHeight(ctx context.Context, src *pathEndRuntim
 			continue
 		}
 		if dst.clientState.ConsensusHeight.RevisionHeight > uint64(btpHeightInfo.Height) {
-			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(0, uint64(btpHeightInfo.Height)))
+			cs, err := dst.chainProvider.QueryClientConsensusState(ctx, int64(dst.latestBlock.Height), dst.clientState.ClientID, clienttypes.NewHeight(src.chainProvider.RevisionNumber(), uint64(btpHeightInfo.Height)))
 			if err == nil && cs != nil {
 				// removing latest height element
 				src.BTPHeightQueue.Dequeue()

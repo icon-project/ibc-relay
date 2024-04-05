@@ -24,8 +24,8 @@ require (
 	github.com/google/go-github/v43 v43.0.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
-	github.com/icon-project/IBC-Integration v0.0.0-20230416064536-48d70570734d
 	github.com/icon-project/goloop v1.3.4
+	github.com/icon-project/ibc-integration v1.1.2
 	github.com/jsternberg/zap-logfmt v1.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.0
@@ -102,6 +102,7 @@ require (
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
@@ -184,6 +185,7 @@ require (
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect
+	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/ulikunitz/xz v0.5.11 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
@@ -217,6 +219,7 @@ require (
 replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/CosmWasm/wasmd => github.com/cosmwasm/wasmd v0.40.0-rc.1.0.20230424144037-55647a1fd1f9
+	github.com/cosmos/ibc-go/v7 => github.com/notional-labs/ibc-go/v7 v7.0.1-wasm-client.0.20230724144435-2b77d4a1ce70
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 	github.com/icon-project/IBC-Integration => github.com/icon-project/ibc-integration v1.1.1-0.20240117111433-f824e6b36955
 )

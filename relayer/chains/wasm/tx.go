@@ -36,7 +36,7 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	"github.com/cosmos/relayer/v2/relayer/provider"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	itm "github.com/icon-project/ibc-integration/libraries/go/common/tendermint"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/input"
@@ -150,8 +150,7 @@ func (pc *WasmProviderConfig) SignMode() signing.SignMode {
 	return signMode
 }
 
-func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool) (ibcexported.ClientState, error) {
-
+func (ap *WasmProvider) NewClientState(dstChainID string, dstIBCHeader provider.IBCHeader, dstTrustingPeriod, dstUbdPeriod time.Duration, allowUpdateAfterExpiry, allowUpdateAfterMisbehaviour bool, srcWasmCodeID string, srcChainId string) (ibcexported.ClientState, error) {
 	return &itm.ClientState{
 		ChainId:                      dstChainID,
 		TrustLevel:                   &itm.Fraction{Numerator: light.DefaultTrustLevel.Numerator, Denominator: light.DefaultTrustLevel.Denominator},
@@ -597,13 +596,13 @@ func (ap *WasmProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInfo
 	return ap.NewWasmContractMessage(MethodChannelCloseConfirm, params)
 }
 
-func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-	trustedWasmHeader, ok := trustedHeader.(WasmIBCHeader)
+func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
+	trustedWasmHeader, ok := trustedHeader.(provider.WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
 	}
 
-	latestWasmHeader, ok := latestHeader.(WasmIBCHeader)
+	latestWasmHeader, ok := latestHeader.(provider.WasmIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
 	}

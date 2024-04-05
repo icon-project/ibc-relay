@@ -2,11 +2,12 @@ package cosmos
 
 import (
 	"context"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"math"
 	"math/big"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,10 +36,14 @@ import (
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
+	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
+	wasmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/08-wasm/types"
 	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -141,6 +146,11 @@ func (cc *CosmosProvider) SendMessagesToMempool(
 	cc.txMu.Lock()
 	defer cc.txMu.Unlock()
 
+	for _, m := range msgs {
+		msgbytes, _ := m.MsgBytes()
+		cc.log.Info("sending msg to mempool", zap.String("message-type", m.Type()), zap.Binary("message-bytes", msgbytes))
+	}
+
 	txBytes, sequence, fees, err := cc.buildMessages(ctx, msgs, memo)
 	if err != nil {
 		// Account sequence mismatch errors can happen on the simulated transaction also.
@@ -190,13 +200,12 @@ func (cc *CosmosProvider) broadcastTx(
 	asyncCallback func(*provider.RelayerTxResponse, error), // callback for success/fail of the wait for block inclusion
 ) error {
 	res, err := cc.RPCClient.BroadcastTxSync(ctx, tx)
-	isErr := err != nil
-	isFailed := res != nil && res.Code != 0
-	if isErr || isFailed {
-		if isErr && res == nil {
-			// There are some cases where BroadcastTxSync will return an error but the associated
-			// ResultBroadcastTx will be nil.
-			return err
+
+	if res != nil && res.Code != 0 {
+		if err == nil {
+			err = errors.New(res.Log)
+		} else {
+			err = errors.Wrap(err, res.Log)
 		}
 		rlyResp := &provider.RelayerTxResponse{
 			TxHash:    res.Hash.String(),
@@ -204,15 +213,14 @@ func (cc *CosmosProvider) broadcastTx(
 			Code:      res.Code,
 			Data:      res.Data.String(),
 		}
-		if isFailed {
-			err = cc.sdkError(res.Codespace, res.Code)
-			if err == nil {
-				err = fmt.Errorf("transaction failed to execute")
-			}
-		}
 		cc.LogFailedTx(rlyResp, err, msgs)
 		return err
 	}
+
+	if res == nil {
+		return err
+	}
+
 	address, err := cc.Address()
 	if err != nil {
 		cc.log.Error(
@@ -239,6 +247,12 @@ func (cc *CosmosProvider) waitForTx(
 	waitTimeout time.Duration,
 	callback func(*provider.RelayerTxResponse, error),
 ) {
+	defer func() {
+		if r := recover(); r != nil {
+			cc.log.Error("Panic occurred", zap.Any("panic", r), zap.Any("trace", string(debug.Stack())))
+		}
+	}()
+
 	res, err := cc.waitForBlockInclusion(ctx, txHash, waitTimeout)
 	if err != nil {
 		cc.log.Error("Failed to wait for block inclusion", zap.Error(err))
@@ -435,6 +449,7 @@ func (cc *CosmosProvider) handleAccountSequenceMismatchError(err error) {
 func (cc *CosmosProvider) MsgCreateClient(
 	clientState ibcexported.ClientState,
 	consensusState ibcexported.ConsensusState,
+
 ) (provider.RelayerMessage, error) {
 	signer, err := cc.Address()
 	if err != nil {
@@ -576,7 +591,7 @@ func (cc *CosmosProvider) MsgRecvPacket(
 	}
 	msg := &chantypes.MsgRecvPacket{
 		Packet:          msgTransfer.Packet(),
-		ProofCommitment: proof.Proof,
+		ProofCommitment: common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
@@ -614,7 +629,7 @@ func (cc *CosmosProvider) MsgAcknowledgement(
 	msg := &chantypes.MsgAcknowledgement{
 		Packet:          msgRecvPacket.Packet(),
 		Acknowledgement: msgRecvPacket.Ack,
-		ProofAcked:      proof.Proof,
+		ProofAcked:      common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:     proof.ProofHeight,
 		Signer:          signer,
 	}
@@ -666,7 +681,7 @@ func (cc *CosmosProvider) MsgTimeout(msgTransfer provider.PacketInfo, proof prov
 	}
 	assembled := &chantypes.MsgTimeout{
 		Packet:           msgTransfer.Packet(),
-		ProofUnreceived:  proof.Proof,
+		ProofUnreceived:  common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
@@ -686,7 +701,7 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 	}
 	assembled := &chantypes.MsgTimeoutOnClose{
 		Packet:           msgTransfer.Packet(),
-		ProofUnreceived:  proof.Proof,
+		ProofUnreceived:  common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:      proof.ProofHeight,
 		NextSequenceRecv: msgTransfer.Sequence,
 		Signer:           signer,
@@ -696,6 +711,7 @@ func (cc *CosmosProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, pro
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenInit(info provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -743,6 +759,7 @@ func (cc *CosmosProvider) ConnectionHandshakeProof(
 }
 
 func (cc *CosmosProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -788,6 +805,7 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 		return nil, err
 	}
 
+	//TODO if msgOpenTry client is wasm client then we need to incorporate it
 	msg := &conntypes.MsgConnectionOpenAck{
 		ConnectionId:             msgOpenTry.CounterpartyConnID,
 		CounterpartyConnectionId: msgOpenTry.ConnID,
@@ -797,11 +815,14 @@ func (cc *CosmosProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInf
 			RevisionNumber: proof.ProofHeight.GetRevisionNumber(),
 			RevisionHeight: proof.ProofHeight.GetRevisionHeight(),
 		},
-		ProofTry:        proof.ConnectionStateProof,
-		ProofClient:     proof.ClientStateProof,
-		ProofConsensus:  proof.ConsensusStateProof,
-		ConsensusHeight: proof.ClientState.GetLatestHeight().(clienttypes.Height),
-		Signer:          signer,
+		ProofTry:       proof.ConnectionStateProof,
+		ProofClient:    proof.ClientStateProof,
+		ProofConsensus: proof.ConsensusStateProof,
+		ConsensusHeight: clienttypes.Height{
+			RevisionNumber: proof.ClientState.GetLatestHeight().GetRevisionNumber(),
+			RevisionHeight: proof.ClientState.GetLatestHeight().GetRevisionHeight(),
+		},
+		Signer: signer,
 	}
 
 	return NewCosmosMessage(msg), nil
@@ -830,7 +851,7 @@ func (cc *CosmosProvider) MsgConnectionOpenConfirm(msgOpenAck provider.Connectio
 	}
 	msg := &conntypes.MsgConnectionOpenConfirm{
 		ConnectionId: msgOpenAck.CounterpartyConnID,
-		ProofAck:     proof.ConnectionStateProof,
+		ProofAck:     common.EnsureNonEmptyProof(proof.ConnectionStateProof),
 		ProofHeight:  proof.ProofHeight,
 		Signer:       signer,
 	}
@@ -900,7 +921,7 @@ func (cc *CosmosProvider) MsgChannelOpenTry(msgOpenInit provider.ChannelInfo, pr
 			Version: proof.Version,
 		},
 		CounterpartyVersion: proof.Version,
-		ProofInit:           proof.Proof,
+		ProofInit:           common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:         proof.ProofHeight,
 		Signer:              signer,
 	}
@@ -918,7 +939,7 @@ func (cc *CosmosProvider) MsgChannelOpenAck(msgOpenTry provider.ChannelInfo, pro
 		ChannelId:             msgOpenTry.CounterpartyChannelID,
 		CounterpartyChannelId: msgOpenTry.ChannelID,
 		CounterpartyVersion:   proof.Version,
-		ProofTry:              proof.Proof,
+		ProofTry:              common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight:           proof.ProofHeight,
 		Signer:                signer,
 	}
@@ -934,7 +955,7 @@ func (cc *CosmosProvider) MsgChannelOpenConfirm(msgOpenAck provider.ChannelInfo,
 	msg := &chantypes.MsgChannelOpenConfirm{
 		PortId:      msgOpenAck.CounterpartyPortID,
 		ChannelId:   msgOpenAck.CounterpartyChannelID,
-		ProofAck:    proof.Proof,
+		ProofAck:    common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight: proof.ProofHeight,
 		Signer:      signer,
 	}
@@ -964,7 +985,7 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	msg := &chantypes.MsgChannelCloseConfirm{
 		PortId:      msgCloseInit.CounterpartyPortID,
 		ChannelId:   msgCloseInit.CounterpartyChannelID,
-		ProofInit:   proof.Proof,
+		ProofInit:   common.EnsureNonEmptyProof(proof.Proof),
 		ProofHeight: proof.ProofHeight,
 		Signer:      signer,
 	}
@@ -972,7 +993,8 @@ func (cc *CosmosProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelIn
 	return NewCosmosMessage(msg), nil
 }
 
-func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
+func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader, clientType string) (ibcexported.ClientMessage, error) {
+
 	trustedCosmosHeader, ok := trustedHeader.(provider.TendermintIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("unsupported IBC trusted header type, expected: TendermintIBCHeader, actual: %T", trustedHeader)
@@ -987,6 +1009,7 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 	if err != nil {
 		return nil, fmt.Errorf("error converting trusted validators to proto object: %w", err)
 	}
+	trustedValidatorsProto.TotalVotingPower = trustedCosmosHeader.ValidatorSet.TotalVotingPower()
 
 	signedHeaderProto := latestCosmosHeader.SignedHeader.ToProto()
 
@@ -994,13 +1017,36 @@ func (cc *CosmosProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader,
 	if err != nil {
 		return nil, fmt.Errorf("error converting validator set to proto object: %w", err)
 	}
+	validatorSetProto.TotalVotingPower = latestCosmosHeader.ValidatorSet.TotalVotingPower()
 
-	return &tmclient.Header{
+	var clientHeader ibcexported.ClientMessage
+
+	tmClientHeader := tmclient.Header{
 		SignedHeader:      signedHeaderProto,
 		ValidatorSet:      validatorSetProto,
 		TrustedValidators: trustedValidatorsProto,
 		TrustedHeight:     trustedHeight,
-	}, nil
+	}
+
+	clientHeader = &tmClientHeader
+
+	if clientType == exported.Wasm {
+
+		clientHeaderData, err := cc.Cdc.Marshaler.MarshalInterface(clientHeader)
+		if err != nil {
+			return &wasmclient.Header{}, nil
+		}
+		height, ok := tmClientHeader.GetHeight().(clienttypes.Height)
+		if !ok {
+			return &wasmclient.Header{}, fmt.Errorf("error converting tm client header height")
+		}
+		clientHeader = &wasmclient.Header{
+			Data:   clientHeaderData,
+			Height: height,
+		}
+	}
+
+	return clientHeader, nil
 }
 
 func (cc *CosmosProvider) QueryICQWithProof(ctx context.Context, path string, request []byte, height uint64) (provider.ICQProof, error) {
@@ -1041,6 +1087,16 @@ func (cc *CosmosProvider) MsgSubmitQueryResponse(chainID string, queryID provide
 }
 
 func (cc *CosmosProvider) MsgSubmitMisbehaviour(clientID string, misbehaviour ibcexported.ClientMessage) (provider.RelayerMessage, error) {
+	if strings.Contains(clientID, exported.Wasm) { // TODO: replace with ibcexported.Wasm at v7.2
+		wasmData, err := cc.Cdc.Marshaler.MarshalInterface(misbehaviour)
+		if err != nil {
+			return nil, err
+		}
+		misbehaviour = &wasmclient.Misbehaviour{
+			Data: wasmData,
+		}
+	}
+
 	signer, err := cc.Address()
 	if err != nil {
 		return nil, err
@@ -1220,26 +1276,51 @@ func (cc *CosmosProvider) InjectTrustedFields(ctx context.Context, header ibcexp
 	return h, nil
 }
 
-// queryTMClientState retrieves the latest consensus state for a client in state at a given height
-// and unpacks/cast it to tendermint clientstate
-func (cc *CosmosProvider) queryTMClientState(ctx context.Context, srch int64, srcClientId string) (*tmclient.ClientState, error) {
+// queryProviderClientState retrieves the clientState of cosmos chain
+func (cc *CosmosProvider) queryProviderClientState(ctx context.Context, srch int64, srcClientId string) (provider.ClientState, error) {
 	clientStateRes, err := cc.QueryClientStateResponse(ctx, srch, srcClientId)
 	if err != nil {
-		return &tmclient.ClientState{}, err
+		return provider.ClientState{}, err
 	}
 
 	clientStateExported, err := clienttypes.UnpackClientState(clientStateRes.ClientState)
 	if err != nil {
-		return &tmclient.ClientState{}, err
+		return provider.ClientState{}, err
 	}
 
-	clientState, ok := clientStateExported.(*tmclient.ClientState)
+	switch cs := clientStateExported.(type) {
+	case *wasmclient.ClientState:
+		var clientState ibcexported.ClientState
+		err = cc.Cdc.Marshaler.UnmarshalInterface(cs.Data, &clientState)
+		if err != nil {
+			return provider.ClientState{}, fmt.Errorf("error unmarshaling tm client state, %w", err)
+		}
+		clientStateExported = clientState
+
+	}
+
+	tmClientState, ok := clientStateExported.(*tmclient.ClientState)
 	if !ok {
-		return &tmclient.ClientState{},
+		// icon client doesn't have real trusting period so setting large value as trusting period
+		if strings.Contains(clientStateExported.ClientType(), common.IconModule) {
+			return provider.ClientState{
+				ClientID:        srcClientId,
+				ConsensusHeight: clientStateExported.GetLatestHeight().(clienttypes.Height),
+				// using 1 month as the trusting period constant
+				TrustingPeriod: time.Hour * 24 * 7 * 4,
+			}, nil
+		}
+
+		return provider.ClientState{},
 			fmt.Errorf("error when casting exported clientstate to tendermint type")
 	}
 
-	return clientState, nil
+	return provider.ClientState{
+		ClientID:        srcClientId,
+		ConsensusHeight: clientStateExported.GetLatestHeight().(clienttypes.Height),
+		TrustingPeriod:  tmClientState.TrustingPeriod,
+	}, nil
+
 }
 
 // DefaultUpgradePath is the default IBC upgrade path set for an on-chain light client
@@ -1253,11 +1334,15 @@ func (cc *CosmosProvider) NewClientState(
 	dstUbdPeriod time.Duration,
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
+	srcWasmCodeID string,
+	srcChainType string,
 ) (ibcexported.ClientState, error) {
 	revisionNumber := clienttypes.ParseChainID(dstChainID)
 
+	var clientState ibcexported.ClientState
+
 	// Create the ClientState we want on 'c' tracking 'dst'
-	return &tmclient.ClientState{
+	tmClientState := tmclient.ClientState{
 		ChainId:         dstChainID,
 		TrustLevel:      tmclient.NewFractionFromTm(light.DefaultTrustLevel),
 		TrustingPeriod:  dstTrustingPeriod,
@@ -1272,7 +1357,27 @@ func (cc *CosmosProvider) NewClientState(
 		UpgradePath:                  defaultUpgradePath,
 		AllowUpdateAfterExpiry:       allowUpdateAfterExpiry,
 		AllowUpdateAfterMisbehaviour: allowUpdateAfterMisbehaviour,
-	}, nil
+	}
+
+	clientState = &tmClientState
+
+	if srcWasmCodeID != "" {
+		tmClientStateBz, err := cc.Cdc.Marshaler.MarshalInterface(clientState)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		codeID, err := hex.DecodeString(srcWasmCodeID)
+		if err != nil {
+			return &wasmclient.ClientState{}, err
+		}
+		clientState = &wasmclient.ClientState{
+			Data:         tmClientStateBz,
+			CodeId:       codeID,
+			LatestHeight: tmClientState.LatestHeight,
+		}
+	}
+
+	return clientState, nil
 }
 
 func (cc *CosmosProvider) UpdateFeesSpent(chain, key, address string, fees sdk.Coins) {
