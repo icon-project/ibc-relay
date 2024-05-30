@@ -145,6 +145,27 @@ func (r SendMsgsResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+// Send regular non concurrent messages
+func (r *RelayMsgs) SendMessageToDest(ctx context.Context, log *zap.Logger, dst RelayMsgSender, memo string) error {
+
+	done := make(chan struct{})
+
+	go func() {
+		resp, success, err := dst.SendMessages(ctx, r.Dst, memo)
+		if err != nil {
+			log.Error("Sending Transaction Failed", zap.Error(err))
+		}
+		if !success {
+			log.Error("Failed Transaction ", zap.String("tx_hash", resp.TxHash))
+		}
+		// Signal that the goroutine is done
+		done <- struct{}{}
+	}()
+	<-done
+
+	return nil
+}
+
 // Send concurrently sends out r's messages to the corresponding RelayMsgSenders.
 func (r *RelayMsgs) Send(ctx context.Context, log *zap.Logger, src, dst RelayMsgSender, memo string) SendMsgsResult {
 	var (

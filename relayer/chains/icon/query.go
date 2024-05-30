@@ -80,9 +80,45 @@ func (icp *IconProvider) BlockTime(ctx context.Context, height int64) (time.Time
 	return time.Unix(header.Timestamp, 0), nil
 }
 
-// required for cosmos only
+// WARN: Handles events only for write ack and send packet
+// WARN: Used to call recv packet and ack packet via cli
 func (icp *IconProvider) QueryTx(ctx context.Context, hashHex string) (*provider.RelayerTxResponse, error) {
-	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
+	txRes, err := icp.client.GetTransactionResult(&types.TransactionHashParam{
+		Hash: types.HexBytes(hashHex),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ht, err := txRes.BlockHeight.Value()
+	if err != nil {
+		return nil, err
+	}
+
+	status, _ := txRes.Status.Int()
+	if status != 1 {
+		return &provider.RelayerTxResponse{}, fmt.Errorf("transaction failed: %v", err)
+	}
+	var eventLogs []provider.RelayerEvent
+	events := txRes.EventLogs
+
+	for _, event := range events {
+		if event.Indexed[0] == EventTypeSendPacket || event.Indexed[0] == EventTypeWriteAcknowledgement {
+			if event.Addr == types.Address(icp.PCfg.IbcHandlerAddress) {
+				evt := icp.parseSendPacketAndWriteAckEvent(event)
+				eventLogs = append(eventLogs, evt)
+			}
+		}
+	}
+
+	response := provider.RelayerTxResponse{
+		Height: ht,
+		TxHash: hashHex,
+		Code:   uint32(status),
+		Data:   string(txRes.SCOREAddress),
+		Events: eventLogs,
+	}
+	return &response, nil
 }
 
 // required for cosmos only

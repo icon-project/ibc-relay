@@ -55,6 +55,8 @@ Most of these commands take a [path] argument. Make sure:
 		registerCounterpartyCmd(a),
 		lineBreakCommand(),
 		claimFeesCmd(a),
+		recvPacket(a),
+		ackPacket(a),
 	)
 
 	return cmd
@@ -930,6 +932,122 @@ $ %s tx flush demo-path channel-0`,
 
 	cmd = strategyFlag(a.viper, cmd)
 	cmd = memoFlag(a.viper, cmd)
+	return cmd
+}
+
+func recvPacket(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "recv-packet src_chain_name dst_chain_name path_name [txn-hash]",
+		Short: "update block [height] of src_chain on dst_chain",
+		Args:  withUsage(cobra.RangeArgs(4, 5)),
+		Example: strings.TrimSpace(
+			fmt.Sprintf(`
+			$ %s transact recv-packet icon archway icon-archway [tx_hash] [trusted_height OR {empty} OR {skip-update}]
+			$ %s transact recv-packet icon archway icon-archway [tx_hash] [trusted_height]
+			$ %s transact recv-packet icon archway icon-archway [tx_hash] 
+			$ %s transact recv-packet icon archway icon-archway [tx_hash] [skip-update]
+			`, appName, appName, appName, appName),
+		),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+			dst, ok := a.config.Chains[args[1]]
+			if !ok {
+				return errChainNotFound(args[1])
+			}
+			_, _, _, err := a.config.ChainsFromPath(args[2])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if exists := src.ChainProvider.KeyExists(src.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on src chain %s", src.ChainProvider.Key(), src.ChainID())
+			}
+			if exists := dst.ChainProvider.KeyExists(dst.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on dst chain %s", dst.ChainProvider.Key(), dst.ChainID())
+			}
+
+			// get transaction hash
+			txnHash := args[3]
+
+			// get trusted height
+			var trustedHeight int
+			var skipUpdate bool
+			skipUpdate = false
+			if len(args) == 5 {
+				var err error
+				trustedHeight, err = strconv.Atoi(args[4])
+				if err != nil && args[4] == "skip-update" {
+					skipUpdate = true
+				} else {
+					return err
+				}
+			}
+
+			return relayer.UpdateClientAndRecvMessage(cmd.Context(), src, dst, a.config.memo(cmd), txnHash, int64(trustedHeight), skipUpdate)
+
+		},
+	}
+	return cmd
+}
+
+func ackPacket(a *appState) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "ack-packet src_chain_name dst_chain_name path_name [txn-hash]",
+		Short: "update block [height] of src_chain on dst_chain, then acknowlede packet based on the txn-hash",
+		Args:  withUsage(cobra.RangeArgs(4, 5)),
+		Example: strings.TrimSpace(
+			fmt.Sprintf(`
+			$ %s transact ack-packet icon archway icon-archway [tx_hash] [trusted_height OR {empty} OR {skip-update}]
+			$ %s transact ack-packet icon archway icon-archway [tx_hash] [trusted_height]
+			$ %s transact ack-packet icon archway icon-archway [tx_hash] 
+			$ %s transact ack-packet icon archway icon-archway [tx_hash] [skip-update]
+			`, appName, appName, appName, appName),
+		),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			src, ok := a.config.Chains[args[0]]
+			if !ok {
+				return errChainNotFound(args[0])
+			}
+			dst, ok := a.config.Chains[args[1]]
+			if !ok {
+				return errChainNotFound(args[1])
+			}
+			_, _, _, err := a.config.ChainsFromPath(args[2])
+			if err != nil {
+				return err
+			}
+
+			// ensure that keys exist
+			if exists := src.ChainProvider.KeyExists(src.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on src chain %s", src.ChainProvider.Key(), src.ChainID())
+			}
+			if exists := dst.ChainProvider.KeyExists(dst.ChainProvider.Key()); !exists {
+				return fmt.Errorf("key %s not found on dst chain %s", dst.ChainProvider.Key(), dst.ChainID())
+			}
+			// get transaction detail
+			txnHash := args[3]
+
+			// get trusted height
+			var trustedHeight int
+			var skipUpdate bool
+			skipUpdate = false
+			if len(args) == 5 {
+				var err error
+				trustedHeight, err = strconv.Atoi(args[4])
+				if err != nil && args[4] == "skip-update" {
+					skipUpdate = true
+				} else {
+					return err
+				}
+			}
+
+			return relayer.UpdateClientAndAckMessage(cmd.Context(), src, dst, a.config.memo(cmd), txnHash, int64(trustedHeight), skipUpdate)
+		},
+	}
 	return cmd
 }
 
