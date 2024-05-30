@@ -3,6 +3,7 @@ package icon
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -606,6 +607,47 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 	return rlyResp, true, callbackErr
 }
 
+func (icp *IconProvider) parseSendPacketAndWriteAckEvent(event types.EventLogStr) provider.RelayerEvent {
+	eventName := event.Indexed[0]
+	switch eventName {
+	case EventTypeSendPacket, EventTypeWriteAcknowledgement:
+		protoPacket, err := hex.DecodeString(strings.TrimPrefix(event.Indexed[1], "0x"))
+		if err != nil {
+			icp.log.Error("Error decoding packet data ", zap.String("packet_hex", event.Data[0]))
+			break
+		}
+
+		var packetInfo icon.Packet
+		err = proto.Unmarshal(protoPacket, &packetInfo)
+		if err != nil {
+			icp.log.Error("error marshaling packet", zap.String("packet_data", string(protoPacket)))
+			break
+		}
+
+		relayerEvent := provider.RelayerEvent{
+			EventType: IconCosmosEventMap[eventName],
+			Attributes: map[string]string{
+				chantypes.AttributeKeySequence:         fmt.Sprintf("%d", packetInfo.Sequence),
+				chantypes.AttributeKeyDstChannel:       packetInfo.DestinationChannel,
+				chantypes.AttributeKeyDstPort:          packetInfo.DestinationPort,
+				chantypes.AttributeKeySrcChannel:       packetInfo.SourceChannel,
+				chantypes.AttributeKeySrcPort:          packetInfo.SourcePort,
+				chantypes.AttributeKeyDataHex:          fmt.Sprintf("%x", packetInfo.Data),
+				chantypes.AttributeKeyTimeoutHeight:    fmt.Sprintf("%d-%d", packetInfo.TimeoutHeight.RevisionNumber, packetInfo.TimeoutHeight.RevisionHeight),
+				chantypes.AttributeKeyTimeoutTimestamp: fmt.Sprintf("%d", packetInfo.TimeoutTimestamp),
+			},
+		}
+		var ackData string
+		if eventName == EventTypeWriteAcknowledgement {
+			ackData = strings.TrimPrefix(event.Data[0], "0x")
+			relayerEvent.Attributes[chantypes.AttributeKeyAckHex] = ackData
+		}
+
+		return relayerEvent
+	}
+	return provider.RelayerEvent{}
+}
+
 func (icp *IconProvider) parseConfirmedEventLogStr(event types.EventLogStr) provider.RelayerEvent {
 
 	eventName := event.Indexed[0]
@@ -793,6 +835,8 @@ func (icp *IconProvider) SendIconTransaction(
 
 	step, err := icp.client.EstimateStep(txParamEst)
 	if err != nil {
+		estimate_txn_bytes, _ := json.Marshal(txParamEst)
+		icp.log.Warn("Transaction data during estimate step", zap.ByteString("txn_data", estimate_txn_bytes))
 		return fmt.Errorf("failed estimating step: %w", err)
 	}
 	stepVal, err := step.Int()
