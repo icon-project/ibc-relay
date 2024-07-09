@@ -836,6 +836,7 @@ func (ap *WasmProvider) SendMessagesToMempool(
 
 		if msg.Type() == MethodUpdateClient {
 			delay := retry.Delay(time.Millisecond * time.Duration(ap.PCfg.BlockInterval))
+			retryAttempt := rtyAtt
 			if err := retry.Do(func() error {
 				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
 					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
@@ -843,10 +844,11 @@ func (ap *WasmProvider) SendMessagesToMempool(
 					} else if strings.Contains(err.Error(), sdkerrors.ErrMempoolIsFull.Error()) {
 						ap.log.Info("Mempool is full, retrying later with increased delay")
 						delay = memPoolDel
+						retryAttempt = retry.Attempts(0)
 					}
 				}
 				return err
-			}, retry.Context(ctx), rtyAtt, delay, rtyErr); err != nil {
+			}, retry.Context(ctx), retryAttempt, delay, rtyErr); err != nil {
 				ap.log.Error("Failed to update client", zap.Any("Message", msg))
 				return err
 			}
