@@ -979,11 +979,13 @@ func recvPacket(a *appState) *cobra.Command {
 			skipUpdate = false
 			if len(args) == 5 {
 				var err error
-				trustedHeight, err = strconv.Atoi(args[4])
-				if err != nil && args[4] == "skip-update" {
+				if args[4] == "skip-update" {
 					skipUpdate = true
 				} else {
-					return err
+					trustedHeight, err = strconv.Atoi(args[4])
+					if err != nil {
+						return fmt.Errorf("error: %w, arg: %s", err, args[4])
+					}
 				}
 			}
 
