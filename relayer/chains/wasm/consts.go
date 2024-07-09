@@ -1,7 +1,5 @@
 package wasm
 
-import "time"
-
 const (
 	// External methods
 	MethodCreateClient          = "create_client"
@@ -38,5 +36,3 @@ const (
 const (
 	ContractAddressSizeMinusPrefix = 59
 )
-
-var MempoolFullWaitTime = time.Second * 30

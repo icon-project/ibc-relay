@@ -52,6 +52,7 @@ var (
 	rtyAttNum                   = uint(5)
 	rtyAtt                      = retry.Attempts(rtyAttNum)
 	rtyDel                      = retry.Delay(time.Millisecond * 400)
+	memPoolDel                  = retry.Delay(time.Second * 30)
 	rtyErr                      = retry.LastErrorOnly(true)
 	numRegex                    = regexp.MustCompile("[0-9]+")
 	defaultBroadcastWaitTimeout = 10 * time.Minute
@@ -834,17 +835,18 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		}
 
 		if msg.Type() == MethodUpdateClient {
+			delay := retry.Delay(time.Millisecond * time.Duration(ap.PCfg.BlockInterval))
 			if err := retry.Do(func() error {
 				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
 					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 						ap.handleAccountSequenceMismatchError(err)
 					} else if strings.Contains(err.Error(), sdkerrors.ErrMempoolIsFull.Error()) {
-						ap.log.Info("Mempool is full, retrying in 15 second")
-						time.Sleep(MempoolFullWaitTime)
+						ap.log.Info("Mempool is full, retrying later with increased delay")
+						delay = memPoolDel
 					}
 				}
 				return err
-			}, retry.Context(ctx), rtyAtt, retry.Delay(time.Millisecond*time.Duration(ap.PCfg.BlockInterval)), rtyErr); err != nil {
+			}, retry.Context(ctx), rtyAtt, delay, rtyErr); err != nil {
 				ap.log.Error("Failed to update client", zap.Any("Message", msg))
 				return err
 			}
