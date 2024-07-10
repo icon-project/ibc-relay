@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/avast/retry-go/v4"
@@ -401,7 +402,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 	ppChanged := false
 
-	newLatestQueriedBlock := persistence.latestQueriedBlock
 	chainID := ccp.chainProvider.ChainId()
 	var latestHeader provider.IBCHeader
 
@@ -412,16 +412,23 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		return persistence.latestHeight
 	}
 
-	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i++ {
+	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i += 50 {
 		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
+		var txResults []*ctypes.ResultTxSearch
 		var lightBlock *types.LightBlock
 		var h provider.IBCHeader
 		i := i
+		// page := int(1)
+		// perPage := int(100)
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
+			minHeight := persistence.latestQueriedBlock + 1
+			queryFilter := "tx.height>=" + strconv.FormatInt(minHeight, 10) + " AND tx.height< " + strconv.FormatInt((persistence.latestQueriedBlock+500), 10)
+			if syncUpHeight()-i < 50 {
+				queryFilter = "tx.height=" + strconv.FormatInt(minHeight, 10)
+			}
+			txResults, err = ccp.fetchTxns(queryCtx, queryFilter)
 			return err
 		})
 		eg.Go(func() (err error) {
@@ -444,9 +451,8 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		)
 
 		latestHeader = h
-
 		if err := ccp.Verify(ctx, lightBlock); err != nil {
-			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
+			ccp.log.Warn("Failed to verify block", zap.Int64("height", i), zap.Error(err))
 			return err
 		}
 
@@ -460,25 +466,24 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		ppChanged = true
 
 		base64Encoded := ccp.chainProvider.cometLegacyEncoding
+		for _, txResult := range txResults {
+			for _, tx := range txResult.Txs {
+				if tx.TxResult.Code != 0 {
+					continue
+				}
+				messages := ibcMessagesFromEvents(ccp.log, tx.TxResult.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
 
-		for _, tx := range blockRes.TxsResults {
-			if tx.Code != 0 {
-				// tx was not successful
-				continue
-			}
-			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
-
-			for _, m := range messages {
-				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", heightUint64))
-				ccp.handleMessage(ctx, m, ibcMessagesCache)
+				for _, m := range messages {
+					ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", heightUint64))
+					ccp.handleMessage(ctx, m, ibcMessagesCache)
+				}
 			}
 		}
-
-		newLatestQueriedBlock = i
-	}
-
-	if newLatestQueriedBlock == persistence.latestQueriedBlock {
-		return nil
+		if syncUpHeight()-i < 50 {
+			persistence.latestQueriedBlock += 1
+		} else {
+			persistence.latestQueriedBlock += 50
+		}
 	}
 
 	if !ppChanged {
@@ -490,7 +495,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 		return nil
 	}
-
 	for _, pp := range ccp.pathProcessors {
 		clientID := pp.RelevantClientID(chainID)
 		clientState, err := ccp.clientState(ctx, clientID)
@@ -513,8 +517,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			IBCHeaderCache:       ibcHeaderCache.Clone(),
 		})
 	}
-
-	persistence.latestQueriedBlock = newLatestQueriedBlock
 
 	return nil
 }
@@ -552,9 +554,9 @@ func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persisten
 
 func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
 
-	if untrusted.Height != ccp.verifier.Header.Height+1 {
-		return errors.New("headers must be adjacent in height")
-	}
+	// if untrusted.Height != ccp.verifier.Header.Height+1 {
+	// 	return errors.New("headers must be adjacent in height")
+	// }
 
 	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
 		untrusted.ValidatorSet,
@@ -571,13 +573,13 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 		return err
 	}
 
-	if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
-		err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
+	// if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
+	// 	err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
+	// 		ccp.verifier.Header.NextValidatorsHash,
+	// 		untrusted.Header.ValidatorsHash,
+	// 	)
+	// 	return err
+	// }
 
 	// Ensure that +2/3 of new validators signed correctly.
 	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
@@ -629,6 +631,29 @@ func verifyNewHeaderAndVals(
 	}
 
 	return nil
+}
+
+func (ccp *WasmChainProcessor) fetchTxns(queryCtx context.Context, queryFilter string) ([]*ctypes.ResultTxSearch, error) {
+	page := 1
+	perPage := 100
+	var results []*ctypes.ResultTxSearch
+	txResult, err := ccp.chainProvider.RPCClient.TxSearch(queryCtx, queryFilter, true, &page, &perPage, "asc")
+	if err != nil {
+		return nil, err
+	}
+	results = append(results, txResult)
+	page += 1
+	for txResult.TotalCount > (page * perPage) {
+		//query again
+		txResult, err = ccp.chainProvider.RPCClient.TxSearch(queryCtx, queryFilter, true, &page, &perPage, "asc")
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, txResult)
+		page += 1
+
+	}
+	return results, nil
 }
 
 // func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {

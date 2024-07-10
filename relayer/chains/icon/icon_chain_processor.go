@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -303,7 +302,6 @@ func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *quer
 		EventFilters: GetMonitorEventFilters(icp.chainProvider.PCfg.IbcHandlerAddress),
 	}
 
-loop:
 	for {
 		select {
 		case <-ctx.Done():
@@ -323,7 +321,152 @@ loop:
 				icp.log.Debug("Try to reconnect from", zap.Int64("height", processedheight))
 				err := icp.chainProvider.client.MonitorBlock(ctx, blockReq, func(conn *websocket.Conn, v *types.BlockNotification) error {
 					if !errors.Is(ctx.Err(), context.Canceled) {
-						btpBlockNotifCh <- v
+						if len(v.Indexes) > 0 {
+							ht, _ := v.Height.Value()
+							fmt.Println("Processing for height With value", ht)
+							blockHeader, err := icp.chainProvider.client.GetBlockHeaderByHeight(ht)
+							if err != nil {
+								icp.log.Warn("Failed to get block header",
+									zap.Int64("height", ht),
+									zap.Error(err),
+								)
+							}
+
+							var receiptHash types.BlockHeaderResult
+							_, err = codec.RLP.UnmarshalFromBytes(blockHeader.Result, &receiptHash)
+							if err != nil {
+								icp.log.Warn("Failed to decode block header",
+									zap.Int64("height", ht),
+									zap.Error(err),
+								)
+
+							}
+							var eventlogs []types.EventLog
+							for id := 0; id < len(v.Indexes); id++ {
+								for i, index := range v.Indexes[id] {
+									p := &types.ProofEventsParam{
+										Index:     index,
+										BlockHash: v.Hash,
+										Events:    v.Events[id][i],
+									}
+
+									proofs, err := icp.chainProvider.client.GetProofForEvents(p)
+									if err != nil {
+										icp.log.Warn("Failed to get proof for events block header",
+											zap.Int64("height", ht),
+											zap.Error(err),
+										)
+									}
+									// Processing receipt index
+									serializedReceipt, err := MptProve(index, proofs[0], receiptHash.ReceiptHash)
+									if err != nil {
+										icp.log.Warn("Failed to get serialized receipts",
+											zap.Int64("height", ht),
+											zap.Error(err),
+										)
+
+									}
+									var result types.TxResult
+									_, err = codec.RLP.UnmarshalFromBytes(serializedReceipt, &result)
+									if err != nil {
+										icp.log.Warn("Failed to get serialized txresult",
+											zap.Int64("height", ht),
+											zap.Error(err),
+										)
+									}
+
+									for j := 0; j < len(p.Events); j++ {
+										serializedEventLog, err := MptProve(
+											p.Events[j], proofs[j+1], common.HexBytes(result.EventLogsHash))
+										if err != nil {
+											icp.log.Warn("Failed to Mptprove",
+												zap.Int64("height", ht),
+												zap.Error(err),
+											)
+										}
+										var el types.EventLog
+										_, err = codec.RLP.UnmarshalFromBytes(serializedEventLog, &el)
+										if err != nil {
+											icp.log.Warn("Failed to decode eventlog",
+												zap.Int64("height", ht),
+												zap.Error(err),
+											)
+										}
+										icp.log.Info("Detected eventlog ", zap.Any("height", ht),
+											zap.String("eventlog", IconCosmosEventMap[string(el.Indexed[0])]))
+										eventlogs = append(eventlogs, el)
+									}
+									icp.latestBlock = provider.LatestBlock{
+										Height: uint64(ht),
+									}
+
+									ibcMessage := parseIBCMessagesFromEventlog(icp.log, eventlogs, uint64(ht))
+									ibcMessageCache := processor.NewIBCMessagesCache()
+									// message handler
+									for _, m := range ibcMessage {
+										icp.handleMessage(ctx, *m, ibcMessageCache)
+									}
+
+									validators, err := icp.chainProvider.GetProofContextByHeight(ht)
+									if err != nil {
+										icp.log.Warn("Failed to get proof context by Height",
+											zap.Int64("height", ht),
+											zap.Error(err),
+										)
+									}
+
+									btpHeader, err := icp.chainProvider.GetBtpHeader(ht)
+									var bHeader IconIBCHeader
+									if err != nil {
+										if RequiresBtpHeader(eventlogs) {
+											icp.log.Warn("Failed to check btp header requirement",
+												zap.Int64("height", ht),
+												zap.Error(err),
+											)
+										}
+										if btpBlockNotPresent(err) {
+											bHeader = NewIconIBCHeader(nil, validators, ht)
+										}
+									} else {
+										bHeader = NewIconIBCHeader(btpHeader, validators, int64(btpHeader.MainHeight))
+									}
+
+									ibcHeaderCache := make(processor.IBCHeaderCache)
+									ibcHeaderCache[uint64(ht)] = bHeader
+									err = icp.handlePathProcessorUpdate(ctx, bHeader, ibcMessageCache, ibcHeaderCache.Clone())
+									if err != nil {
+										reconnect()
+										icp.log.Warn("Reconnect: error occured during handle block response  ",
+											zap.Int64("got", ht),
+										)
+										break
+									}
+
+								}
+							}
+						} else {
+							ht, _ := v.Height.Value()
+							if ht%50 == 0 {
+								icp.latestBlock = provider.LatestBlock{
+									Height: uint64(ht),
+								}
+								validators, err := icp.chainProvider.GetProofContextByHeight(ht)
+								if err != nil {
+									fmt.Println(err)
+								}
+								bHeader := NewIconIBCHeader(nil, validators, ht)
+								ibcHeaderCache := make(processor.IBCHeaderCache)
+								ibcHeaderCache[uint64(ht)] = bHeader
+								ibcMessageCache := processor.NewIBCMessagesCache()
+								err = icp.handlePathProcessorUpdate(ctx, bHeader, ibcMessageCache, ibcHeaderCache.Clone())
+								if err != nil {
+									icp.log.Warn("Failed to handle path processor updates",
+										zap.Int64("height", ht),
+										zap.Error(err),
+									)
+								}
+							}
+						}
 					}
 					return nil
 				}, func(conn *websocket.Conn) {
@@ -342,136 +485,6 @@ loop:
 				}
 
 			}(ctxMonitorBlock, cancelMonitorBlock)
-		case br := <-btpBlockRespCh:
-			for ; br != nil; processedheight++ {
-				// verify BTP Block
-				err := icp.verifyBlock(ctx, br.Header)
-				if err != nil {
-					reconnect()
-					icp.log.Warn("Failed to verify BTP block",
-						zap.Int64("height", br.Height),
-						zap.Error(err),
-					)
-					break
-				}
-
-				icp.latestBlock = provider.LatestBlock{
-					Height: uint64(processedheight),
-				}
-
-				ibcMessage := parseIBCMessagesFromEventlog(icp.log, br.EventLogs, uint64(br.Height))
-				ibcMessageCache := processor.NewIBCMessagesCache()
-				// message handler
-				for _, m := range ibcMessage {
-					icp.handleMessage(ctx, *m, ibcMessageCache)
-				}
-
-				ibcHeaderCache := make(processor.IBCHeaderCache)
-				ibcHeaderCache[uint64(br.Height)] = br.Header
-				icp.log.Debug("Queried block ",
-					zap.Int64("height", br.Height))
-				err = icp.handlePathProcessorUpdate(ctx, br.Header, ibcMessageCache, ibcHeaderCache.Clone())
-				if err != nil {
-					reconnect()
-					icp.log.Warn("Reconnect: error occured during handle block response  ",
-						zap.Int64("got", br.Height),
-					)
-					break
-				}
-				time.Sleep(10 * time.Millisecond)
-				if icp.firstTime {
-					time.Sleep(4000 * time.Millisecond)
-				}
-				icp.firstTime = false
-				if br = nil; len(btpBlockRespCh) > 0 {
-					br = <-btpBlockRespCh
-				}
-			}
-			// remove unprocessed blockResponses
-			for len(btpBlockRespCh) > 0 {
-				<-btpBlockRespCh
-			}
-
-		default:
-			select {
-			default:
-			case bn := <-btpBlockNotifCh:
-				requestCh := make(chan *btpBlockRequest, cap(btpBlockNotifCh))
-				for i := int64(0); bn != nil; i++ {
-					height, err := bn.Height.Value()
-
-					if err != nil {
-						return err
-					} else if height != processedheight+i {
-						icp.log.Warn("Reconnect: missing block notification",
-							zap.Int64("got", height),
-							zap.Int64("expected", processedheight+i),
-						)
-						reconnect()
-						continue loop
-					}
-
-					requestCh <- &btpBlockRequest{
-						height:  height,
-						hash:    bn.Hash,
-						indexes: bn.Indexes,
-						events:  bn.Events,
-						retry:   queryRetries,
-					}
-					if bn = nil; len(btpBlockNotifCh) > 0 && len(requestCh) < cap(requestCh) {
-						bn = <-btpBlockNotifCh
-					}
-				}
-
-				brs := make([]*btpBlockResponse, 0, len(requestCh))
-				for request := range requestCh {
-					switch {
-					case request.err != nil:
-						if request.retry > 0 {
-							request.retry--
-							request.response, request.err = nil, nil
-							requestCh <- request
-							continue
-						}
-						icp.log.Info("Request error ",
-							zap.Any("height", request.height),
-							zap.Error(request.err))
-						brs = append(brs, nil)
-						if len(brs) == cap(brs) {
-							close(requestCh)
-						}
-					case request.response != nil:
-						brs = append(brs, request.response)
-						if len(brs) == cap(brs) {
-							close(requestCh)
-						}
-					default:
-						go icp.handleBTPBlockRequest(request, requestCh)
-
-					}
-
-				}
-				// filter nil
-				_brs, brs := brs, brs[:0]
-				for _, v := range _brs {
-					if v != nil && v.IsProcessed == processed {
-						brs = append(brs, v)
-					}
-				}
-
-				// sort and forward notifications
-				if len(brs) > 0 {
-					sort.SliceStable(brs, func(i, j int) bool {
-						return brs[i].Height < brs[j].Height
-					})
-					for i, d := range brs {
-						if d.Height == processedheight+int64(i) {
-							btpBlockRespCh <- d
-						}
-					}
-				}
-
-			}
 		}
 	}
 }
