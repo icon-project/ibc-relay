@@ -1,7 +1,6 @@
 package wasm
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	"github.com/cometbft/cometbft/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -57,13 +55,7 @@ type WasmChainProcessor struct {
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
 
-	verifier *Verifier
-
 	heightSnapshotChan chan struct{}
-}
-
-type Verifier struct {
-	Header *types.LightBlock
 }
 
 func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *processor.PrometheusMetrics, heightSnapshot chan struct{}) *WasmChainProcessor {
@@ -256,19 +248,6 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	ccp.log.Info("Start to query from height ", zap.Int64("height", latestQueriedBlock))
 
-	_, lightBlock, err := ccp.chainProvider.QueryLightBlock(ctx, persistence.latestQueriedBlock)
-	if err != nil {
-		ccp.log.Error("Failed to get ibcHeader",
-			zap.Int64("height", persistence.latestQueriedBlock),
-			zap.Any("error", err),
-		)
-		return err
-	}
-
-	ccp.verifier = &Verifier{
-		Header: lightBlock,
-	}
-
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return ccp.initializeConnectionState(ctx)
@@ -415,19 +394,12 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
-		var lightBlock *types.LightBlock
 		var h provider.IBCHeader
 		i := i
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
 			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
-			return err
-		})
-		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-			defer cancelQueryCtx()
-			h, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
 			return err
 		})
 
@@ -444,11 +416,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		)
 
 		latestHeader = h
-
-		if err := ccp.Verify(ctx, lightBlock); err != nil {
-			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
-			return err
-		}
 
 		heightUint64 := uint64(i)
 
@@ -548,87 +515,6 @@ func (ccp *WasmChainProcessor) CollectMetrics(ctx context.Context, persistence *
 
 func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
-}
-
-func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
-
-	if untrusted.Height != ccp.verifier.Header.Height+1 {
-		return errors.New("headers must be adjacent in height")
-	}
-
-	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
-		untrusted.ValidatorSet,
-		ccp.verifier.Header.SignedHeader,
-		time.Now(), 0); err != nil {
-		return fmt.Errorf("failed to verify Header: %v", err)
-	}
-
-	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
-		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
-	if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
-		err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
-	// Ensure that +2/3 of new validators signed correctly.
-	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
-		untrusted.Header.Height, untrusted.Commit); err != nil {
-		return fmt.Errorf("invalid header: %v", err)
-	}
-
-	ccp.verifier.Header = untrusted
-	return nil
-
-}
-
-func verifyNewHeaderAndVals(
-	untrustedHeader *types.SignedHeader,
-	untrustedVals *types.ValidatorSet,
-	trustedHeader *types.SignedHeader,
-	now time.Time,
-	maxClockDrift time.Duration) error {
-
-	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
-		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
-	}
-
-	if untrustedHeader.Height <= trustedHeader.Height {
-		return fmt.Errorf("expected new header height %d to be greater than one of old header %d",
-			untrustedHeader.Height,
-			trustedHeader.Height)
-	}
-
-	if !untrustedHeader.Time.After(trustedHeader.Time) {
-		return fmt.Errorf("expected new header time %v to be after old header time %v",
-			untrustedHeader.Time,
-			trustedHeader.Time)
-	}
-
-	if !untrustedHeader.Time.Before(now.Add(maxClockDrift)) {
-		return fmt.Errorf("new header has a time from the future %v (now: %v; max clock drift: %v)",
-			untrustedHeader.Time,
-			now,
-			maxClockDrift)
-	}
-
-	if !bytes.Equal(untrustedHeader.ValidatorsHash, untrustedVals.Hash()) {
-		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
-			untrustedHeader.ValidatorsHash,
-			untrustedVals.Hash(),
-			untrustedHeader.Height,
-		)
-	}
-
-	return nil
 }
 
 // func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {
