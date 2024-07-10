@@ -9,10 +9,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/go-bip39"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519"
-	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/codecs/injective"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/cosmos/keys/sr25519"
+	"github.com/icon-project/relayer/v2/relayer/codecs/ethermint"
+	"github.com/icon-project/relayer/v2/relayer/codecs/injective"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 const ethereumCoinType = uint32(60)
@@ -182,7 +182,6 @@ func (cc *CosmosProvider) KeyExists(name string) bool {
 	}
 
 	return k.Name == name
-
 }
 
 // ExportPrivKeyArmor returns a private key in ASCII armored format.

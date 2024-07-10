@@ -25,7 +25,7 @@ import (
 	ibctesting "github.com/cosmos/ibc-go/v7/testing"
 	ibcmocks "github.com/cosmos/ibc-go/v7/testing/mock"
 	"github.com/cosmos/ibc-go/v7/testing/simapp"
-	relayertest "github.com/cosmos/relayer/v2/interchaintest"
+	relayertest "github.com/icon-project/relayer/v2/interchaintest"
 	"github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
@@ -46,7 +46,8 @@ func TestScenarioMisbehaviourDetection(t *testing.T) {
 	numFullNodes := 0
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-a", GasPrices: "0.0uatom"}},
-		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom"}}},
+		{Name: "gaia", Version: "v9.0.0-rc1", NumValidators: &numVals, NumFullNodes: &numFullNodes, ChainConfig: ibc.ChainConfig{ChainID: "chain-b", GasPrices: "0.0uatom"}},
+	},
 	)
 
 	chains, err := cf.Chains(t.Name())

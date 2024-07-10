@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/common/codec"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -24,7 +24,6 @@ func NewTestClient() *Client {
 }
 
 func GetLisbonIconProvider(network_id int, contractAddress string) *IconProvider {
-
 	pcfg := IconProviderConfig{
 		Keystore:          "godWallet",
 		KeyDirectory:      "../../../env",
@@ -46,7 +45,6 @@ func GetLisbonIconProvider(network_id int, contractAddress string) *IconProvider
 }
 
 func getTestWallet() (module.Wallet, error) {
-
 	keyStore_file := "../../../env/ibc-icon/godWallet.json"
 	kpass := "gochain"
 
@@ -84,7 +82,6 @@ func TestSendMessageToMempool(t *testing.T) {
 }
 
 func TestTransaction(t *testing.T) {
-
 	c := NewTestClient()
 
 	rpcWallet, err := getTestWallet()
@@ -130,11 +127,9 @@ func TestTransaction(t *testing.T) {
 	assert.Equal(t, types.HexInt("0x1"), finalOp.Status)
 
 	t.Log(finalOp)
-
 }
 
 func TestCallFunction(t *testing.T) {
-
 	c := NewTestClient()
 
 	w, err := getTestWallet()
@@ -151,7 +146,6 @@ func TestCallFunction(t *testing.T) {
 			Method: "name",
 		},
 	}, &op)
-
 	if err != nil {
 		t.Fatal((err))
 		return
@@ -160,11 +154,9 @@ func TestCallFunction(t *testing.T) {
 	assert.Equal(t, types.HexBytes("Handler"), op)
 
 	t.Log(op)
-
 }
 
 func TestGetTransaction(t *testing.T) {
-
 	c := NewTestClient()
 	hashString := "0xa9d333b24d990aeb418582c1467a4e6fd86a1bf9fb57e8fa95a77cb632a52301"
 	op, err := c.GetTransactionResult(&types.TransactionHashParam{Hash: types.HexBytes(hashString)})
@@ -184,5 +176,4 @@ func TestGetTransaction(t *testing.T) {
 	}
 
 	t.Log("Data:", p)
-
 }

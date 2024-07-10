@@ -17,21 +17,21 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	//this import should be letter converted to icon types
+	// this import should be letter converted to icon types
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/cryptoutils"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/cryptoutils"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	committypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	//change this to icon types after original repo merge
+	// change this to icon types after original repo merge
 )
 
 // ***************** methods marked with legacy should be updated only when relayer is runned through legacy method *****************
@@ -51,7 +51,6 @@ func callParamsWithHeight(height types.HexInt) CallParamOption {
 }
 
 func (icp *IconProvider) prepareCallParams(methodName string, param map[string]interface{}, options ...CallParamOption) *types.CallParam {
-
 	callData := &types.CallData{
 		Method: methodName,
 		Params: param,
@@ -69,7 +68,6 @@ func (icp *IconProvider) prepareCallParams(methodName string, param map[string]i
 	}
 
 	return callParam
-
 }
 
 func (icp *IconProvider) BlockTime(ctx context.Context, height int64) (time.Time, error) {
@@ -111,7 +109,6 @@ func (icp *IconProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
 
 // legacy
 func (icp *IconProvider) QueryIBCHeader(ctx context.Context, h int64) (provider.IBCHeader, error) {
-
 	validators, err := icp.GetProofContextByHeight(h)
 	if err != nil {
 		return nil, err
@@ -165,7 +162,6 @@ func (icp *IconProvider) QueryUnbondingPeriod(context.Context) (time.Duration, e
 // ics 02 - client
 
 func (icp *IconProvider) QueryClientState(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
-
 	clientStateRes, err := icp.QueryClientStateResponse(ctx, height, clientid)
 	if err != nil {
 		return nil, err
@@ -177,7 +173,6 @@ func (icp *IconProvider) QueryClientState(ctx context.Context, height int64, cli
 	}
 
 	return clientStateExported, nil
-
 }
 
 func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, height int64, clientid string) (ibcexported.ClientState, error) {
@@ -185,7 +180,7 @@ func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, heigh
 		"clientId": clientid,
 	}, callParamsWithHeight(types.NewHexInt(height)))
 
-	//similar should be implemented
+	// similar should be implemented
 	var clientStateB types.HexBytes
 	err := icp.client.Call(callParams, &clientStateB)
 	if err != nil {
@@ -210,16 +205,14 @@ func (icp *IconProvider) QueryClientStateWithoutProof(ctx context.Context, heigh
 	}
 
 	return clientStateExported, nil
-
 }
 
 func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
-
 	callParams := icp.prepareCallParams(MethodGetClientState, map[string]interface{}{
 		"clientId": srcClientId,
 	}, callParamsWithHeight(types.NewHexInt(height)))
 
-	//similar should be implemented
+	// similar should be implemented
 	var clientStateB types.HexBytes
 	err := icp.client.Call(callParams, &clientStateB)
 	if err != nil {
@@ -246,7 +239,6 @@ func (icp *IconProvider) QueryClientStateResponse(ctx context.Context, height in
 }
 
 func (icp *IconProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-
 	h, ok := clientHeight.(clienttypes.Height)
 	if !ok {
 		return nil, fmt.Errorf("clientHeight type mismatched ")
@@ -307,7 +299,6 @@ func (icp *IconProvider) QueryConsensusState(ctx context.Context, height int64) 
 // query all the clients of the chain
 func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
 	seq, err := icp.getNextSequence(ctx, MethodGetNextClientSequence)
-
 	if err != nil {
 		return nil, err
 	}
@@ -323,7 +314,7 @@ func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.Identifi
 			"clientId": clientIdentifier,
 		})
 
-		//similar should be implemented
+		// similar should be implemented
 		var clientStateB types.HexBytes
 		err := icp.client.Call(callParams, &clientStateB)
 		if err != nil {
@@ -345,7 +336,6 @@ func (icp *IconProvider) QueryClients(ctx context.Context) (clienttypes.Identifi
 
 // query connection to the ibc host based on the connection-id
 func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, connectionid string) (*conntypes.QueryConnectionResponse, error) {
-
 	callParam := icp.prepareCallParams(MethodGetConnection, map[string]interface{}{
 		"connectionId": connectionid,
 	}, callParamsWithHeight(types.NewHexInt(height)))
@@ -376,7 +366,6 @@ func (icp *IconProvider) QueryConnection(ctx context.Context, height int64, conn
 	}
 
 	return conntypes.NewQueryConnectionResponse(conn, proof, clienttypes.NewHeight(0, uint64(height))), nil
-
 }
 
 var emptyConnRes = conntypes.NewQueryConnectionResponse(
@@ -397,7 +386,6 @@ var emptyConnRes = conntypes.NewQueryConnectionResponse(
 
 // ics 03 - connection
 func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
-
 	nextSeq, err := icp.getNextSequence(ctx, MethodGetNextConnectionSequence)
 	if err != nil {
 		return nil, err
@@ -441,7 +429,6 @@ func (icp *IconProvider) QueryConnections(ctx context.Context) (conns []*conntyp
 }
 
 func (icp *IconProvider) getNextSequence(ctx context.Context, methodName string) (uint64, error) {
-
 	var seq types.HexInt
 	switch methodName {
 	case MethodGetNextClientSequence:
@@ -478,10 +465,11 @@ func (icp *IconProvider) getAllPorts(ctx context.Context) ([]string, error) {
 func (icp *IconProvider) QueryConnectionsUsingClient(ctx context.Context, height int64, clientid string) (*conntypes.QueryConnectionsResponse, error) {
 	panic(fmt.Sprintf("%s%s", icp.ChainName(), NOT_IMPLEMENTED))
 }
+
 func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (ibcexported.ClientState,
 	[]byte, []byte, []byte,
-	ibcexported.Height, error) {
-
+	ibcexported.Height, error,
+) {
 	// clientProof
 	clientResponse, err := icp.QueryClientStateResponse(ctx, height, clientId)
 	if err != nil {
@@ -512,7 +500,6 @@ func (icp *IconProvider) GenerateConnHandshakeProof(ctx context.Context, height 
 
 // ics 04 - channel
 func (icp *IconProvider) QueryChannel(ctx context.Context, height int64, channelid, portid string) (chanRes *chantypes.QueryChannelResponse, err error) {
-
 	callParam := icp.prepareCallParams(MethodGetChannel, map[string]interface{}{
 		"channelId": channelid,
 		"portId":    portid,
@@ -588,7 +575,6 @@ func (icp *IconProvider) QueryConnectionChannels(ctx context.Context, height int
 		}
 	}
 	return identifiedChannels, nil
-
 }
 
 func (icp *IconProvider) QueryChannels(ctx context.Context) ([]*chantypes.IdentifiedChannel, error) {
@@ -807,7 +793,6 @@ func (icp *IconProvider) QueryIconProof(ctx context.Context, height int64, keyHa
 	merkleProofs := icon.MerkleProofs{}
 
 	messages, err := icp.GetBtpMessage(height)
-
 	if err != nil {
 		return nil, err
 	}
@@ -858,5 +843,4 @@ func (icp *IconProvider) HexStringToProtoUnmarshal(encoded string, v proto.Messa
 		return nil, err
 	}
 	return inputBytes, nil
-
 }

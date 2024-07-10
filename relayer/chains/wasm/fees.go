@@ -3,7 +3,7 @@ package wasm
 import (
 	"encoding/json"
 
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 type ClaimFeesMsg struct {

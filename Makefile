@@ -6,6 +6,7 @@ AKASH_VERSION := v0.16.3
 OSMOSIS_VERSION := v8.0.0
 WASMD_VERSION := v0.25.0
 DOCKER := $(shell which docker)
+LIBWASM_VERSION 		 ?= v2.0.1
 
 GOPATH := $(shell go env GOPATH)
 GOBIN := $(GOPATH)/bin
@@ -16,9 +17,9 @@ all: lint install
 # Build / Install
 ###############################################################################
 
-ldflags = -X github.com/cosmos/relayer/v2/cmd.Version=$(VERSION) \
-					-X github.com/cosmos/relayer/v2/cmd.Commit=$(COMMIT) \
-					-X github.com/cosmos/relayer/v2/cmd.Dirty=$(DIRTY)
+ldflags = -X github.com/icon-project/relayer/v2/cmd.Version=$(VERSION) \
+					-X github.com/icon-project/relayer/v2/cmd.Commit=$(COMMIT) \
+					-X github.com/icon-project/relayer/v2/cmd.Dirty=$(DIRTY)
 
 ldflags += $(LDFLAGS)
 ldflags := $(strip $(ldflags))
@@ -115,7 +116,7 @@ build-gaia:
 
 .PHONY: two-chains test test-integration interchaintest install build lint coverage clean
 
-PACKAGE_NAME          := github.com/cosmos/relayer
+PACKAGE_NAME          := github.com/icon-project/relayer/v2
 GOLANG_CROSS_VERSION  ?= v1.19.4
 
 SYSROOT_DIR     ?= sysroots
@@ -133,7 +134,8 @@ sysroot-unpack:
 release-dry-run:
 	@docker run \
 		--rm \
-		-e CGO_ENABLED=1 \
+		--env GITHUB_TOKEN \
+		--env LIBWASM_VERSION=$(LIBWASM_VERSION) \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \
@@ -149,8 +151,8 @@ release:
 	fi
 	docker run \
 		--rm \
-		-e CGO_ENABLED=1 \
-		--env-file .release-env \
+		--env GITHUB_TOKEN \
+		--env LIBWASM_VERSION=$(LIBWASM_VERSION) \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-v `pwd`/sysroot:/sysroot \

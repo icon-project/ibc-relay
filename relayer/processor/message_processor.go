@@ -10,7 +10,7 @@ import (
 
 	"github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -83,7 +83,6 @@ func (mp *messageProcessor) processMessages(
 	messages pathEndMessages,
 	src, dst *pathEndRuntime,
 ) error {
-
 	// 2/3 rule enough_time_pass && Valid BTP Block
 	needsClientUpdate, err := mp.shouldUpdateClientNow(ctx, src, dst)
 	if err != nil {
@@ -237,7 +236,6 @@ func (mp *messageProcessor) assembleMessage(
 // assembleMsgUpdateClient uses the ChainProvider from both pathEnds to assemble the client update header
 // from the source and then assemble the update client message in the correct format for the destination.
 func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
-
 	if IsBTPLightClient(dst.clientState) {
 		err := mp.handleMsgUpdateClientForBTPClient(ctx, src, dst, shouldUpdate)
 		return err
@@ -260,7 +258,6 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 		deltaConsensusHeight := int64(clientConsensusHeight.RevisionHeight) - int64(trustedConsensusHeight.RevisionHeight)
 
 		if trustedConsensusHeight.RevisionHeight != 0 && deltaConsensusHeight <= clientConsensusHeightUpdateThresholdBlocks {
-
 			return fmt.Errorf("observed client trusted height: %d does not equal latest client state height: %d",
 				trustedConsensusHeight.RevisionHeight, clientConsensusHeight.RevisionHeight)
 		}
@@ -313,7 +310,6 @@ func (mp *messageProcessor) assembleMsgUpdateClient(ctx context.Context, src, ds
 }
 
 func (mp *messageProcessor) handleMsgUpdateClientForBTPClient(ctx context.Context, src, dst *pathEndRuntime, shouldUpdate bool) error {
-
 	clientID := dst.info.ClientID
 	latestConsensusHeight := dst.clientState.ConsensusHeight
 
@@ -575,7 +571,6 @@ func (mp *messageProcessor) sendSingleMessage(
 	src, dst *pathEndRuntime,
 	tracker messageToTrack,
 ) {
-
 	msgs := make([]provider.RelayerMessage, 0, 2)
 	if !IsBTPLightClient(dst.clientState) {
 		msgs = append(msgs, mp.msgUpdateClient)

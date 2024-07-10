@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/common"
 )
 
 func getKey(data string) string {
@@ -26,7 +26,6 @@ func getKeyLength(data string) string {
 
 func byteToInt(b []byte) (int, error) {
 	return strconv.Atoi(string(b))
-
 }
 
 func ProcessContractResponse(p *wasmtypes.QuerySmartContractStateResponse) ([]byte, error) {

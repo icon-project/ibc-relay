@@ -12,8 +12,8 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -939,7 +939,7 @@ func (pp *PathProcessor) processLatestMessages(ctx context.Context, cancel func(
 	pp.updateClientTrustedState(pp.pathEnd1, pp.pathEnd2)
 	pp.updateClientTrustedState(pp.pathEnd2, pp.pathEnd1)
 
-	//for btp updateClient steps
+	// for btp updateClient steps
 	pp.UpdateBTPHeight(ctx, pp.pathEnd1, pp.pathEnd2)
 	pp.UpdateBTPHeight(ctx, pp.pathEnd2, pp.pathEnd1)
 
@@ -1218,7 +1218,6 @@ func (pp *PathProcessor) queuePendingRecvAndAcks(
 	srcMu sync.Locker,
 	dstMu sync.Locker,
 ) (bool, error) {
-
 	if len(seqs) == 0 {
 		src.log.Debug("Nothing to flush", zap.String("channel", k.ChannelID), zap.String("port", k.PortID))
 		return true, nil

@@ -7,8 +7,8 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
 )
 
 // Events
@@ -95,7 +95,6 @@ func ToEventLogBytes(evt types.EventLogStr) types.EventLog {
 		Indexed: indexed,
 		Data:    data,
 	}
-
 }
 
 var BtpHeaderRequiredEvents map[string]struct{} = map[string]struct{}{
@@ -130,7 +129,7 @@ var MonitorEvents []string = []string{
 	EventTypeChannelCloseInit,
 	EventTypeChannelCloseConfirm,
 
-	//no BTP block produced
+	// no BTP block produced
 	EventTypeRecvPacket,
 	EventTypeAcknowledgePacket,
 	EventTypeUpdateClient,
@@ -141,7 +140,6 @@ var MonitorEvents []string = []string{
 }
 
 func GetMonitorEventFilters(address string) []*types.EventFilter {
-
 	filters := []*types.EventFilter{}
 	if address == "" {
 		return filters

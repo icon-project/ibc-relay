@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
-	"github.com/cosmos/relayer/v2/relayer"
+	relayerinterchaintest "github.com/icon-project/relayer/v2/interchaintest"
+	"github.com/icon-project/relayer/v2/relayer"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/conformance"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"

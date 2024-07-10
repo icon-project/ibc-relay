@@ -6,14 +6,12 @@ import (
 	"sync"
 
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap/zapcore"
 )
 
-var (
-	zeroIndex = 0
-)
+var zeroIndex = 0
 
 // MessageLifecycle is used to send an initial IBC message to a chain
 // once the chains are in sync for the PathProcessor.
@@ -21,7 +19,7 @@ var (
 // PathProcessor will stop if it observes a message that matches
 // the MessageLifecycle's Termination message.
 type MessageLifecycle interface {
-	messageLifecycler() //noop
+	messageLifecycler() // noop
 }
 
 // Flush lifecycle informs the PathProcessor to terminate once
@@ -667,7 +665,6 @@ func (q *ArrayQueue[T]) GetQueue() (T, error) {
 	}
 	item := q.items[0]
 	return item, nil
-
 }
 
 func (q *ArrayQueue[T]) ReplaceQueue(index int, element T) {

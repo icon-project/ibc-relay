@@ -1,8 +1,8 @@
 package icon
 
 import (
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 type MsgClaimFees struct {
@@ -11,7 +11,6 @@ type MsgClaimFees struct {
 }
 
 func (icp *IconProvider) MsgClaimFees(dstChainID, dstAddress string) (provider.RelayerMessage, error) {
-
 	params := MsgClaimFees{
 		Nid:     dstChainID,
 		Address: types.NewHexBytes([]byte(dstAddress)),

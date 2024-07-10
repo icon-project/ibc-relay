@@ -10,10 +10,10 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	icn "github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
 
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
@@ -31,7 +31,6 @@ func TestAddr(t *testing.T) {
 }
 
 func TestConnectionDecode(t *testing.T) {
-
 	input := types.HexBytes("0a0f30372d74656e6465726d696e742d3012230a0131120d4f524445525f4f524445524544120f4f524445525f554e4f524445524544180322200a0f30372d74656e6465726d696e742d30120d636f6e6e656374696f6e2d3533")
 	var conn conntypes.ConnectionEnd
 	_, err := HexBytesToProtoUnmarshal(input, &conn)
@@ -44,7 +43,6 @@ func TestConnectionDecode(t *testing.T) {
 }
 
 func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
-
 	absPath, _ := filepath.Abs("../../../env/godWallet.json")
 
 	pcfg := IconProviderConfig{
@@ -64,11 +62,9 @@ func GetMockIconProvider(network_id int, contractAddress string) *IconProvider {
 
 	iconProvider, _ := p.(*IconProvider)
 	return iconProvider
-
 }
 
 func TestNetworkSectionHashCheck(t *testing.T) {
-
 	prevNetworkSectionHash, _ := hex.DecodeString("b791b4b069c561ca31093f825f083f6cc3c8e5ad5135625becd2ff77a8ccfa1e")
 	messageRoot, _ := hex.DecodeString("84d8e19eb09626e4a94212d3a9db54bc16a75dfd791858c0fab3032b944f657a")
 	nextProofContextHash, _ := hex.DecodeString("d090304264eeee3c3562152f2dc355601b0b423a948824fd0a012c11c3fc2fb4")
@@ -109,7 +105,7 @@ func TestMsgOpenTryProof(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, approved, "failed to verify client state")
 
-	//checking consensus state
+	// checking consensus state
 	var cs exported.ClientState
 	err = codec.Marshaler.UnpackAny(msgOpenTry.ClientState, &cs)
 	assert.NoError(t, err)

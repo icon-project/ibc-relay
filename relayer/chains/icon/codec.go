@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/std"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	ibc "github.com/cosmos/ibc-go/v7/modules/core"
-	icon_module "github.com/cosmos/relayer/v2/relayer/chains/icon/module"
+	icon_module "github.com/icon-project/relayer/v2/relayer/chains/icon/module"
 )
 
 var ModuleBasics = []module.AppModuleBasic{

@@ -31,7 +31,7 @@ import (
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -227,7 +227,6 @@ func (cc *CosmosProvider) queryConsumerUnbondingPeriod(ctx context.Context) (tim
 	params := proposal.QueryParamsRequest{Subspace: "ccvconsumer", Key: "UnbondingPeriod"}
 
 	resICS, err := queryClient.Params(ctx, &params)
-
 	if err != nil {
 		return 0, fmt.Errorf("failed to make ccvconsumer params request: %w", err)
 	}
@@ -1173,5 +1172,4 @@ func (cc *CosmosProvider) QueryConsensusStateABCI(ctx context.Context, clientID 
 
 func (ap *CosmosProvider) QueryClientPrevConsensusStateHeight(ctx context.Context, chainHeight int64, clientId string, clientHeight int64) (exported.Height, error) {
 	panic("QueryClientPrevConsensusStateHeight not implemented")
-
 }

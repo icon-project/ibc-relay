@@ -15,13 +15,13 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	rlycommon "github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/gorilla/websocket"
 	"github.com/icon-project/goloop/common"
 	"github.com/icon-project/goloop/common/codec"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	rlycommon "github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"github.com/pkg/errors"
 )
 
@@ -94,7 +94,6 @@ func NewIconChainProcessor(log *zap.Logger, provider *IconProvider, metrics *pro
 type latestClientState map[string]provider.ClientState
 
 func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, icp *IconChainProcessor) {
-
 	existingClientInfo, ok := l[clientInfo.clientID]
 	if ok {
 		if clientInfo.consensusHeight.LT(existingClientInfo.ConsensusHeight) {
@@ -254,7 +253,6 @@ func (icp *IconChainProcessor) GetLatestHeight() uint64 {
 }
 
 func (icp *IconChainProcessor) monitoring(ctx context.Context, persistence *queryCyclePersistence) error {
-
 	errCh := make(chan error)                                            // error channel
 	reconnectCh := make(chan struct{}, 1)                                // reconnect channel
 	btpBlockNotifCh := make(chan *types.BlockNotification, 10)           // block notification channel
@@ -340,7 +338,6 @@ loop:
 					reconnect()
 					icp.log.Warn("Error occured during monitor block", zap.Error(err))
 				}
-
 			}(ctxMonitorBlock, cancelMonitorBlock)
 		case br := <-btpBlockRespCh:
 			for ; br != nil; processedheight++ {
@@ -449,7 +446,6 @@ loop:
 						go icp.handleBTPBlockRequest(request, requestCh)
 
 					}
-
 				}
 				// filter nil
 				_brs, brs := brs, brs[:0]
@@ -554,7 +550,8 @@ func (icp *IconChainProcessor) verifyBlock(ctx context.Context, ibcHeader provid
 }
 
 func (icp *IconChainProcessor) handleBTPBlockRequest(
-	request *btpBlockRequest, requestCh chan *btpBlockRequest) {
+	request *btpBlockRequest, requestCh chan *btpBlockRequest,
+) {
 	defer func() {
 		time.Sleep(500 * time.Millisecond)
 		requestCh <- request
@@ -662,8 +659,8 @@ func (icp *IconChainProcessor) handleBTPBlockRequest(
 
 func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 	latestHeader provider.IBCHeader, messageCache processor.IBCMessagesCache,
-	ibcHeaderCache processor.IBCHeaderCache) error {
-
+	ibcHeaderCache processor.IBCHeaderCache,
+) error {
 	chainID := icp.chainProvider.ChainId()
 	latestHeight, _ := icp.chainProvider.QueryLatestHeight(ctx)
 
@@ -697,7 +694,6 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 		})
 	}
 	return nil
-
 }
 
 // clientState will return the most recent client state if client messages

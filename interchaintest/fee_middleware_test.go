@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	relayertest "github.com/cosmos/relayer/v2/interchaintest"
+	relayertest "github.com/icon-project/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	ibc "github.com/strangelove-ventures/interchaintest/v7/ibc"
@@ -29,7 +29,8 @@ func TestScenarioFeeMiddleware(t *testing.T) {
 	// Get both chains
 	cf := interchaintest.NewBuiltinChainFactory(zaptest.NewLogger(t), []*interchaintest.ChainSpec{
 		{Name: "juno", ChainName: "chaina", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chaina", GasPrices: "0.0ujuno"}},
-		{Name: "juno", ChainName: "chainb", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chainb", GasPrices: "0.0ujuno"}}},
+		{Name: "juno", ChainName: "chainb", Version: "v13.0.0", NumValidators: &nv, NumFullNodes: &nf, ChainConfig: ibc.ChainConfig{ChainID: "chainb", GasPrices: "0.0ujuno"}},
+	},
 	)
 
 	chains, err := cf.Chains(t.Name())

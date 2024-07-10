@@ -28,9 +28,9 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/codecs/ethermint"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
@@ -371,7 +371,6 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	if addr != nil {
 		clientCtx = clientCtx.
 			WithFromAddress(addr)
-
 	}
 
 	ap.QueryClient = wasmtypes.NewQueryClient(clientCtx)

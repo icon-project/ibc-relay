@@ -1,9 +1,10 @@
 package relayer
 
 import (
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
 	"testing"
 	"time"
+
+	"github.com/icon-project/relayer/v2/relayer/chains/cosmos"
 
 	"github.com/stretchr/testify/require"
 )

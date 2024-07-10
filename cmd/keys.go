@@ -24,7 +24,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/icon-project/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

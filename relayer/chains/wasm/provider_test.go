@@ -18,8 +18,8 @@ import (
 
 	// tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
@@ -35,9 +35,8 @@ func (err mockAccountSequenceMismatchError) Error() string {
 }
 
 func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.ChainProvider, error) {
-
 	absPath, _ := filepath.Abs("../../../env/archway/keys")
-	var config = WasmProviderConfig{
+	config := WasmProviderConfig{
 		KeyDirectory:      absPath,
 		Key:               "testWallet",
 		ChainName:         "archway",
@@ -69,7 +68,6 @@ func GetProvider(ctx context.Context, handlerAddr string, local bool) (provider.
 		return nil, err
 	}
 	return p, err
-
 }
 
 func TestGetAddress(t *testing.T) {
@@ -101,6 +99,7 @@ func (hs HexBytes) Value() ([]byte, error) {
 	}
 	return hex.DecodeString(string(hs[2:]))
 }
+
 func NewHexBytes(b []byte) HexBytes {
 	return HexBytes(hex.EncodeToString(b))
 }
@@ -360,7 +359,6 @@ func (m *SendPacket) MsgBytes() ([]byte, error) {
 // }
 
 func TestSerializeAny(t *testing.T) {
-
 	d := clienttypes.Height{
 		RevisionNumber: 0,
 		RevisionHeight: 20000,
@@ -377,11 +375,9 @@ func TestSerializeAny(t *testing.T) {
 	assert.NoError(t, err)
 	expected, _ := hex.DecodeString("7b22636c69656e745f7374617465223a7b224074797065223a222f6962632e636f72652e636c69656e742e76312e486569676874222c227265766973696f6e5f6e756d626572223a2230222c227265766973696f6e5f686569676874223a223230303030227d2c22636f6e73656e7375735f7374617465223a7b224074797065223a222f6962632e636f72652e636c69656e742e76312e486569676874222c227265766973696f6e5f6e756d626572223a2230222c227265766973696f6e5f686569676874223a223230303030227d2c227369676e6572223a22616362646566227d")
 	assert.Equal(t, actual, expected)
-
 }
 
 func GetIconProvider(network_id int) *icon.IconProvider {
-
 	pcfg := icon.IconProviderConfig{
 		Keystore:          "godWallet",
 		KeyDirectory:      "../../../env",
@@ -524,7 +520,6 @@ func GetIconProvider(network_id int) *icon.IconProvider {
 // }
 
 func TestProtoMarshal(t *testing.T) {
-
 	codec := MakeCodec(ModuleBasics, []string{})
 	height := clienttypes.Height{
 		RevisionHeight: 32318,
@@ -534,7 +529,6 @@ func TestProtoMarshal(t *testing.T) {
 	b, err := codec.Marshaler.Marshal(&height)
 	assert.NoError(t, err)
 	assert.Equal(t, b, expected)
-
 }
 
 func TestDecodeProto(t *testing.T) {
@@ -545,7 +539,6 @@ func TestDecodeProto(t *testing.T) {
 	codec := MakeCodec(ModuleBasics, []string{})
 	err := codec.Marshaler.Unmarshal(by, &cl)
 	assert.NoError(t, err)
-
 }
 
 // goloop rpc sendtx call \
@@ -787,18 +780,15 @@ func TestDecodeProto(t *testing.T) {
 // }
 
 func TestGenRoot(t *testing.T) {
-
 	rootB, _ := hex.DecodeString("99306EBA529FB6416B0984146B97C9C76386F226E9541A47197FA7ADA530EDA3")
 	root := commitmenttypes.MerkleRoot{Hash: rootB}
 
 	rootMarshalled, _ := proto.Marshal(&root)
 
 	fmt.Printf("proto marshalled root %x \n", rootMarshalled)
-
 }
 
 func TestStringToHex(t *testing.T) {
-
 	// type YY struct {
 	// 	Req []byte
 	// }
@@ -821,7 +811,6 @@ func TestStringToHex(t *testing.T) {
 	}
 
 	fmt.Printf("%x \n", byteArray)
-
 }
 
 func TestProtoUnmarshal(t *testing.T) {

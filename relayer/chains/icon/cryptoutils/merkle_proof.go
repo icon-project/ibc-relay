@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"math/bits"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
 )
 
 const hashLen = 32
@@ -35,7 +35,6 @@ type MerkleHashTree struct {
 }
 
 func NewMerkleHashTree(byteList [][]byte) *MerkleHashTree {
-
 	var hashList HashedList
 	for _, b := range byteList {
 		hashList = append(hashList, common.Sha3keccak256(b))
@@ -156,7 +155,6 @@ func CalculateRootFromProof(value []byte, proof []*icon.MerkleNode) []byte {
 				copy(hashBuf[hashLen:], node.Value)
 			} else {
 				continue
-
 			}
 		}
 		AppendHash(computedHash[:0], hashBuf)

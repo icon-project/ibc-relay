@@ -9,9 +9,9 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/chains/mock"
-	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer"
+	"github.com/icon-project/relayer/v2/relayer/chains/mock"
+	"github.com/icon-project/relayer/v2/relayer/processor"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"

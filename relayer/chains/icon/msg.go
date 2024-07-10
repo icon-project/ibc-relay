@@ -3,7 +3,7 @@ package icon
 import (
 	"encoding/json"
 
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 const defaultStepLimit = 13610920010
@@ -22,7 +22,6 @@ func (im *IconMessage) MsgBytes() ([]byte, error) {
 }
 
 func (icp *IconProvider) NewIconMessage(msg interface{}, method string) provider.RelayerMessage {
-
 	im := &IconMessage{
 		Params: msg,
 		Method: method,

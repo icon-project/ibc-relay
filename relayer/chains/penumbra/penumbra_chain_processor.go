@@ -12,8 +12,8 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -288,7 +288,6 @@ type ResultBlockResults struct {
 func (pcp *PenumbraChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
 	var err error
 	persistence.latestHeight, err = pcp.latestHeightWithRetry(ctx)
-
 	// don't want to cause CosmosChainProcessor to quit here, can retry again next cycle.
 	if err != nil {
 		pcp.log.Error(

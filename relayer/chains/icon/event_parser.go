@@ -5,9 +5,9 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	"go.uber.org/zap"
 )
@@ -32,7 +32,6 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	packetData := event.Indexed[1]
 	var packet icon.Packet
 	if err := proto.Unmarshal(packetData, &packet); err != nil {
-
 		log.Error("failed to unmarshal packet")
 		// TODO: review return if parseAttrs add panic
 	}
@@ -53,13 +52,11 @@ func (pi *packetInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
 	if bytes.Equal(eventName, MustConvertEventNameToBytes(EventTypeWriteAcknowledgement)) {
 		pi.Ack = event.Data[0]
 	}
-
 }
 
 type channelInfo provider.ChannelInfo
 
 func (ch *channelInfo) parseAttrs(log *zap.Logger, event types.EventLog) {
-
 	ch.PortID = string(event.Indexed[1])
 	ch.ChannelID = string(event.Indexed[2])
 

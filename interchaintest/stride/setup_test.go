@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
-	rlystride "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
+	rlystride "github.com/icon-project/relayer/v2/relayer/chains/cosmos/stride"
 	"github.com/icza/dyno"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"

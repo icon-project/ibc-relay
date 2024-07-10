@@ -1,4 +1,4 @@
-module github.com/cosmos/relayer/v2/interchaintest
+module github.com/icon-project/relayer/v2/interchaintest
 
 go 1.20
 
@@ -7,7 +7,7 @@ require (
 	github.com/cometbft/cometbft v0.37.0
 	github.com/cosmos/cosmos-sdk v0.47.1
 	github.com/cosmos/ibc-go/v7 v7.0.0
-	github.com/cosmos/relayer/v2 v2.0.0
+	github.com/icon-project/relayer/v2 v2.0.0
 	github.com/docker/docker v20.10.24+incompatible
 	github.com/icza/dyno v0.0.0-20220812133438-f0b6f8a18845
 	github.com/moby/moby v20.10.22+incompatible
@@ -248,7 +248,7 @@ replace (
 	github.com/ChainSafe/go-schnorrkel => github.com/ChainSafe/go-schnorrkel v0.0.0-20200405005733-88cbf1b4c40d
 	github.com/ChainSafe/go-schnorrkel/1 => github.com/ChainSafe/go-schnorrkel v1.0.0
 	// For this nested module, you always want to replace the parent reference with the current worktree.
-	github.com/cosmos/relayer/v2 => ../
+	github.com/icon-project/relayer/v2 => ../
 
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 

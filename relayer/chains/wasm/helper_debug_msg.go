@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 var WasmDebugMessagePath = filepath.Join(os.Getenv("HOME"), ".relayer", "debug_wasm_msg_data.json")
@@ -23,16 +23,14 @@ func jsonDumpDataFile(filename string, bufs interface{}) {
 	}
 
 	// Write JSON data to file
-	err = ioutil.WriteFile(filename, jsonData, 0644)
+	err = ioutil.WriteFile(filename, jsonData, 0o644)
 	if err != nil {
 		fmt.Println("Error writing JSON to file:", err)
 		os.Exit(1)
 	}
-
 }
 
 func readExistingData(filename string, opPointer interface{}) error {
-
 	// Check if the JSON file exists
 	if _, err := os.Stat(filename); !os.IsNotExist(err) {
 		// Read existing JSON data from file

@@ -10,9 +10,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -358,7 +358,6 @@ func MsgUpdateClient(
 }
 
 func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (provider.RelayerMessage, error) {
-
 	var updateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
 		var err error
@@ -616,7 +615,6 @@ func findMatchingClient(ctx context.Context, src, dst *Chain, newClientState ibc
 
 	for _, existingClientState := range clientsResp {
 		clientID, err := provider.ClientsMatch(ctx, src.ChainProvider, dst.ChainProvider, existingClientState, newClientState)
-
 		// If there is an error parsing/type asserting the client state in ClientsMatch this is going
 		// to make the entire find matching client logic fail.
 		// We should really never be encountering an error here and if we do it is probably a sign of a

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer"
+	"github.com/icon-project/relayer/v2/relayer"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

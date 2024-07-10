@@ -8,9 +8,9 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
-	"github.com/cosmos/relayer/v2/cmd"
-	"github.com/cosmos/relayer/v2/internal/relayertest"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/icon-project/relayer/v2/cmd"
+	"github.com/icon-project/relayer/v2/internal/relayertest"
+	"github.com/icon-project/relayer/v2/relayer/chains/cosmos"
 	"github.com/stretchr/testify/require"
 )
 

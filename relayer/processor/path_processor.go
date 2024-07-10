@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
 
@@ -226,7 +226,6 @@ func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool 
 	if pp.pathEnd1.info.ChainID == chainID {
 		return pp.pathEnd1.info.ClientID == clientID
 	} else if pp.pathEnd2.info.ChainID == chainID {
-
 		return pp.pathEnd2.info.ClientID == clientID
 	}
 
@@ -234,7 +233,6 @@ func (pp *PathProcessor) IsRelevantClient(chainID string, clientID string) bool 
 }
 
 func (pp *PathProcessor) IsRelevantConnection(chainID string, connectionID string) bool {
-
 	if pp.pathEnd1.info.ChainID == chainID {
 		return pp.pathEnd1.isRelevantConnection(connectionID)
 	} else if pp.pathEnd2.info.ChainID == chainID {

@@ -9,7 +9,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	relayerinterchaintest "github.com/icon-project/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"

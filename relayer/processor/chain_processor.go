@@ -3,7 +3,7 @@ package processor
 import (
 	"context"
 
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 // The ChainProcessor interface is reponsible for polling blocks and emitting IBC message events to the PathProcessors.

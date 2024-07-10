@@ -11,10 +11,10 @@ import (
 	"github.com/avast/retry-go/v4"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -305,7 +305,6 @@ func updateClientCmd(a *appState) *cobra.Command {
 				num, err := strconv.ParseInt(s, 10, 64)
 				if err != nil {
 					return fmt.Errorf("error converting string to int64: %w", err)
-
 				}
 				heights = append(heights, num)
 			}
@@ -487,7 +486,6 @@ $ %s tx conn demo-path --timeout 5s`,
 				// if err := a.UpdateConfigsIfContainIcon(cmd, c[src], c[dst]); err != nil {
 				// 	return err
 				// }
-
 			}
 
 			return nil
@@ -519,7 +517,6 @@ $ %s tx chan demo-path --timeout 5s --max-retries 10`,
 			appName, appName,
 		)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			pathName := args[0]
 
 			c, src, dst, err := a.config.ChainsFromPath(pathName)
@@ -1152,7 +1149,6 @@ $ %s register-counterparty channel-1 transfer cosmos1skjwj5whet0lpe65qaq4rpq03hj
 $ %s reg-cpt channel-1 cosmos1skjwj5whet0lpe65qaq4rpq03hjxlwd9nf39lk juno1g0ny488ws4064mjjxk4keenwfjrthn503ngjxd`,
 			appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			chain, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
@@ -1187,7 +1183,6 @@ $ %s claim-fees archway icon cx6f86ed848f9f0d03ba1220811d95d864c72da88c archway-
 $ %s claim-fees icon archway archway1f68v03g2646z7wk9h9sy5uxhztajcrdgwvdrsftyp4448h067v0shn6l5w 0x1.icon`,
 			appName, appName)),
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			src, ok := a.config.Chains[args[0]]
 			if !ok {
 				return errChainNotFound(args[0])
