@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+
+	ctypes "github.com/cometbft/cometbft/rpc/core/types"
+	"github.com/cometbft/cometbft/types"
 )
 
 type HexBytes string
@@ -368,4 +371,9 @@ func NewPrevConsensusStateHeight(clientId string, height uint64) *GetPrevConsens
 			Height:   height,
 		},
 	}
+}
+
+type BlockInfo struct {
+	types.Block
+	Txs []*ctypes.ResultTx
 }
