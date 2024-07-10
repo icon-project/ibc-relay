@@ -910,3 +910,83 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 	}
 	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
 }
+
+type BlockInfo struct {
+	IBCHeader provider.IBCHeader
+	Messages  []ibcMessage
+}
+
+type txSearchParam struct {
+	page    int
+	perPage int
+	orderBy string
+	query   string
+	prove   bool
+}
+
+func (ap *WasmProvider) GetBlockInfoList(
+	ctx context.Context,
+	fromHeight, toHeight uint64,
+) ([]BlockInfo, error) {
+	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
+
+	txsParam := txSearchParam{
+		query:   fmt.Sprintf("block.height >= %d AND block.height <= %d AND wasmMessage._contract_address = %s", fromHeight, toHeight, ibcHandlerAddr),
+		page:    1,
+		perPage: 100,
+		orderBy: "asc",
+	}
+	txsResult, err := ap.CometRPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+	if err != nil {
+		return nil, err
+	}
+
+	txs := txsResult.Txs
+
+	if txsResult.TotalCount > txsParam.perPage {
+		totalPages := txsResult.TotalCount / txsParam.page
+		if txsResult.TotalCount%txsParam.page != 0 {
+			totalPages += 1
+		}
+		for i := 2; i <= totalPages; i++ {
+			txsParam.page = i
+			nextResult, err := ap.CometRPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+			if err != nil {
+				return nil, err
+			}
+			txs = append(txs, nextResult.Txs...)
+		}
+	}
+
+	blockMessages := map[uint64][]ibcMessage{}
+	for _, txResult := range txs {
+		messages := ibcMessagesFromEvents(
+			ap.log,
+			txResult.TxResult.Events,
+			ap.ChainId(),
+			uint64(txResult.Height),
+			ibcHandlerAddr,
+			ap.cometLegacyEncoding,
+		)
+		blockMessages[uint64(txResult.Height)] = append(blockMessages[uint64(txResult.Height)], messages...)
+	}
+
+	blockInfoList := []BlockInfo{}
+	for h := fromHeight; h <= toHeight; h++ {
+		ibcHeader, err := ap.QueryIBCHeader(ctx, int64(h))
+		if err != nil {
+			return nil, err
+		}
+
+		bInfo := BlockInfo{
+			IBCHeader: ibcHeader,
+		}
+
+		if messages, ok := blockMessages[ibcHeader.Height()]; ok {
+			bInfo.Messages = messages
+		}
+		blockInfoList = append(blockInfoList, bInfo)
+	}
+
+	return blockInfoList, nil
+}

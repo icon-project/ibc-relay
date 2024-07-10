@@ -11,6 +11,7 @@ import (
 
 	"github.com/CosmWasm/wasmd/app"
 	provtypes "github.com/cometbft/cometbft/light/provider"
+	"github.com/cometbft/cometbft/rpc/client/http"
 	comettypes "github.com/cometbft/cometbft/types"
 	"golang.org/x/mod/semver"
 
@@ -278,6 +279,7 @@ type WasmProvider struct {
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
 	RPCClient      rpcclient.Client
+	CometRPCClient *http.HTTP
 	QueryClient    wasmtypes.QueryClient
 	LightProvider  provtypes.Provider
 	Cdc            Codec
@@ -350,6 +352,12 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 		return err
 	}
 	ap.RPCClient = rpcClient
+
+	cometRPCClient, err := http.New(ap.PCfg.RPCAddr, "/websocket")
+	if err != nil {
+		return err
+	}
+	ap.CometRPCClient = cometRPCClient
 
 	lightprovider, err := prov.New(ap.PCfg.ChainID, ap.PCfg.RPCAddr)
 	if err != nil {

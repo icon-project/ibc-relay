@@ -384,64 +384,41 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	chainID := ccp.chainProvider.ChainId()
 	var latestHeader provider.IBCHeader
 
-	syncUpHeight := func() int64 {
+	fromHeight := persistence.latestQueriedBlock + 1
+	toHeight := func() int64 {
 		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
 			return persistence.latestQueriedBlock + MaxBlockFetch
 		}
 		return persistence.latestHeight
+	}()
+
+	blockInfos, err := ccp.chainProvider.GetBlockInfoList(ctx, uint64(fromHeight), uint64(toHeight))
+	if err != nil {
+		return err
 	}
 
-	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i++ {
-		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
-		var h provider.IBCHeader
-		i := i
-		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
-			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
-			return err
-		})
-
-		if err := eg.Wait(); err != nil {
-			ccp.log.Warn("Error querying block data", zap.Error(err))
-			break
-		}
-
+	for _, blockInfo := range blockInfos {
 		ccp.log.Debug(
 			"Queried block",
-			zap.Int64("height", i),
+			zap.Uint64("height", blockInfo.IBCHeader.Height()),
 			zap.Int64("latest", persistence.latestHeight),
-			zap.Int64("delta", persistence.latestHeight-i),
+			zap.Int64("delta", persistence.latestHeight-int64(blockInfo.IBCHeader.Height())),
 		)
 
-		latestHeader = h
-
-		heightUint64 := uint64(i)
-
-		ccp.latestBlock = provider.LatestBlock{
-			Height: heightUint64,
-		}
-
-		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
 
-		base64Encoded := ccp.chainProvider.cometLegacyEncoding
-
-		for _, tx := range blockRes.TxsResults {
-			if tx.Code != 0 {
-				// tx was not successful
-				continue
-			}
-			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
-
-			for _, m := range messages {
-				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", heightUint64))
-				ccp.handleMessage(ctx, m, ibcMessagesCache)
-			}
+		ccp.latestBlock = provider.LatestBlock{
+			Height: blockInfo.IBCHeader.Height(),
 		}
 
-		newLatestQueriedBlock = i
+		ibcHeaderCache[blockInfo.IBCHeader.Height()] = blockInfo.IBCHeader
+
+		for _, m := range blockInfo.Messages {
+			ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", blockInfo.IBCHeader.Height()))
+			ccp.handleMessage(ctx, m, ibcMessagesCache)
+		}
+
+		newLatestQueriedBlock = int64(blockInfo.IBCHeader.Height())
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
