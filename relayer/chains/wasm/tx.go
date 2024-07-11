@@ -840,6 +840,7 @@ func (ap *WasmProvider) SendMessagesToMempool(
 					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 						ap.handleAccountSequenceMismatchError(err)
 					}
+					ap.log.Error("Failed to update client", zap.Any("Message", msg), zap.Error(err))
 				}
 				return err
 			}, retry.Context(ctx), retry.Attempts(0), specialDel, rtyErr); err != nil {
