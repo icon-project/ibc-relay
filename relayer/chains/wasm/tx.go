@@ -837,10 +837,10 @@ func (ap *WasmProvider) SendMessagesToMempool(
 		if msg.Type() == MethodUpdateClient {
 			if err := retry.Do(func() error {
 				if err := ap.BroadcastTx(cliCtx, txBytes, []provider.RelayerMessage{msg}, asyncCtx, defaultBroadcastWaitTimeout, asyncCallback, true); err != nil {
+					ap.log.Error("Failed to update client", zap.Any("Message", msg), zap.Error(err))
 					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 						ap.handleAccountSequenceMismatchError(err)
 					}
-					ap.log.Error("Failed to update client", zap.Any("Message", msg), zap.Error(err))
 				}
 				return err
 			}, retry.Context(ctx), retry.Attempts(0), specialDel, rtyErr); err != nil {
