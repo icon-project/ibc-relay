@@ -366,7 +366,10 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("Chain is in sync")
+			ccp.log.Info("Chain is in sync",
+				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", persistence.latestHeight),
+			)
 		} else {
 			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
@@ -392,9 +395,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		return persistence.latestHeight
 	}()
 
+	if fromHeight > toHeight {
+		fromHeight = toHeight
+	}
+
 	blockInfos, err := ccp.chainProvider.GetBlockInfoList(ctx, uint64(fromHeight), uint64(toHeight))
 	if err != nil {
-		return err
+		ccp.log.Error("failed to query block messages", zap.Error(err))
+		return nil
 	}
 
 	for _, blockInfo := range blockInfos {
@@ -413,7 +421,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 		ibcHeader, _, err := ccp.chainProvider.QueryLightBlock(ctx, int64(blockInfo.Height))
 		if err != nil {
-			ccp.log.Error("failed to query ibc header", zap.Error(err), zap.Uint64("height", blockInfo.Height))
+			ccp.log.Error("failed to query ibc header ", zap.Error(err), zap.Uint64("height", blockInfo.Height))
 		} else {
 			ibcHeaderCache[blockInfo.Height] = ibcHeader
 		}
@@ -424,6 +432,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		}
 
 		newLatestQueriedBlock = int64(blockInfo.Height)
+		latestHeader = ibcHeader
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
@@ -454,7 +463,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		clientStateHeight := clientState.ConsensusHeight.RevisionHeight
 		ibcHeader, _, err := ccp.chainProvider.QueryLightBlock(ctx, int64(clientStateHeight))
 		if err != nil {
-			ccp.log.Error("failed to query ibc header", zap.Error(err), zap.Uint64("height", clientStateHeight))
+			ccp.log.Error("failed to query ibc header", zap.String("client-id", clientID), zap.Error(err), zap.Uint64("height", clientStateHeight))
 		} else {
 			ibcHeaderCache[clientStateHeight] = ibcHeader
 		}
