@@ -931,19 +931,18 @@ func (ap *WasmProvider) GetBlockInfoList(
 	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
 
 	txsParam := txSearchParam{
-		query:   fmt.Sprintf("block.height >= %d", fromHeight),
+		query:   fmt.Sprintf("tx.height>=%d AND tx.height<=%d AND wasm._contract_address='%s'", fromHeight, toHeight, ibcHandlerAddr),
 		page:    1,
 		perPage: 100,
 		orderBy: "asc",
 	}
+
 	txsResult, err := ap.CometRPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
 	if err != nil {
 		return nil, err
 	}
 
 	txs := txsResult.Txs
-
-	fmt.Printf("\nTx Result: %+v query: %s\n", txs, txsParam.query)
 
 	if txsResult.TotalCount > txsParam.perPage {
 		totalPages := txsResult.TotalCount / txsParam.page

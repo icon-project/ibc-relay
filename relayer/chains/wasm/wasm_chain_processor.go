@@ -399,6 +399,10 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		fromHeight = toHeight
 	}
 
+	if fromHeight <= persistence.latestQueriedBlock {
+		return nil
+	}
+
 	blockInfos, err := ccp.chainProvider.GetBlockInfoList(ctx, uint64(fromHeight), uint64(toHeight))
 	if err != nil {
 		ccp.log.Error("failed to query block messages", zap.Error(err))
