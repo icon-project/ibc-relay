@@ -86,9 +86,9 @@ func NewWasmIBCHeader(header *itm.SignedHeader, validators *itm.ValidatorSet) Wa
 	}
 }
 
-func itmValidatorSetFromLightBlock(lb *comettypes.LightBlock) *itm.ValidatorSet {
+func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHeader {
 	vSets := make([]*itm.Validator, 0)
-	for _, v := range lb.ValidatorSet.Validators {
+	for _, v := range lightBlock.ValidatorSet.Validators {
 		_v := &itm.Validator{
 			Address: v.Address,
 			PubKey: &itm.PublicKey{
@@ -100,12 +100,7 @@ func itmValidatorSetFromLightBlock(lb *comettypes.LightBlock) *itm.ValidatorSet 
 
 		vSets = append(vSets, _v)
 	}
-	return &itm.ValidatorSet{
-		Validators: vSets,
-	}
-}
 
-func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHeader {
 	signatures := make([]*itm.CommitSig, 0)
 	for _, d := range lightBlock.Commit.Signatures {
 
@@ -165,7 +160,9 @@ func NewWasmIBCHeaderFromLightBlock(lightBlock *comettypes.LightBlock) WasmIBCHe
 				Signatures: signatures,
 			},
 		},
-		ValidatorSet: itmValidatorSetFromLightBlock(lightBlock),
+		ValidatorSet: &itm.ValidatorSet{
+			Validators: vSets,
+		},
 	}
 }
 

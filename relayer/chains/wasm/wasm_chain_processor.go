@@ -400,25 +400,30 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	for _, blockInfo := range blockInfos {
 		ccp.log.Debug(
 			"Queried block",
-			zap.Uint64("height", blockInfo.IBCHeader.Height()),
+			zap.Uint64("height", blockInfo.Height),
 			zap.Int64("latest", persistence.latestHeight),
-			zap.Int64("delta", persistence.latestHeight-int64(blockInfo.IBCHeader.Height())),
+			zap.Int64("delta", persistence.latestHeight-int64(blockInfo.Height)),
 		)
 
 		ppChanged = true
 
 		ccp.latestBlock = provider.LatestBlock{
-			Height: blockInfo.IBCHeader.Height(),
+			Height: blockInfo.Height,
 		}
 
-		ibcHeaderCache[blockInfo.IBCHeader.Height()] = blockInfo.IBCHeader
+		ibcHeader, _, err := ccp.chainProvider.QueryLightBlock(ctx, int64(blockInfo.Height))
+		if err != nil {
+			ccp.log.Error("failed to query ibc header", zap.Error(err), zap.Uint64("height", blockInfo.Height))
+		} else {
+			ibcHeaderCache[blockInfo.Height] = ibcHeader
+		}
 
 		for _, m := range blockInfo.Messages {
-			ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", blockInfo.IBCHeader.Height()))
+			ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", blockInfo.Height))
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
 
-		newLatestQueriedBlock = int64(blockInfo.IBCHeader.Height())
+		newLatestQueriedBlock = int64(blockInfo.Height)
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
@@ -444,6 +449,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 				zap.Error(err),
 			)
 			continue
+		}
+
+		clientStateHeight := clientState.ConsensusHeight.RevisionHeight
+		ibcHeader, _, err := ccp.chainProvider.QueryLightBlock(ctx, int64(clientStateHeight))
+		if err != nil {
+			ccp.log.Error("failed to query ibc header", zap.Error(err), zap.Uint64("height", clientStateHeight))
+		} else {
+			ibcHeaderCache[clientStateHeight] = ibcHeader
 		}
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{

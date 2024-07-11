@@ -912,8 +912,8 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 }
 
 type BlockInfo struct {
-	IBCHeader provider.IBCHeader
-	Messages  []ibcMessage
+	Height   uint64
+	Messages []ibcMessage
 }
 
 type txSearchParam struct {
@@ -931,7 +931,7 @@ func (ap *WasmProvider) GetBlockInfoList(
 	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
 
 	txsParam := txSearchParam{
-		query:   fmt.Sprintf("block.height >= %d AND block.height <= %d AND wasmMessage._contract_address = %s", fromHeight, toHeight, ibcHandlerAddr),
+		query:   fmt.Sprintf("block.height >= %d AND block.height <= %d AND wasm._contract_address = %s", fromHeight, toHeight, ibcHandlerAddr),
 		page:    1,
 		perPage: 100,
 		orderBy: "asc",
@@ -968,24 +968,19 @@ func (ap *WasmProvider) GetBlockInfoList(
 			ibcHandlerAddr,
 			ap.cometLegacyEncoding,
 		)
-		blockMessages[uint64(txResult.Height)] = append(blockMessages[uint64(txResult.Height)], messages...)
+		if len(messages) > 0 {
+			blockMessages[uint64(txResult.Height)] = append(blockMessages[uint64(txResult.Height)], messages...)
+		}
 	}
 
 	blockInfoList := []BlockInfo{}
 	for h := fromHeight; h <= toHeight; h++ {
-		ibcHeader, err := ap.QueryIBCHeader(ctx, int64(h))
-		if err != nil {
-			return nil, err
+		if messages, ok := blockMessages[h]; ok {
+			blockInfoList = append(blockInfoList, BlockInfo{
+				Height:   h,
+				Messages: messages,
+			})
 		}
-
-		bInfo := BlockInfo{
-			IBCHeader: ibcHeader,
-		}
-
-		if messages, ok := blockMessages[ibcHeader.Height()]; ok {
-			bInfo.Messages = messages
-		}
-		blockInfoList = append(blockInfoList, bInfo)
 	}
 
 	return blockInfoList, nil
