@@ -460,14 +460,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			continue
 		}
 
-		clientStateHeight := clientState.ConsensusHeight.RevisionHeight
-		ibcHeader, _, err := ccp.chainProvider.QueryLightBlock(ctx, int64(clientStateHeight))
-		if err != nil {
-			ccp.log.Error("failed to query ibc header", zap.String("client-id", clientID), zap.Error(err), zap.Uint64("height", clientStateHeight))
-		} else {
-			ibcHeaderCache[clientStateHeight] = ibcHeader
-		}
-
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,
 			LatestHeader:         latestHeader,

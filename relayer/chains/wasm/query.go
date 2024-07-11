@@ -931,7 +931,7 @@ func (ap *WasmProvider) GetBlockInfoList(
 	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
 
 	txsParam := txSearchParam{
-		query:   fmt.Sprintf("block.height >= %d AND block.height <= %d", fromHeight, toHeight),
+		query:   fmt.Sprintf("block.height >= %d", fromHeight),
 		page:    1,
 		perPage: 100,
 		orderBy: "asc",
@@ -990,10 +990,12 @@ func (ap *WasmProvider) GetBlockInfoList(
 			Height:   fromHeight,
 			Messages: []ibcMessage{},
 		})
-		blockInfoList = append(blockInfoList, BlockInfo{
-			Height:   toHeight,
-			Messages: []ibcMessage{},
-		})
+		if toHeight != fromHeight {
+			blockInfoList = append(blockInfoList, BlockInfo{
+				Height:   toHeight,
+				Messages: []ibcMessage{},
+			})
+		}
 	}
 
 	return blockInfoList, nil
