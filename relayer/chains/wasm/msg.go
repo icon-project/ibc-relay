@@ -7,8 +7,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/wasm/types"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 type WasmContractMessage struct {
@@ -39,7 +39,6 @@ func (ap *WasmProvider) NewWasmContractMessage(method string, m codec.ProtoMarsh
 	// ap.log.Debug("Wasm Constructed message ", zap.String("MethodName", method), zap.Any("Message", types.NewHexBytes(protoMsg)))
 
 	msgParam, err := types.GenerateTxnParams(method, types.NewHexBytes(protoMsg))
-
 	if err != nil {
 		return nil, err
 	}

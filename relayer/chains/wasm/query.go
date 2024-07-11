@@ -32,9 +32,9 @@ import (
 	"github.com/cosmos/ibc-go/v7/modules/core/exported"
 
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
-	"github.com/cosmos/relayer/v2/relayer/chains/wasm/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/wasm/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 const (
@@ -62,8 +62,8 @@ func (ap *WasmProvider) QueryTx(ctx context.Context, hashHex string) (*provider.
 		Data:   string(resp.TxResult.Data),
 		Events: events,
 	}, nil
-
 }
+
 func (ap *WasmProvider) QueryTxs(ctx context.Context, page, limit int, events []string) ([]*provider.RelayerTxResponse, error) {
 	if len(events) == 0 {
 		return nil, errors.New("must declare at least one event to search")
@@ -96,7 +96,6 @@ func (ap *WasmProvider) QueryTxs(ctx context.Context, page, limit int, events []
 		})
 	}
 	return txResps, nil
-
 }
 
 // parseEventsFromResponseDeliverTx parses the events from a ResponseDeliverTx and builds a slice
@@ -119,7 +118,6 @@ func parseEventsFromResponseDeliverTx(resp abci.ResponseDeliverTx) []provider.Re
 }
 
 func (ap *WasmProvider) QueryLatestHeight(ctx context.Context) (int64, error) {
-
 	stat, err := ap.RPCClient.Status(ctx)
 	if err != nil {
 		return -1, err
@@ -158,6 +156,7 @@ func (ap *WasmProvider) QueryLightBlock(ctx context.Context, h int64) (provider.
 func (ap *WasmProvider) QuerySendPacket(ctx context.Context, srcChanID, srcPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Wasm")
 }
+
 func (ap *WasmProvider) QueryRecvPacket(ctx context.Context, dstChanID, dstPortID string, sequence uint64) (provider.PacketInfo, error) {
 	return provider.PacketInfo{}, fmt.Errorf("Not implemented for Wasm")
 }
@@ -229,7 +228,6 @@ func (ap *WasmProvider) QueryClientState(ctx context.Context, height int64, clie
 
 // TODO: Check revision number
 func (ap *WasmProvider) QueryClientStateResponse(ctx context.Context, height int64, srcClientId string) (*clienttypes.QueryClientStateResponse, error) {
-
 	clS, err := ap.QueryClientStateContract(ctx, srcClientId)
 	if err != nil {
 		return nil, err
@@ -316,7 +314,6 @@ func (ap *WasmProvider) QueryChannelContractNoRetry(ctx context.Context, portId,
 }
 
 func (ap *WasmProvider) QueryClientConsensusState(ctx context.Context, chainHeight int64, clientid string, clientHeight ibcexported.Height) (*clienttypes.QueryConsensusStateResponse, error) {
-
 	consensusStateParam, err := types.NewConsensusStateByHeight(clientid, uint64(clientHeight.GetRevisionHeight())).Bytes()
 	if err != nil {
 		return nil, err
@@ -394,7 +391,6 @@ func (ap *WasmProvider) QueryUpgradedConsState(ctx context.Context, height int64
 }
 
 func (ap *WasmProvider) QueryConsensusState(ctx context.Context, height int64) (ibcexported.ConsensusState, int64, error) {
-
 	commit, err := ap.RPCClient.Commit(ctx, &height)
 	if err != nil {
 		return &tmclient.ConsensusState{}, 0, err
@@ -479,7 +475,6 @@ func (ap *WasmProvider) getNextSequence(ctx context.Context, methodName string) 
 }
 
 func (ap *WasmProvider) QueryClients(ctx context.Context) (clienttypes.IdentifiedClientStates, error) {
-
 	seq, err := ap.getNextSequence(ctx, MethodGetNextClientSequence)
 	if err != nil {
 		return nil, err
@@ -572,11 +567,9 @@ func (ap *WasmProvider) QueryWasmProof(ctx context.Context, storageKey []byte, h
 	}
 
 	return proofBytes, nil
-
 }
 
 func (ap *WasmProvider) QueryConnections(ctx context.Context) (conns []*conntypes.IdentifiedConnection, err error) {
-
 	seq, err := ap.getNextSequence(ctx, MethodGetNextConnectionSequence)
 	if err != nil {
 		return nil, err
@@ -616,8 +609,8 @@ func (ap *WasmProvider) QueryConnectionsUsingClient(ctx context.Context, height 
 
 func (ap *WasmProvider) GenerateConnHandshakeProof(ctx context.Context, height int64, clientId, connId string) (clientState ibcexported.ClientState,
 	clientStateProof []byte, consensusProof []byte, connectionProof []byte,
-	connectionProofHeight ibcexported.Height, err error) {
-
+	connectionProofHeight ibcexported.Height, err error,
+) {
 	clientResponse, err := ap.QueryClientStateResponse(ctx, height, clientId)
 	if err != nil {
 		return nil, nil, nil, nil, clienttypes.Height{}, err
@@ -633,7 +626,6 @@ func (ap *WasmProvider) GenerateConnHandshakeProof(ctx context.Context, height i
 	proofConnBytes, err := ap.QueryWasmProof(ctx, connStorageKey, height)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
-
 	}
 
 	consStorageKey := getStorageKeyFromPath(common.GetConsensusStateCommitmentKey(clientId, big.NewInt(0), big.NewInt(height)))
@@ -787,7 +779,6 @@ func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64,
 	}
 	storageKey := getStorageKeyFromPath(common.GetPacketCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
-
 	if err != nil {
 		return nil, err
 	}
@@ -796,7 +787,6 @@ func (ap *WasmProvider) QueryPacketCommitment(ctx context.Context, height int64,
 		Proof:       proof,
 		ProofHeight: clienttypes.NewHeight(0, uint64(height)),
 	}, nil
-
 }
 
 func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height int64, channelid, portid string, seq uint64) (ackRes *chantypes.QueryPacketAcknowledgementResponse, err error) {
@@ -819,7 +809,6 @@ func (ap *WasmProvider) QueryPacketAcknowledgement(ctx context.Context, height i
 }
 
 func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, channelid, portid string, seq uint64) (recRes *chantypes.QueryPacketReceiptResponse, err error) {
-
 	// getting proof from commitment map in contract
 	storageKey := getStorageKeyFromPath(common.GetPacketReceiptCommitmentKey(portid, channelid, big.NewInt(int64(seq))))
 	proof, err := ap.QueryWasmProof(ctx, storageKey, height)
@@ -845,13 +834,11 @@ func (ap *WasmProvider) QueryPacketReceipt(ctx context.Context, height int64, ch
 }
 
 func (ap *WasmProvider) GetCommitmentPrefixFromContract(ctx context.Context) ([]byte, error) {
-
 	pktCommitmentParams, err := types.NewCommitmentPrefix().Bytes()
 	if err != nil {
 		return nil, err
 	}
 	return ap.QueryIBCHandlerContractProcessed(ctx, pktCommitmentParams)
-
 }
 
 // ics 20 - transfer
@@ -865,6 +852,7 @@ func (ap *WasmProvider) QueryDenomTrace(ctx context.Context, denom string) (*tra
 	}
 	return transfers.DenomTrace, nil
 }
+
 func (ap *WasmProvider) QueryDenomTraces(ctx context.Context, offset, limit uint64, height int64) ([]transfertypes.DenomTrace, error) {
 	qc := transfertypes.NewQueryClient(ap)
 	p := DefaultPageRequest()
@@ -900,7 +888,6 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 
 	var heights []int64
 	err = json.Unmarshal(res.Data.Bytes(), &heights)
-
 	if err != nil {
 		return nil, err
 	}

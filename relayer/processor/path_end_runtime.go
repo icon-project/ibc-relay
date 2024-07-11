@@ -7,8 +7,8 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	"go.uber.org/zap"
 )
@@ -326,15 +326,12 @@ func (pathEnd *pathEndRuntime) shouldTerminate(ibcMessagesCache IBCMessagesCache
 				zap.String("observed_counterparty_client_id", ci.CounterpartyClientID),
 			)
 			if ci.ClientID == m.Termination.Info.ClientID {
-
 				foundClientID = true
 			}
 			if ci.ConnID == m.Termination.Info.ConnID {
-
 				foundConnectionID = true
 			}
 			if ci.CounterpartyClientID == m.Termination.Info.CounterpartyClientID {
-
 				foundCounterpartyClientID = true
 			}
 			if ci.CounterpartyConnID == m.Termination.Info.CounterpartyConnID {
@@ -500,7 +497,6 @@ func (pathEnd *pathEndRuntime) shouldSendPacketMessage(message packetIBCMessage,
 	eventType := message.eventType
 	sequence := message.info.Sequence
 	k, err := message.channelKey()
-
 	if err != nil {
 		pathEnd.log.Error("Unexpected error checking if should send packet message",
 			zap.String("event_type", eventType),
@@ -743,7 +739,6 @@ func (pathEnd *pathEndRuntime) shouldSendConnectionMessage(message connectionIBC
 // shouldSendChannelMessage determines if the channel handshake message should be sent now.
 // It will also determine if the message needs to be given up on entirely and remove retention if so.
 func (pathEnd *pathEndRuntime) shouldSendChannelMessage(message channelIBCMessage, counterparty *pathEndRuntime) bool {
-
 	eventType := message.eventType
 	channelKey := ChannelInfoChannelKey(message.info)
 	if eventType != chantypes.EventTypeChannelOpenInit {

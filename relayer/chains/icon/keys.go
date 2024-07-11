@@ -8,10 +8,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	glcrypto "github.com/icon-project/goloop/common/crypto"
 	"github.com/icon-project/goloop/common/wallet"
 	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 func (cp *IconProvider) CreateKeystore(path string) error {
@@ -141,14 +141,14 @@ func (cp *IconProvider) saveWallet(name string, ks []byte) error {
 	dirPath := path.Join(cp.PCfg.KeyDirectory, cp.ChainId())
 	_, err := os.Stat(dirPath)
 	if os.IsNotExist(err) {
-		err := os.MkdirAll(dirPath, 0755)
+		err := os.MkdirAll(dirPath, 0o755)
 		if err != nil {
 			panic(err)
 		}
 	} else if err != nil {
 		return err
 	}
-	if err := os.WriteFile(fmt.Sprintf("%s/%s.json", dirPath, name), ks, 0600); err != nil {
+	if err := os.WriteFile(fmt.Sprintf("%s/%s.json", dirPath, name), ks, 0o600); err != nil {
 		log.Panicf("Fail to write keystore err=%+v", err)
 		return err
 	}
@@ -160,7 +160,6 @@ type OnlyAddr struct {
 }
 
 func getAddrFromKeystore(keystorePath string) (string, error) {
-
 	ksFile, err := os.ReadFile(keystorePath)
 	if err != nil {
 		return "", err
@@ -172,5 +171,4 @@ func getAddrFromKeystore(keystorePath string) (string, error) {
 		return "", err
 	}
 	return a.Address, nil
-
 }

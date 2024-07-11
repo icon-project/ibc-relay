@@ -18,9 +18,9 @@ import (
 	// tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 )
 
@@ -34,7 +34,6 @@ var (
 )
 
 func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, consensusState ibcexported.ConsensusState) (provider.RelayerMessage, error) {
-
 	clientStateBytes, err := proto.Marshal(clientState)
 	if err != nil {
 		return nil, err
@@ -59,7 +58,6 @@ func (icp *IconProvider) MsgCreateClient(clientState ibcexported.ClientState, co
 
 // Upgrade Client Not Implemented implemented
 func (icp *IconProvider) MsgUpgradeClient(srcClientId string, consRes *clienttypes.QueryConsensusStateResponse, clientRes *clienttypes.QueryClientStateResponse) (provider.RelayerMessage, error) {
-
 	clU := &types.MsgUpdateClient{
 		ClientId:      srcClientId,
 		ClientMessage: types.HexBytes(""),
@@ -109,7 +107,6 @@ func (icp *IconProvider) MsgRecvPacket(msgTransfer provider.PacketInfo, proof pr
 }
 
 func (icp *IconProvider) MsgAcknowledgement(msgRecvPacket provider.PacketInfo, proofAcked provider.PacketProof) (provider.RelayerMessage, error) {
-
 	pktEncode, err := getIconPacketEncodedBytes(msgRecvPacket)
 	if err != nil {
 		return nil, err
@@ -164,7 +161,6 @@ func (icp *IconProvider) MsgTimeout(msgTransfer provider.PacketInfo, proofUnrece
 }
 
 func (ip *IconProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof provider.PacketProof) (provider.RelayerMessage, error) {
-
 	pktEncode, err := getIconPacketEncodedBytes(msgTransfer)
 	if err != nil {
 		return nil, err
@@ -185,7 +181,6 @@ func (ip *IconProvider) MsgTimeoutRequest(msgTransfer provider.PacketInfo, proof
 		Msg: timeoutMsg,
 	}
 	return ip.NewIconMessage(msg, MethodRequestTimeout), nil
-
 }
 
 func (icp *IconProvider) MsgTimeoutOnClose(msgTransfer provider.PacketInfo, proofUnreceived provider.PacketProof) (provider.RelayerMessage, error) {
@@ -275,7 +270,6 @@ func (icp *IconProvider) MsgConnectionOpenTry(msgOpenInit provider.ConnectionInf
 }
 
 func (icp *IconProvider) MsgConnectionOpenAck(msgOpenTry provider.ConnectionInfo, proof provider.ConnectionProof) (provider.RelayerMessage, error) {
-
 	// proof from chainB should return clientState of chainB tracking chainA
 	iconClientState, err := icp.MustReturnIconClientState(proof.ClientState)
 	if err != nil {
@@ -489,7 +483,6 @@ func (icp *IconProvider) MsgChannelCloseConfirm(msgCloseInit provider.ChannelInf
 }
 
 func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, trustedHeight clienttypes.Height, trustedHeader provider.IBCHeader) (ibcexported.ClientMessage, error) {
-
 	latestIconHeader, ok := latestHeader.(IconIBCHeader)
 	if !ok {
 		return nil, fmt.Errorf("Unsupported IBC Header type. Expected: IconIBCHeader,actual: %T", latestHeader)
@@ -543,11 +536,9 @@ func (icp *IconProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, 
 	}
 
 	return signedHeader, nil
-
 }
 
 func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibcexported.ClientMessage) (provider.RelayerMessage, error) {
-
 	cs := counterpartyHeader.(*itm.TmHeader)
 	clientMsg, err := proto.Marshal(cs)
 	if err != nil {
@@ -565,7 +556,6 @@ func (icp *IconProvider) MsgUpdateClient(clientID string, counterpartyHeader ibc
 }
 
 func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMessage, memo string) (*provider.RelayerTxResponse, bool, error) {
-
 	var (
 		rlyResp     *provider.RelayerTxResponse
 		callbackErr error
@@ -607,7 +597,6 @@ func (icp *IconProvider) SendMessage(ctx context.Context, msg provider.RelayerMe
 }
 
 func (icp *IconProvider) parseConfirmedEventLogStr(event types.EventLogStr) provider.RelayerEvent {
-
 	eventName := event.Indexed[0]
 	switch eventName {
 
@@ -742,7 +731,6 @@ func (icp *IconProvider) SendCustomMessage(ctx context.Context, contract string,
 	}
 
 	return rlyResp, true, callbackErr
-
 }
 
 func (icp *IconProvider) SendCustomMessageToMempool(
@@ -772,7 +760,8 @@ func (icp *IconProvider) SendIconTransaction(
 	contract types.Address,
 	msg provider.RelayerMessage,
 	asyncCtx context.Context,
-	asyncCallback func(*provider.RelayerTxResponse, error)) error {
+	asyncCallback func(*provider.RelayerTxResponse, error),
+) error {
 	m := msg.(*IconMessage)
 	wallet, err := icp.Wallet()
 	if err != nil {

@@ -35,8 +35,8 @@ import (
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/input"

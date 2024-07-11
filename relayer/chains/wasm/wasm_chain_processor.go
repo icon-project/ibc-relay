@@ -13,9 +13,9 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
 	"github.com/cometbft/cometbft/types"
@@ -123,7 +123,6 @@ func (l latestClientState) update(ctx context.Context, clientInfo clientInfo, cc
 
 	// update latest if no existing state or provided consensus height is newer
 	l[clientInfo.clientID] = clientState
-
 }
 
 // Provider returns the ChainProvider, which provides the methods for querying, assembling IBC messages, and sending transactions.
@@ -551,7 +550,6 @@ func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persisten
 }
 
 func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
-
 	if untrusted.Height != ccp.verifier.Header.Height+1 {
 		return errors.New("headers must be adjacent in height")
 	}
@@ -587,7 +585,6 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 
 	ccp.verifier.Header = untrusted
 	return nil
-
 }
 
 func verifyNewHeaderAndVals(
@@ -595,8 +592,8 @@ func verifyNewHeaderAndVals(
 	untrustedVals *types.ValidatorSet,
 	trustedHeader *types.SignedHeader,
 	now time.Time,
-	maxClockDrift time.Duration) error {
-
+	maxClockDrift time.Duration,
+) error {
 	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
 		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
 	}

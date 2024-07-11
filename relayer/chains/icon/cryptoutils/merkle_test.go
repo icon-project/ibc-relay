@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,9 +29,8 @@ func TestMerkleRoot(t *testing.T) {
 }
 
 func TestMerkleProof(t *testing.T) {
-
 	assert := assert.New(t)
-	var h = func(b byte) []byte {
+	h := func(b byte) []byte {
 		return common.Sha3keccak256([]byte{b})
 	}
 	testCase := []struct {
@@ -131,7 +130,6 @@ func TestMerkleProofMisMatch(t *testing.T) {
 	}
 
 	assert.False(t, VerifyMerkleProof(root, failcase, proof))
-
 }
 
 func TestCalculateRootFromMerkleNode(t *testing.T) {

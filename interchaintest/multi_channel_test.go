@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	transfertypes "github.com/cosmos/ibc-go/v7/modules/apps/transfer/types"
-	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	relayerinterchaintest "github.com/icon-project/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"
@@ -184,5 +184,4 @@ func TestMultipleChannelsOneConnection(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), balance)
 	}
-
 }

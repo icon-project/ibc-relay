@@ -37,8 +37,8 @@ import (
 	host "github.com/cosmos/ibc-go/v7/modules/core/24-host"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
-	strideicqtypes "github.com/cosmos/relayer/v2/relayer/chains/cosmos/stride"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	strideicqtypes "github.com/icon-project/relayer/v2/relayer/chains/cosmos/stride"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -486,9 +486,11 @@ func (cc *CosmosProvider) MsgUpgradeClient(srcClientId string, consRes *clientty
 	if acc, err = cc.Address(); err != nil {
 		return nil, err
 	}
-	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{ClientId: srcClientId, ClientState: clientRes.ClientState,
+	return NewCosmosMessage(&clienttypes.MsgUpgradeClient{
+		ClientId: srcClientId, ClientState: clientRes.ClientState,
 		ConsensusState: consRes.ConsensusState, ProofUpgradeClient: consRes.GetProof(),
-		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc}), nil
+		ProofUpgradeConsensusState: consRes.ConsensusState.Value, Signer: acc,
+	}), nil
 }
 
 // MsgTransfer creates a new transfer message

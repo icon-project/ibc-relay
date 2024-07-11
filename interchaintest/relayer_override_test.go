@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/cosmos/relayer/v2/cmd"
-	relayerinterchaintest "github.com/cosmos/relayer/v2/interchaintest"
+	"github.com/icon-project/relayer/v2/cmd"
+	relayerinterchaintest "github.com/icon-project/relayer/v2/interchaintest"
 	interchaintest "github.com/strangelove-ventures/interchaintest/v7"
 	"github.com/strangelove-ventures/interchaintest/v7/chain/cosmos"
 	"github.com/strangelove-ventures/interchaintest/v7/ibc"

@@ -8,9 +8,9 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/processor"
 	"github.com/google/go-github/v43/github"
+	"github.com/icon-project/relayer/v2/relayer"
+	"github.com/icon-project/relayer/v2/relayer/processor"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -21,7 +21,7 @@ func pathsCmd(a *appState) *cobra.Command {
 		Aliases: []string{"pth"},
 		Short:   "Manage path configurations",
 		Long: `
-A path represents the "full path" or "link" for communication between two chains. 
+A path represents the "full path" or "link" for communication between two chains.
 This includes the client, connection, and channel ids from both the source and destination chains as well as the strategy to use when relaying`,
 	}
 
@@ -219,7 +219,7 @@ func pathsAddDirCmd(a *appState) *cobra.Command {
 		Args:  withUsage(cobra.ExactArgs(1)),
 		Short: `Add path configuration data in bulk from a directory. Example dir: 'configs/demo/paths'`,
 		Long: `Add path configuration data in bulk from a directory housing individual path config files. This is useful for spinning up testnets.
-		
+
 		See 'examples/demo/configs/paths' for an example of individual path config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s config add-paths examples/demo/configs/paths`, appName)),

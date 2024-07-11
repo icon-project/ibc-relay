@@ -6,7 +6,7 @@ import (
 
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 var (
@@ -175,9 +175,11 @@ type relayMsgPacketAck struct {
 func (rp relayMsgPacketAck) Data() []byte {
 	return rp.packetData
 }
+
 func (rp relayMsgPacketAck) Seq() uint64 {
 	return rp.seq
 }
+
 func (rp relayMsgPacketAck) Timeout() clienttypes.Height {
 	return rp.timeout
 }

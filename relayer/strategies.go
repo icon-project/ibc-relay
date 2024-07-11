@@ -10,11 +10,11 @@ import (
 
 	"github.com/avast/retry-go/v4"
 	"github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon"
-	penumbraprocessor "github.com/cosmos/relayer/v2/relayer/chains/penumbra"
-	"github.com/cosmos/relayer/v2/relayer/chains/wasm"
-	"github.com/cosmos/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/chains/cosmos"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon"
+	penumbraprocessor "github.com/icon-project/relayer/v2/relayer/chains/penumbra"
+	"github.com/icon-project/relayer/v2/relayer/chains/wasm"
+	"github.com/icon-project/relayer/v2/relayer/processor"
 	"go.uber.org/zap"
 )
 
@@ -27,7 +27,7 @@ type ActiveChannel struct {
 const (
 	ProcessorEvents              string = "events"
 	ProcessorLegacy                     = "legacy"
-	DefaultClientUpdateThreshold        = 86400000 * time.Millisecond //1 day
+	DefaultClientUpdateThreshold        = 86400000 * time.Millisecond // 1 day
 	DefaultFlushInterval                = 5 * time.Minute
 	DefaultMaxMsgLength                 = 5
 	TwoMB                               = 2 * 1024 * 1024

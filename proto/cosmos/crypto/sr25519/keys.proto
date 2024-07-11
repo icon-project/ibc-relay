@@ -6,7 +6,7 @@ package cosmos.crypto.sr25519;
 import "gogoproto/gogo.proto";
 
 // Originally github.com/cosmos/cosmos-sdk/crypto/keys/sr25519
-option go_package = "github.com/cosmos/relayer/v2/relayer/chains/cosmos/keys/sr25519";
+option go_package = "github.com/icon-project/relayer/v2/relayer/chains/cosmos/keys/sr25519";
 
 option (gogoproto.messagename_all)      = true;
 option (gogoproto.goproto_stringer_all) = false;

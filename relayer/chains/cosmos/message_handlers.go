@@ -6,8 +6,8 @@ import (
 
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -185,7 +185,6 @@ func (ccp *CosmosChainProcessor) logChannelMessage(message string, ci provider.C
 
 func (ccp *CosmosChainProcessor) logChannelOpenMessage(message string, ci provider.ChannelInfo) {
 	fields := []zap.Field{
-
 		zap.String("channel_id", ci.ChannelID),
 		zap.String("connection_id", ci.ConnID),
 		zap.String("port_id", ci.PortID),

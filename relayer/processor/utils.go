@@ -4,8 +4,8 @@ import (
 	"math"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 )
 
 func IsBTPLightClient(cs provider.ClientState) bool {

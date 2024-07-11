@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
@@ -44,7 +44,6 @@ func TestEventMap(t *testing.T) {
 
 	eventName = EventTypeCreateClient
 	assert.Equal(t, IconCosmosEventMap[eventName], "create_client")
-
 }
 
 func TestConnectionOpenInitByte(t *testing.T) {
@@ -173,7 +172,6 @@ func TestConnectionOpenInit(t *testing.T) {
 // }
 
 func TestChannelHandshakeDataParsing(t *testing.T) {
-
 	data := []string{
 		"080110021a060a046d6f636b220c636f6e6e656374696f6e2d322a0769637332302d31",
 	}

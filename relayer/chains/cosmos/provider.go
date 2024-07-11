@@ -19,9 +19,9 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/cosmos/gogoproto/proto"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
-	"github.com/cosmos/relayer/v2/relayer/codecs/ethermint"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/codecs/ethermint"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"golang.org/x/mod/semver"
 )

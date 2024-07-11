@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/cregistry"
-	"github.com/cosmos/relayer/v2/relayer"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/cregistry"
+	"github.com/icon-project/relayer/v2/relayer"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -334,7 +334,7 @@ func chainsAddDirCmd(a *appState) *cobra.Command {
 		Args:    withUsage(cobra.ExactArgs(1)),
 		Short:   `Add chain configuration data in bulk from a directory. Example dir: 'configs/demo/chains'`,
 		Long: `Add chain configuration data in bulk from a directory housing individual chain config files. This is useful for spinning up testnets.
-		
+
 		See 'configs/demo/chains' for an example of individual chain config files.`,
 		Example: strings.TrimSpace(fmt.Sprintf(`
 $ %s chains add-dir configs/demo/chains

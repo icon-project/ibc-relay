@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
 	"github.com/icon-project/IBC-Integration/libraries/go/common/icon"
 	"github.com/icon-project/goloop/module"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	"go.uber.org/zap"
 
@@ -96,7 +96,6 @@ func (pp *IconProviderConfig) GetFirstRetryBlockAfter() uint64 {
 
 // NewProvider should provide a new Icon provider
 func (pp *IconProviderConfig) NewProvider(log *zap.Logger, homepath string, debug bool, chainName string) (provider.ChainProvider, error) {
-
 	pp.ChainName = chainName
 
 	if err := pp.Validate(); err != nil {
@@ -189,8 +188,7 @@ func (h IconIBCHeader) ShouldUpdateForProofContextChange() bool {
 	return false
 }
 
-//ChainProvider Methods
-
+// ChainProvider Methods
 func (icp *IconProvider) Init(ctx context.Context) error {
 	// if _, err := os.Stat(icp.PCfg.Keystore); err != nil {
 	// 	return err
@@ -217,7 +215,6 @@ func (icp *IconProvider) NewClientState(
 	allowUpdateAfterExpiry,
 	allowUpdateAfterMisbehaviour bool,
 ) (ibcexported.ClientState, error) {
-
 	if !dstUpdateHeader.IsCompleteBlock() {
 		return nil, fmt.Errorf("Not complete block at height:%d", dstUpdateHeader.Height())
 	}
@@ -238,7 +235,6 @@ func (icp *IconProvider) NewClientState(
 		NetworkId:      uint64(icp.PCfg.BTPNetworkID),
 		NetworkTypeId:  uint64(icp.PCfg.BTPNetworkTypeID),
 	}, nil
-
 }
 
 func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenInit provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
@@ -258,11 +254,9 @@ func (icp *IconProvider) ConnectionHandshakeProof(ctx context.Context, msgOpenIn
 		ConnectionStateProof: connStateProof,
 		ProofHeight:          proofHeight.(clienttypes.Height),
 	}, nil
-
 }
 
 func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provider.ConnectionInfo, height uint64) (provider.ConnectionProof, error) {
-
 	connState, err := icp.QueryConnection(ctx, int64(msgOpenAck.Height), msgOpenAck.ConnID)
 	if err != nil {
 		return provider.ConnectionProof{}, err
@@ -274,7 +268,6 @@ func (icp *IconProvider) ConnectionProof(ctx context.Context, msgOpenAck provide
 }
 
 func (icp *IconProvider) ChannelProof(ctx context.Context, msg provider.ChannelInfo, height uint64) (provider.ChannelProof, error) {
-
 	channelResult, err := icp.QueryChannel(ctx, int64(msg.Height), msg.ChannelID, msg.PortID)
 	if err != nil {
 		return provider.ChannelProof{}, nil
@@ -317,7 +310,6 @@ func (icp *IconProvider) PacketCommitment(ctx context.Context, msgTransfer provi
 	packetCommitmentResponse, err := icp.QueryPacketCommitment(
 		ctx, int64(msgTransfer.Height), msgTransfer.SourceChannel, msgTransfer.SourcePort, msgTransfer.Sequence,
 	)
-
 	if err != nil {
 		return provider.PacketProof{}, err
 	}
@@ -336,12 +328,10 @@ func (icp *IconProvider) PacketAcknowledgement(ctx context.Context, msgRecvPacke
 		Proof:       packetAckResponse.Proof,
 		ProofHeight: packetAckResponse.ProofHeight,
 	}, nil
-
 }
 
 func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
 	packetReceiptResponse, err := icp.QueryPacketReceipt(ctx, int64(msgTransfer.Height), msgTransfer.DestChannel, msgTransfer.DestPort, msgTransfer.Sequence)
-
 	if err != nil {
 		return provider.PacketProof{}, err
 	}
@@ -349,7 +339,6 @@ func (icp *IconProvider) PacketReceipt(ctx context.Context, msgTransfer provider
 		Proof:       packetReceiptResponse.Proof,
 		ProofHeight: packetReceiptResponse.ProofHeight,
 	}, nil
-
 }
 
 func (icp *IconProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.PacketInfo, height uint64) (provider.PacketProof, error) {
@@ -361,7 +350,6 @@ func (icp *IconProvider) NextSeqRecv(ctx context.Context, msgTransfer provider.P
 		Proof:       nextSeqRecvResponse.Proof,
 		ProofHeight: nextSeqRecvResponse.ProofHeight,
 	}, nil
-
 }
 
 func (icp *IconProvider) MsgTransfer(dstAddr string, amount sdk.Coin, info provider.PacketInfo) (provider.RelayerMessage, error) {
@@ -519,7 +507,6 @@ func (icp *IconProvider) GetBTPProof(height int64) ([][]byte, error) {
 		return nil, err
 	}
 	return valSigs.Signatures, nil
-
 }
 
 func (icp *IconProvider) GetProofContextByHeight(height int64) ([][]byte, error) {

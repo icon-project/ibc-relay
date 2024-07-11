@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
 	"go.uber.org/zap"
 
 	"github.com/gorilla/websocket"
@@ -30,8 +30,8 @@ import (
 )
 
 const (
-	DefaultSendTransactionRetryInterval        = 3 * time.Second        //3sec
-	DefaultGetTransactionResultPollingInterval = 500 * time.Millisecond //1.5sec
+	DefaultSendTransactionRetryInterval        = 3 * time.Second        // 3sec
+	DefaultGetTransactionResultPollingInterval = 500 * time.Millisecond // 1.5sec
 )
 
 type Wallet interface {
@@ -255,6 +255,7 @@ func (c *Client) GetBTPNetworkInfo(p *types.BTPNetworkInfoParam) (*types.BTPNetw
 	}
 	return result, nil
 }
+
 func (c *Client) GetNetworkTypeInfo(height int64, networkId int64) (*types.BTPNetworkTypeInfo, error) {
 	nti := &types.BTPNetworkTypeInfo{}
 	param := &types.BTPQueryParam{
@@ -404,7 +405,8 @@ func (c *Client) wsRequest(conn *websocket.Conn, reqPtr interface{}) error {
 	if wsResp.Code != 0 {
 		return wsRequestError{
 			fmt.Errorf("invalid WSResponse code:%d, message:%s", wsResp.Code, wsResp.Message),
-			wsResp}
+			wsResp,
+		}
 	}
 	return nil
 }
@@ -454,7 +456,6 @@ func (c *Client) wsReadJSONLoop(ctx context.Context, conn *websocket.Conn, respP
 				return err
 			}
 		}
-
 	}
 }
 
@@ -623,7 +624,7 @@ func (c *Client) EstimateStep(param *types.TransactionParamForEstimate) (*types.
 }
 
 func NewClient(uri string, l *zap.Logger) *Client {
-	//TODO options {MaxRetrySendTx, MaxRetryGetResult, MaxIdleConnsPerHost, Debug, Dump}
+	// TODO options {MaxRetrySendTx, MaxRetryGetResult, MaxIdleConnsPerHost, Debug, Dump}
 	tr := &http.Transport{MaxIdleConnsPerHost: 1000}
 	cl := &http.Client{Transport: tr}
 	apiClient := client.NewJsonRpcClient(cl, uri)

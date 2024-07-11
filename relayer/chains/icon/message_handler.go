@@ -6,8 +6,8 @@ import (
 	conntypes "github.com/cosmos/ibc-go/v7/modules/core/03-connection/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 
-	"github.com/cosmos/relayer/v2/relayer/processor"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/processor"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -54,7 +54,6 @@ func (icp *IconChainProcessor) handlePacketMessage(eventType string, pi provider
 
 	c.PacketFlow.Retain(k, eventType, pi)
 	icp.logPacketMessage(eventType, pi)
-
 }
 
 func (icp *IconChainProcessor) handleChannelMessage(eventType string, ci provider.ChannelInfo, ibcMessagesCache processor.IBCMessagesCache) {
@@ -96,7 +95,6 @@ func (icp *IconChainProcessor) handleChannelMessage(eventType string, ci provide
 	ibcMessagesCache.ChannelHandshake.Retain(channelKey, eventType, ci)
 
 	icp.logChannelMessage(eventType, ci)
-
 }
 
 func (icp *IconChainProcessor) handleConnectionMessage(eventType string, ci provider.ConnectionInfo, ibcMessagesCache processor.IBCMessagesCache) {
@@ -125,14 +123,12 @@ func (icp *IconChainProcessor) handleConnectionMessage(eventType string, ci prov
 	ibcMessagesCache.ConnectionHandshake.Retain(connectionKey, eventType, ci)
 
 	icp.logConnectionMessage(eventType, ci)
-
 }
 
 func (icp *IconChainProcessor) handleClientMessage(ctx context.Context, eventType string, ci clientInfo) {
 	// TODO:
 	icp.latestClientState.update(ctx, ci, icp)
 	icp.logObservedIBCMessage(eventType, zap.String("client_id", ci.clientID))
-
 }
 
 func (ccp *IconChainProcessor) logObservedIBCMessage(m string, fields ...zap.Field) {

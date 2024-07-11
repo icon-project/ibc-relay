@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/cosmos"
+	"github.com/icon-project/relayer/v2/relayer/chains/cosmos"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -229,7 +229,6 @@ func (c ChainInfo) GetAssetList(ctx context.Context) (AssetList, error) {
 		return AssetList{}, err
 	}
 	return assetList, nil
-
 }
 
 // GetChainConfig returns a CosmosProviderConfig composed from the details found in the cosmos chain registry for

@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/cryptoutils"
-	"github.com/cosmos/relayer/v2/relayer/chains/icon/types"
-	"github.com/cosmos/relayer/v2/relayer/common"
-	"github.com/cosmos/relayer/v2/relayer/provider"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/cryptoutils"
+	"github.com/icon-project/relayer/v2/relayer/chains/icon/types"
+	"github.com/icon-project/relayer/v2/relayer/common"
+	"github.com/icon-project/relayer/v2/relayer/provider"
 
 	"github.com/cosmos/gogoproto/proto"
 
@@ -23,9 +23,7 @@ import (
 	"github.com/icon-project/goloop/common/trie/ompt"
 )
 
-var (
-	ethAddressLen = 20
-)
+var ethAddressLen = 20
 
 func MptProve(key types.HexInt, proofs [][]byte, hash []byte) ([]byte, error) {
 	db := db.NewMapDB()
@@ -42,7 +40,6 @@ func MptProve(key types.HexInt, proofs [][]byte, hash []byte) ([]byte, error) {
 	trie, err1 := mpt.Prove(indexKey, proofs)
 	if err1 != nil {
 		return nil, err1
-
 	}
 	return trie, nil
 }
@@ -72,10 +69,8 @@ func HexBytesToProtoUnmarshal(encoded types.HexBytes, v proto.Message) ([]byte, 
 
 	if err := proto.Unmarshal(inputBytes, v); err != nil {
 		return nil, err
-
 	}
 	return inputBytes, nil
-
 }
 
 func isHexString(s string) bool {
@@ -133,7 +128,6 @@ func getIconPacketEncodedBytes(pkt provider.PacketInfo) ([]byte, error) {
 	}
 
 	return proto.Marshal(&iconPkt)
-
 }
 
 func GetNetworkSectionRoot(header *types.BTPBlockHeader) []byte {
@@ -142,7 +136,6 @@ func GetNetworkSectionRoot(header *types.BTPBlockHeader) []byte {
 }
 
 func VerifyBtpProof(decision *types.NetworkTypeSectionDecision, proof [][]byte, listValidators [][]byte) (bool, error) {
-
 	requiredVotes := (2 * len(listValidators)) / 3
 	if requiredVotes < 1 {
 		requiredVotes = 1
@@ -181,7 +174,6 @@ func VerifyBtpProof(decision *types.NetworkTypeSectionDecision, proof [][]byte, 
 	}
 
 	return false, nil
-
 }
 
 func newEthAddressFromPubKey(pubKey []byte) ([]byte, error) {
@@ -224,5 +216,4 @@ func isValidIconContractAddress(addr string) bool {
 	}
 	_, err := hex.DecodeString(addr[2:])
 	return err == nil
-
 }
