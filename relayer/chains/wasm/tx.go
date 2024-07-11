@@ -600,6 +600,22 @@ func (ap *WasmProvider) MsgUpdateClientHeader(latestHeader provider.IBCHeader, t
 		return nil, fmt.Errorf("unsupported IBC header type, expected: TendermintIBCHeader, actual: %T", latestHeader)
 	}
 
+	if latestWasmHeader.ValidatorSet == nil {
+		lb, err := ap.LightProvider.LightBlock(context.TODO(), latestWasmHeader.SignedHeader.Header.Height)
+		if err != nil {
+			return nil, err
+		}
+		latestWasmHeader.ValidatorSet = itmValidatorSetFromLightBlock(lb)
+	}
+
+	if trustedWasmHeader.ValidatorSet == nil {
+		lb, err := ap.LightProvider.LightBlock(context.TODO(), trustedWasmHeader.SignedHeader.Header.Height)
+		if err != nil {
+			return nil, err
+		}
+		trustedWasmHeader.ValidatorSet = itmValidatorSetFromLightBlock(lb)
+	}
+
 	return &itm.TmHeader{
 		SignedHeader:      latestWasmHeader.SignedHeader,
 		ValidatorSet:      latestWasmHeader.ValidatorSet,
