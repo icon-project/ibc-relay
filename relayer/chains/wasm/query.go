@@ -931,7 +931,7 @@ func (ap *WasmProvider) GetBlockInfoList(
 	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
 
 	txsParam := txSearchParam{
-		query:   fmt.Sprintf("tx.height>=%d AND tx.height<=%d AND wasm._contract_address='%s'", fromHeight, toHeight, ibcHandlerAddr),
+		query:   fmt.Sprintf("tx.height>=%d AND tx.height<=%d AND execute._contract_address='%s'", fromHeight, toHeight, ibcHandlerAddr),
 		page:    1,
 		perPage: 100,
 		orderBy: "asc",
