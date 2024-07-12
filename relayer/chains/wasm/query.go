@@ -961,6 +961,9 @@ func (ap *WasmProvider) GetBlockInfoList(
 
 	blockMessages := map[uint64][]ibcMessage{}
 	for _, txResult := range txs {
+		if txResult.TxResult.Code != 0 {
+			continue // skip failed transaction
+		}
 		messages := ibcMessagesFromEvents(
 			ap.log,
 			txResult.TxResult.Events,
