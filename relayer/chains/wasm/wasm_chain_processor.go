@@ -264,17 +264,27 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
 
+	latestHeight := persistence.latestHeight
+
 	for {
-		if err := ccp.queryCycle(ctx, &persistence); err != nil {
-			return err
-		}
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ccp.heightSnapshotChan:
 			ccp.SnapshotHeight(ccp.getHeightToSave(persistence.latestHeight))
 		case <-ticker.C:
-			ticker.Reset(persistence.minQueryLoopDuration)
+			status, err := ccp.chainProvider.QueryStatus(ctx)
+			if err != nil {
+				ccp.log.Error("failed to query node status", zap.Error(err))
+			} else {
+				latestHeight = status.SyncInfo.LatestBlockHeight
+			}
+			if latestHeight > persistence.latestQueriedBlock {
+				persistence.latestHeight = latestHeight
+				if err := ccp.queryCycle(ctx, &persistence); err != nil {
+					return err
+				}
+			}
 		}
 	}
 }
@@ -338,23 +348,6 @@ func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error
 }
 
 func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
-	status, err := ccp.nodeStatusWithRetry(ctx)
-	if err != nil {
-		// don't want to cause WasmChainProcessor to quit here, can retry again next cycle.
-		ccp.log.Error(
-			"Failed to query node status after max attempts",
-			zap.Uint("attempts", latestHeightQueryRetries),
-			zap.Error(err),
-		)
-
-		// TODO: Save height when node status is false?
-		// ccp.SnapshotHeight(ccp.getHeightToSave(status.SyncInfo.LatestBlockHeight))
-		return nil
-	}
-
-	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-	// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
-
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
 	}
@@ -388,20 +381,9 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	var latestHeader provider.IBCHeader
 
 	fromHeight := persistence.latestQueriedBlock + 1
-	toHeight := func() int64 {
-		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
-			return persistence.latestQueriedBlock + MaxBlockFetch
-		}
-		return persistence.latestHeight
-	}()
-
-	if fromHeight > toHeight {
-		fromHeight = toHeight
-	}
-
-	// avoid duplicate query
-	if fromHeight <= persistence.latestQueriedBlock {
-		return nil
+	toHeight := persistence.latestHeight
+	if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
+		toHeight = persistence.latestQueriedBlock + MaxBlockFetch
 	}
 
 	blockInfos, err := ccp.chainProvider.GetBlockInfoList(ctx, uint64(fromHeight), uint64(toHeight))
@@ -452,10 +434,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		newLatestQueriedBlock = int64(blockInfo.Height)
 		latestHeader = ibcHeader
 		ibcHeaderCache[blockInfo.Height] = ibcHeader
-	}
-
-	if newLatestQueriedBlock == persistence.latestQueriedBlock {
-		return nil
 	}
 
 	if !ppChanged {
