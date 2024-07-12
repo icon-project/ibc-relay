@@ -937,7 +937,7 @@ func (ap *WasmProvider) GetBlockInfoList(
 		orderBy: "asc",
 	}
 
-	txsResult, err := ap.CometRPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+	txsResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
 	if err != nil {
 		return nil, err
 	}
@@ -951,7 +951,7 @@ func (ap *WasmProvider) GetBlockInfoList(
 		}
 		for i := 2; i <= totalPages; i++ {
 			txsParam.page = i
-			nextResult, err := ap.CometRPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+			nextResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
 			if err != nil {
 				return nil, err
 			}
