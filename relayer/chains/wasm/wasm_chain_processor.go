@@ -399,13 +399,19 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		fromHeight = toHeight
 	}
 
+	// avoid duplicate query
 	if fromHeight <= persistence.latestQueriedBlock {
 		return nil
 	}
 
 	blockInfos, err := ccp.chainProvider.GetBlockInfoList(ctx, uint64(fromHeight), uint64(toHeight))
 	if err != nil {
-		ccp.log.Error("failed to query block messages", zap.Error(err))
+		ccp.log.Error(
+			"failed to query block messages",
+			zap.Uint64("from-height", uint64(fromHeight)),
+			zap.Uint64("to-height", uint64(toHeight)),
+			zap.Error(err),
+		)
 		return nil
 	}
 
@@ -417,17 +423,21 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			zap.Int64("delta", persistence.latestHeight-int64(blockInfo.Height)),
 		)
 
-		ppChanged = true
-
-		ccp.latestBlock = provider.LatestBlock{
-			Height: blockInfo.Height,
-		}
-
-		ibcHeader, _, err := ccp.chainProvider.QueryLightBlock(ctx, int64(blockInfo.Height))
-		if err != nil {
-			ccp.log.Error("failed to query ibc header ", zap.Error(err), zap.Uint64("height", blockInfo.Height))
-		} else {
-			ibcHeaderCache[blockInfo.Height] = ibcHeader
+		var ibcHeader provider.IBCHeader
+		if err := retry.Do(func() error {
+			ibcHeader, _, err = ccp.chainProvider.QueryLightBlock(ctx, int64(blockInfo.Height))
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Context(ctx), rtyAtt, retry.Delay(2*time.Second), rtyErr); err != nil {
+			ccp.log.Error(
+				"failed to query ibc header ",
+				zap.Error(err),
+				zap.Uint64("height", blockInfo.Height),
+				zap.Uint("total-attempts", rtyAttNum),
+			)
+			return nil //exit and rerun the query cycle from current state
 		}
 
 		for _, m := range blockInfo.Messages {
@@ -435,8 +445,13 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
 
+		ppChanged = true
+		ccp.latestBlock = provider.LatestBlock{
+			Height: blockInfo.Height,
+		}
 		newLatestQueriedBlock = int64(blockInfo.Height)
 		latestHeader = ibcHeader
+		ibcHeaderCache[blockInfo.Height] = ibcHeader
 	}
 
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {

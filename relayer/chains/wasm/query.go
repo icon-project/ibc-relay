@@ -984,16 +984,26 @@ func (ap *WasmProvider) GetBlockInfoList(
 		}
 	}
 
-	if len(blockInfoList) == 0 {
-		blockInfoList = append(blockInfoList, BlockInfo{
-			Height:   fromHeight,
-			Messages: []ibcMessage{},
-		})
-		if toHeight != fromHeight {
-			blockInfoList = append(blockInfoList, BlockInfo{
-				Height:   toHeight,
-				Messages: []ibcMessage{},
-			})
+	if _, ok := blockMessages[fromHeight]; !ok {
+		blockInfoList = append(
+			[]BlockInfo{
+				{
+					Height:   fromHeight,
+					Messages: []ibcMessage{},
+				},
+			}, blockInfoList...,
+		)
+	}
+
+	if fromHeight != toHeight {
+		if _, ok := blockMessages[toHeight]; !ok {
+			blockInfoList = append(
+				blockInfoList,
+				BlockInfo{
+					Height:   fromHeight,
+					Messages: []ibcMessage{},
+				},
+			)
 		}
 	}
 
