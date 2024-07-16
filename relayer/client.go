@@ -2,12 +2,17 @@ package relayer
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"log"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/avast/retry-go/v4"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
+	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	ibcexported "github.com/cosmos/ibc-go/v7/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/cosmos/relayer/v2/relayer/chains/icon"
@@ -357,7 +362,7 @@ func MsgUpdateClient(
 	return dst.ChainProvider.MsgUpdateClient(dst.ClientID(), updateHeader)
 }
 
-func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (provider.RelayerMessage, error) {
+func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, latestHeight int64, trustedHeight int64) (provider.RelayerMessage, error) {
 
 	var updateHeader ibcexported.ClientMessage
 	if err := retry.Do(func() error {
@@ -368,17 +373,27 @@ func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (
 			return err
 		}
 
-		dstClientState, err := dst.ChainProvider.QueryClientState(ctx, dstHeight, dst.ClientID())
-		if err != nil {
-			return err
+		var trustedHdr provider.IBCHeader
+
+		if trustedHeight == 0 {
+			var err error
+			dstClientState, err := dst.ChainProvider.QueryClientState(ctx, dstHeight, dst.ClientID())
+			if err != nil {
+				return err
+			}
+
+			trustedHdr, err = src.ChainProvider.QueryIBCHeader(ctx, int64(dstClientState.GetLatestHeight().GetRevisionHeight()))
+			if err != nil {
+				return err
+			}
+		} else {
+			trustedHdr, err = src.ChainProvider.QueryIBCHeader(ctx, trustedHeight)
+			if err != nil {
+				return err
+			}
 		}
 
-		trustedHdr, err := src.ChainProvider.QueryIBCHeader(ctx, int64(dstClientState.GetLatestHeight().GetRevisionHeight()))
-		if err != nil {
-			return err
-		}
-
-		latestHdr, err := src.ChainProvider.QueryIBCHeader(ctx, height)
+		latestHdr, err := src.ChainProvider.QueryIBCHeader(ctx, latestHeight)
 		if err != nil {
 			return err
 		}
@@ -405,14 +420,157 @@ func msgUpdateClientOneWay(ctx context.Context, src, dst *Chain, height int64) (
 	return dst.ChainProvider.MsgUpdateClient(dst.ClientID(), updateHeader)
 }
 
-func UpdateClient(ctx context.Context, src, dst *Chain, memo string, heights []int64) error {
+func UpdateClientAndRecvMessage(ctx context.Context, src, dst *Chain, memo string, txHash string, trustedHt int64, skipUpdate bool) error {
+	var txres *provider.RelayerTxResponse
+	err := retry.Do(func() error {
+		var err error
+		txres, err = src.ChainProvider.QueryTx(ctx, txHash)
+		return err
+	}, retry.Attempts(5))
+
+	if err != nil {
+		return err
+	}
+
+	// for next height: required both in wasm and icon
+	updatedHeight := txres.Height + 1
+	packetInfoHeight := txres.Height
+	if src.ChainProvider.Type() == common.IconModule {
+		packetInfoHeight = txres.Height + 1
+
+	}
+
+	if !skipUpdate {
+		err = UpdateClientAgainstTrustedHeader(ctx, src, dst, "", updatedHeight, trustedHt)
+		if err != nil {
+			return fmt.Errorf("failed updating header: %v", err)
+		}
+	}
+
+	var recvMessages []provider.RelayerMessage
+	packets := parsePacketInfoFromEvent(txres.Events, uint64(packetInfoHeight))
+	for _, packet := range packets {
+		proof, err := src.ChainProvider.PacketCommitment(ctx, packet, uint64(updatedHeight))
+		if err != nil {
+			return fmt.Errorf("failed getting proof for packet of sequence: %d err: %v", packet.Sequence, err)
+		}
+
+		recvMessage, err := dst.ChainProvider.MsgRecvPacket(packet, proof)
+		if err != nil {
+			return fmt.Errorf("failed constructing recv message for packet sn %d err: %v", packet.Sequence, err)
+		}
+		recvMessages = append(recvMessages, recvMessage)
+	}
+
+	clients := &RelayMsgs{
+		Src: []provider.RelayerMessage{},
+		Dst: recvMessages,
+	}
+
+	clients.SendMessageToDest(ctx, src.log, AsRelayMsgSender(dst), memo)
+
+	return nil
+}
+
+func parsePacketInfoFromEvent(events []provider.RelayerEvent, packetHeight uint64) []provider.PacketInfo {
+	var infos []provider.PacketInfo
+
+	for _, evt := range events {
+		// TrimPrefix returns s without the provided leading prefix string. If s doesn't start with prefix, s is returned unchanged.
+		if strings.TrimPrefix(evt.EventType, "wasm-") == chantypes.EventTypeSendPacket ||
+			strings.TrimPrefix(evt.EventType, "wasm-") == chantypes.EventTypeWriteAck {
+			seq, err := strconv.Atoi(evt.Attributes[chantypes.AttributeKeySequence])
+			if err != nil {
+				return nil
+			}
+			srcPort := evt.Attributes[chantypes.AttributeKeySrcPort]
+			srcChannel := evt.Attributes[chantypes.AttributeKeySrcChannel]
+			dstPort := evt.Attributes[chantypes.AttributeKeyDstPort]
+			dstChannel := evt.Attributes[chantypes.AttributeKeyDstChannel]
+			data, _ := hex.DecodeString(evt.Attributes[chantypes.AttributeKeyDataHex])
+			ack, _ := hex.DecodeString(evt.Attributes[chantypes.AttributeKeyAckHex])
+			timeoutHeight := evt.Attributes[chantypes.AttributeKeyTimeoutHeight]
+			timeoutTimestamp, _ := strconv.Atoi(evt.Attributes[chantypes.AttributeKeyTimeoutTimestamp])
+
+			timeoutSplit := strings.Split(timeoutHeight, "-")
+			if len(timeoutSplit) != 2 {
+				log.Fatalf("failed to parse timeout height: %s", timeoutHeight)
+			}
+			revisionNumber, err := strconv.ParseUint(timeoutSplit[0], 10, 64)
+			if err != nil {
+				log.Fatalf("Error parsing packet timeout height revision number: %s", timeoutHeight)
+			}
+			revisionHeight, err := strconv.ParseUint(timeoutSplit[1], 10, 64)
+			if err != nil {
+				log.Fatalf("Error parsing packet timeout height revision number: %s", timeoutHeight)
+			}
+
+			info := provider.PacketInfo{
+				Height:        packetHeight,
+				Sequence:      uint64(seq),
+				SourcePort:    srcPort,
+				SourceChannel: srcChannel,
+				DestPort:      dstPort,
+				DestChannel:   dstChannel,
+				Data:          data,
+				TimeoutHeight: clienttypes.Height{
+					RevisionHeight: revisionHeight,
+					RevisionNumber: revisionNumber,
+				},
+				TimeoutTimestamp: uint64(timeoutTimestamp),
+				Ack:              ack,
+			}
+
+			infos = append(infos, info)
+		}
+
+	}
+	return infos
+}
+
+func UpdateClientAgainstTrustedHeader(ctx context.Context, src, dst *Chain, memo string, latestHeight int64, trustedHeight int64) error {
 	eg, egCtx := errgroup.WithContext(ctx)
+
+	var dstMsgUpdateClient provider.RelayerMessage
+	eg.Go(func() error {
+		var err error
+		dstMsgUpdateClient, err = msgUpdateClientOneWay(egCtx, src, dst, latestHeight, trustedHeight)
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	clients := &RelayMsgs{
+		Src: []provider.RelayerMessage{},
+		Dst: []provider.RelayerMessage{dstMsgUpdateClient},
+	}
+
+	err := clients.SendMessageToDest(ctx, dst.log, AsRelayMsgSender(dst), memo)
+
+	if err == nil {
+		src.log.Info(
+			"Client updated",
+			zap.String("src_chain_id", src.ChainID()),
+			zap.String("src_client", src.PathEnd.ClientID),
+
+			zap.String("dst_chain_id", dst.ChainID()),
+			zap.String("dst_client", dst.PathEnd.ClientID),
+		)
+	}
+
+	return err
+}
+
+func UpdateClient(ctx context.Context, src, dst *Chain, memo string, heights []int64) error {
+	eg, _ := errgroup.WithContext(ctx)
 	for _, height := range heights {
 
 		var dstMsgUpdateClient provider.RelayerMessage
 		eg.Go(func() error {
 			var err error
-			dstMsgUpdateClient, err = msgUpdateClientOneWay(egCtx, src, dst, height)
+			dstMsgUpdateClient, err = msgUpdateClientOneWay(ctx, src, dst, height, 0)
 			return err
 		})
 
@@ -425,28 +583,17 @@ func UpdateClient(ctx context.Context, src, dst *Chain, memo string, heights []i
 			Dst: []provider.RelayerMessage{dstMsgUpdateClient},
 		}
 
-		result := clients.Send(ctx, src.log, AsRelayMsgSender(src), AsRelayMsgSender(dst), memo)
+		err := clients.SendMessageToDest(ctx, dst.log, AsRelayMsgSender(dst), memo)
+		if err != nil {
+			src.log.Info(
+				"Client updated",
+				zap.String("src_chain_id", src.ChainID()),
+				zap.String("src_client", src.PathEnd.ClientID),
 
-		if err := result.Error(); err != nil {
-			if result.PartiallySent() {
-				src.log.Info(
-					"Partial success when updating clients",
-					zap.String("src_chain_id", src.ChainID()),
-					zap.String("dst_chain_id", dst.ChainID()),
-					zap.Object("send_result", result),
-				)
-			}
-			return err
+				zap.String("dst_chain_id", dst.ChainID()),
+				zap.String("dst_client", dst.PathEnd.ClientID),
+			)
 		}
-
-		src.log.Info(
-			"Client updated",
-			zap.String("src_chain_id", src.ChainID()),
-			zap.String("src_client", src.PathEnd.ClientID),
-
-			zap.String("dst_chain_id", dst.ChainID()),
-			zap.String("dst_client", dst.PathEnd.ClientID),
-		)
 	}
 
 	return nil
@@ -669,4 +816,59 @@ func ClientInfoFromClientState(clientState *codectypes.Any) (ClientStateInfo, er
 	default:
 		return ClientStateInfo{}, fmt.Errorf("unhandled client state type: (%T)", clientState)
 	}
+}
+
+func UpdateClientAndAckMessage(ctx context.Context, src, dst *Chain, memo string, txHash string, trustedHt int64, skipUpdate bool) error {
+	var txres *provider.RelayerTxResponse
+	err := retry.Do(func() error {
+		var err error
+		txres, err = src.ChainProvider.QueryTx(ctx, txHash)
+		return err
+	}, retry.Attempts(5))
+
+	if err != nil {
+		return err
+	}
+
+	// for next height: required both in wasm and icon
+	updatedHeight := txres.Height + 1
+	packetInfoHeight := txres.Height
+	if src.ChainProvider.Type() == common.IconModule {
+		packetInfoHeight = txres.Height + 1
+
+	}
+
+	if !skipUpdate {
+		err = UpdateClientAgainstTrustedHeader(ctx, src, dst, "", updatedHeight, trustedHt)
+		if err != nil {
+			return fmt.Errorf("failed updating header: %v", err)
+		}
+	}
+
+	var ackMessages []provider.RelayerMessage
+	packets := parsePacketInfoFromEvent(txres.Events, uint64(packetInfoHeight))
+	for _, packet := range packets {
+		if packet.Ack != nil {
+			return fmt.Errorf("ack canot be nil")
+		}
+		proof, err := src.ChainProvider.PacketAcknowledgement(ctx, packet, uint64(updatedHeight))
+		if err != nil {
+			return fmt.Errorf("failed getting proof for packet of sequence: %d err: %v", packet.Sequence, err)
+		}
+
+		recvMessage, err := dst.ChainProvider.MsgAcknowledgement(packet, proof)
+		if err != nil {
+			return fmt.Errorf("failed constructing recv message for packet sn %d err: %v", packet.Sequence, err)
+		}
+		ackMessages = append(ackMessages, recvMessage)
+	}
+
+	clients := &RelayMsgs{
+		Src: []provider.RelayerMessage{},
+		Dst: ackMessages,
+	}
+
+	clients.SendMessageToDest(ctx, src.log, AsRelayMsgSender(dst), memo)
+
+	return nil
 }
