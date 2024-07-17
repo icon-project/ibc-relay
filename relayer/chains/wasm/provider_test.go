@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
+
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/gogoproto/proto"
@@ -185,4 +188,29 @@ func TestProtoUnmarshal(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, channelS.State, chantypes.State(2))
 
+}
+
+func TestTxSearch(t *testing.T) {
+	rpcNode := "https://1rpc.io:443/inj-rpc"
+	rpc, err := cosmosclient.NewClientFromNode(rpcNode)
+	assert.NoError(t, err)
+
+	prove := true
+	page := 1
+	perPage := 100
+	orderBy := "asc"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+	res, err := rpc.TxSearch(
+		ctx,
+		"tx.height>=78328133 AND tx.height<=78328139",
+		prove,
+		&page,
+		&perPage,
+		orderBy,
+	)
+	assert.NoError(t, err)
+
+	fmt.Printf("\nTx Results: %+v\n", res.Txs)
 }
