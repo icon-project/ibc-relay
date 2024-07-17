@@ -14,6 +14,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -928,35 +929,21 @@ func (ap *WasmProvider) GetBlockInfoList(
 	ctx context.Context,
 	fromHeight, toHeight uint64,
 ) ([]BlockInfo, error) {
-	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
-
-	txsParam := txSearchParam{
-		query:   fmt.Sprintf("tx.height>=%d AND tx.height<=%d AND execute._contract_address='%s'", fromHeight, toHeight, ibcHandlerAddr),
-		page:    1,
-		perPage: 100,
-		orderBy: "asc",
-	}
-
-	txsResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
-	if err != nil {
-		return nil, err
-	}
-
-	txs := txsResult.Txs
-
-	if txsResult.TotalCount > txsParam.perPage {
-		totalPages := txsResult.TotalCount / txsParam.page
-		if txsResult.TotalCount%txsParam.page != 0 {
-			totalPages += 1
-		}
-		for i := 2; i <= totalPages; i++ {
-			txsParam.page = i
-			nextResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+	txs := []*coretypes.ResultTx{}
+	if !ap.PCfg.HeightRangeTxSearch {
+		for h := fromHeight; h <= toHeight; h++ {
+			txList, err := ap.FetchTxs(ctx, h, h)
 			if err != nil {
 				return nil, err
 			}
-			txs = append(txs, nextResult.Txs...)
+			txs = append(txs, txList...)
 		}
+	} else {
+		txList, err := ap.FetchTxs(ctx, fromHeight, toHeight)
+		if err != nil {
+			return nil, err
+		}
+		txs = append(txs, txList...)
 	}
 
 	blockMessages := map[uint64][]ibcMessage{}
@@ -969,7 +956,7 @@ func (ap *WasmProvider) GetBlockInfoList(
 			txResult.TxResult.Events,
 			ap.ChainId(),
 			uint64(txResult.Height),
-			ibcHandlerAddr,
+			ap.PCfg.IbcHandlerAddress,
 			ap.cometLegacyEncoding,
 		)
 		if len(messages) > 0 {
@@ -1011,4 +998,47 @@ func (ap *WasmProvider) GetBlockInfoList(
 	}
 
 	return blockInfoList, nil
+}
+
+func (ap *WasmProvider) FetchTxs(
+	ctx context.Context,
+	fromHeight, toHeight uint64,
+) ([]*coretypes.ResultTx, error) {
+	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
+
+	query := fmt.Sprintf("tx.height>=%d AND tx.height<=%d AND execute._contract_address='%s'", fromHeight, toHeight, ibcHandlerAddr)
+	if fromHeight == toHeight {
+		query = fmt.Sprintf("tx.height=%d AND execute._contract_address='%s'", fromHeight, ibcHandlerAddr)
+	}
+
+	txsParam := txSearchParam{
+		query:   query,
+		page:    1,
+		perPage: 100,
+		orderBy: "asc",
+	}
+
+	txsResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+	if err != nil {
+		return nil, err
+	}
+
+	txs := txsResult.Txs
+
+	if txsResult.TotalCount > txsParam.perPage {
+		totalPages := txsResult.TotalCount / txsParam.page
+		if txsResult.TotalCount%txsParam.page != 0 {
+			totalPages += 1
+		}
+		for i := 2; i <= totalPages; i++ {
+			txsParam.page = i
+			nextResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+			if err != nil {
+				return nil, err
+			}
+			txs = append(txs, nextResult.Txs...)
+		}
+	}
+
+	return txs, nil
 }
