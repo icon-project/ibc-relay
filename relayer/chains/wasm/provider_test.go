@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
+	cosmosclient "github.com/cosmos/cosmos-sdk/client"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/gogoproto/proto"
-	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
-
 	clienttypes "github.com/cosmos/ibc-go/v7/modules/core/02-client/types"
 	chantypes "github.com/cosmos/ibc-go/v7/modules/core/04-channel/types"
 	commitmenttypes "github.com/cosmos/ibc-go/v7/modules/core/23-commitment/types"
+	itm "github.com/icon-project/IBC-Integration/libraries/go/common/tendermint"
 
 	// tendermint "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 
@@ -842,3 +843,47 @@ func TestProtoUnmarshal(t *testing.T) {
 // 	_, err := archwayP.GetCommitmentPrefixFromContract(ctx)
 // 	assert.NoError(t, err)
 // }
+
+/*
+
+Tx-hash:  41ADA34BB5584DC2999AC6021268E24B4E587DEA506C17D981F745329E589A27
+Tx-height:  80124883
+Tx-hash:  B61BA941023CC481D0A81D001F61FB0EEF1097779B1950E1EC1CA1930C91BF11
+Tx-height:  80124886
+Tx-hash:  41C04B2202AEA241A189A00B52BFBE12477FD0218C4514BD9D40197CF59C733A
+Tx-height:  80129509
+
+*/
+
+func TestTxSearch(t *testing.T) {
+	// rpcNode := "https://1rpc.io:443/inj-rpc"
+	rpcNode := "https://inj-tendermint.nownodes.io:443/123c9b8e-95a5-431e-8a9a-dbdd286ef6f4"
+	rpc, err := cosmosclient.NewClientFromNode(rpcNode)
+	assert.NoError(t, err)
+
+	prove := true
+	page := 3
+	perPage := 10
+	orderBy := "asc"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+	defer cancel()
+
+	startHeight := 79996486
+	res, err := rpc.TxSearch(
+		ctx,
+		fmt.Sprintf("execute._contract_address='inj14980ljp04rfcw67lzk0whmjwyt67xt2m3smk8q' AND tx.height>=%d", startHeight),
+		prove,
+		&page,
+		&perPage,
+		orderBy,
+	)
+	assert.NoError(t, err)
+
+	fmt.Println("Total Transactions: ", res.TotalCount)
+
+	for _, tx := range res.Txs {
+		fmt.Println("Tx-hash: ", tx.Hash)
+		fmt.Println("Tx-height: ", tx.Height)
+	}
+}
