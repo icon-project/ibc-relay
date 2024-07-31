@@ -1,7 +1,6 @@
 package wasm
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -18,7 +17,6 @@ import (
 	"github.com/cosmos/relayer/v2/relayer/provider"
 
 	ctypes "github.com/cometbft/cometbft/rpc/core/types"
-	"github.com/cometbft/cometbft/types"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -57,13 +55,7 @@ type WasmChainProcessor struct {
 	// parsed gas prices accepted by the chain (only used for metrics)
 	parsedGasPrices *sdk.DecCoins
 
-	verifier *Verifier
-
 	heightSnapshotChan chan struct{}
-}
-
-type Verifier struct {
-	Header *types.LightBlock
 }
 
 func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *processor.PrometheusMetrics, heightSnapshot chan struct{}) *WasmChainProcessor {
@@ -256,19 +248,6 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	ccp.log.Info("Start to query from height ", zap.Int64("height", latestQueriedBlock))
 
-	_, lightBlock, err := ccp.chainProvider.QueryLightBlock(ctx, persistence.latestQueriedBlock)
-	if err != nil {
-		ccp.log.Error("Failed to get ibcHeader",
-			zap.Int64("height", persistence.latestQueriedBlock),
-			zap.Any("error", err),
-		)
-		return err
-	}
-
-	ccp.verifier = &Verifier{
-		Header: lightBlock,
-	}
-
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return ccp.initializeConnectionState(ctx)
@@ -285,17 +264,72 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
 
+	latestHeight := persistence.latestHeight
+
 	for {
-		if err := ccp.queryCycle(ctx, &persistence); err != nil {
-			return err
-		}
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ccp.heightSnapshotChan:
 			ccp.SnapshotHeight(ccp.getHeightToSave(persistence.latestHeight))
 		case <-ticker.C:
-			ticker.Reset(persistence.minQueryLoopDuration)
+			status, err := ccp.chainProvider.QueryStatus(ctx)
+			if err != nil {
+				ccp.log.Error("failed to query node status", zap.Error(err))
+			} else {
+				latestHeight = status.SyncInfo.LatestBlockHeight
+			}
+			if latestHeight > persistence.latestQueriedBlock {
+				persistence.latestHeight = latestHeight
+				if err := ccp.queryCycle(ctx, &persistence); err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (ccp *WasmChainProcessor) RunV1(ctx context.Context, _ uint64) error {
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return ccp.initializeConnectionState(ctx)
+	})
+	eg.Go(func() error {
+		return ccp.initializeChannelState(ctx)
+	})
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	lastQueriedHeight := ccp.StartFromHeight(ctx)
+
+	status, err := ccp.nodeStatusWithRetry(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to query node status for latest height: %w", err)
+	}
+	latestHeight := status.SyncInfo.LatestBlockHeight
+
+	var startHeight uint64
+	if lastQueriedHeight > 0 && lastQueriedHeight < latestHeight {
+		startHeight = uint64(lastQueriedHeight)
+	} else {
+		startHeight = uint64(latestHeight)
+	}
+
+	ccp.log.Info("started block query", zap.Uint64("start-height", startHeight))
+
+	blockInfoStream := ccp.chainProvider.GetBlockInfoStream(ctx, startHeight)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case blockInfoList := <-blockInfoStream:
+			status, err := ccp.nodeStatusWithRetry(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to query node status for latest height: %w", err)
+			}
+			ccp.handleNewBlocks(ctx, blockInfoList, uint64(status.SyncInfo.LatestBlockHeight))
 		}
 	}
 }
@@ -358,24 +392,101 @@ func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error
 	return nil
 }
 
-func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
-	status, err := ccp.nodeStatusWithRetry(ctx)
-	if err != nil {
-		// don't want to cause WasmChainProcessor to quit here, can retry again next cycle.
-		ccp.log.Error(
-			"Failed to query node status after max attempts",
-			zap.Uint("attempts", latestHeightQueryRetries),
-			zap.Error(err),
+func (ccp *WasmChainProcessor) handleNewBlocks(ctx context.Context, blockInfoList []BlockInfo, latestHeight uint64) error {
+	var latestHeader provider.IBCHeader
+	ibcHeaderCache := make(processor.IBCHeaderCache)
+	ibcMessagesCache := processor.NewIBCMessagesCache()
+
+	for _, blockInfo := range blockInfoList {
+		ccp.log.Debug(
+			"Queried block",
+			zap.Uint64("height", blockInfo.Height),
+			zap.Uint64("latest", latestHeight),
+			zap.Uint64("delta", latestHeight-blockInfo.Height),
 		)
 
-		// TODO: Save height when node status is false?
-		// ccp.SnapshotHeight(ccp.getHeightToSave(status.SyncInfo.LatestBlockHeight))
-		return nil
+		var ibcHeader provider.IBCHeader
+		if err := retry.Do(func() error {
+			var err error
+			ibcHeader, _, err = ccp.chainProvider.QueryLightBlock(ctx, int64(blockInfo.Height))
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Context(ctx), rtyAtt, retry.Delay(2*time.Second), rtyErr); err != nil {
+			ccp.log.Error(
+				"failed to query ibc header ",
+				zap.Error(err),
+				zap.Uint64("height", blockInfo.Height),
+				zap.Uint("total-attempts", rtyAttNum),
+			)
+			return nil //exit and rerun the query cycle from current state
+		}
+
+		for _, m := range blockInfo.Messages {
+			ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", blockInfo.Height))
+			ccp.handleMessage(ctx, m, ibcMessagesCache)
+		}
+
+		ccp.latestBlock = provider.LatestBlock{
+			Height: blockInfo.Height,
+		}
+		latestHeader = ibcHeader
+		ibcHeaderCache[blockInfo.Height] = ibcHeader
 	}
 
-	persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-	// ccp.chainProvider.setCometVersion(ccp.log, status.NodeInfo.Version)
+	lastQueriedHeight := blockInfoList[len(blockInfoList)-1].Height
+	firstTimeInSync := false
+	if !ccp.inSync {
+		if (latestHeight - lastQueriedHeight) < inSyncNumBlocksThreshold {
+			ccp.inSync = true
+			firstTimeInSync = true
+			ccp.log.Info("Chain is in sync",
+				zap.Uint64("last-queried-block", lastQueriedHeight),
+				zap.Uint64("latest-height", latestHeight),
+			)
+		} else {
+			ccp.log.Info("Chain is not yet in sync",
+				zap.Uint64("last-queried-block", lastQueriedHeight),
+				zap.Uint64("latest-height", latestHeight),
+			)
+		}
+	}
 
+	if firstTimeInSync {
+		for _, pp := range ccp.pathProcessors {
+			pp.ProcessBacklogIfReady()
+		}
+	}
+
+	chainID := ccp.chainProvider.ChainId()
+	for _, pp := range ccp.pathProcessors {
+		clientID := pp.RelevantClientID(chainID)
+		clientState, err := ccp.clientState(ctx, clientID)
+		if err != nil {
+			ccp.log.Error("Error fetching client state",
+				zap.String("client_id", clientID),
+				zap.Error(err),
+			)
+			continue
+		}
+
+		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
+			LatestBlock:          ccp.latestBlock,
+			LatestHeader:         latestHeader,
+			IBCMessagesCache:     ibcMessagesCache.Clone(),
+			InSync:               ccp.inSync,
+			ClientState:          clientState,
+			ConnectionStateCache: ccp.connectionStateCache.FilterForClient(clientID),
+			ChannelStateCache:    ccp.channelStateCache.FilterForClient(clientID, ccp.channelConnections, ccp.connectionClients),
+			IBCHeaderCache:       ibcHeaderCache.Clone(),
+		})
+	}
+
+	return nil
+}
+
+func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
 	if ccp.metrics != nil {
 		ccp.CollectMetrics(ctx, persistence)
 	}
@@ -387,7 +498,10 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		if (persistence.latestHeight - persistence.latestQueriedBlock) < inSyncNumBlocksThreshold {
 			ccp.inSync = true
 			firstTimeInSync = true
-			ccp.log.Info("Chain is in sync")
+			ccp.log.Info("Chain is in sync",
+				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", persistence.latestHeight),
+			)
 		} else {
 			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
@@ -405,80 +519,63 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	chainID := ccp.chainProvider.ChainId()
 	var latestHeader provider.IBCHeader
 
-	syncUpHeight := func() int64 {
-		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
-			return persistence.latestQueriedBlock + MaxBlockFetch
-		}
-		return persistence.latestHeight
-	}
+	// fromHeight := persistence.latestQueriedBlock + 1
+	// toHeight := persistence.latestHeight
+	// if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
+	// 	toHeight = persistence.latestQueriedBlock + MaxBlockFetch
+	// }
 
-	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i++ {
-		var eg errgroup.Group
-		var blockRes *ctypes.ResultBlockResults
-		var lightBlock *types.LightBlock
-		var h provider.IBCHeader
-		i := i
-		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
-			defer cancelQueryCtx()
-			blockRes, err = ccp.chainProvider.RPCClient.BlockResults(queryCtx, &i)
-			return err
-		})
-		eg.Go(func() (err error) {
-			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, queryTimeout)
-			defer cancelQueryCtx()
-			h, lightBlock, err = ccp.chainProvider.QueryLightBlock(queryCtx, i)
-			return err
-		})
+	// blockInfos, err := ccp.chainProvider.GetBlockInfoList(ctx, uint64(fromHeight), uint64(toHeight))
+	// if err != nil {
+	// 	ccp.log.Error(
+	// 		"failed to query block messages",
+	// 		zap.Uint64("from-height", uint64(fromHeight)),
+	// 		zap.Uint64("to-height", uint64(toHeight)),
+	// 		zap.Error(err),
+	// 	)
+	// 	return nil
+	// }
 
-		if err := eg.Wait(); err != nil {
-			ccp.log.Warn("Error querying block data", zap.Error(err))
-			break
-		}
+	blockInfos := []BlockInfo{}
 
+	for _, blockInfo := range blockInfos {
 		ccp.log.Debug(
 			"Queried block",
-			zap.Int64("height", i),
+			zap.Uint64("height", blockInfo.Height),
 			zap.Int64("latest", persistence.latestHeight),
-			zap.Int64("delta", persistence.latestHeight-i),
+			zap.Int64("delta", persistence.latestHeight-int64(blockInfo.Height)),
 		)
 
-		latestHeader = h
-
-		if err := ccp.Verify(ctx, lightBlock); err != nil {
-			ccp.log.Warn("Failed to verify block", zap.Int64("height", blockRes.Height), zap.Error(err))
-			return err
+		var ibcHeader provider.IBCHeader
+		if err := retry.Do(func() error {
+			var err error
+			ibcHeader, _, err = ccp.chainProvider.QueryLightBlock(ctx, int64(blockInfo.Height))
+			if err != nil {
+				return err
+			}
+			return nil
+		}, retry.Context(ctx), rtyAtt, retry.Delay(2*time.Second), rtyErr); err != nil {
+			ccp.log.Error(
+				"failed to query ibc header ",
+				zap.Error(err),
+				zap.Uint64("height", blockInfo.Height),
+				zap.Uint("total-attempts", rtyAttNum),
+			)
+			return nil //exit and rerun the query cycle from current state
 		}
 
-		heightUint64 := uint64(i)
-
-		ccp.latestBlock = provider.LatestBlock{
-			Height: heightUint64,
+		for _, m := range blockInfo.Messages {
+			ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", blockInfo.Height))
+			ccp.handleMessage(ctx, m, ibcMessagesCache)
 		}
 
-		ibcHeaderCache[heightUint64] = latestHeader
 		ppChanged = true
-
-		base64Encoded := ccp.chainProvider.cometLegacyEncoding
-
-		for _, tx := range blockRes.TxsResults {
-			if tx.Code != 0 {
-				// tx was not successful
-				continue
-			}
-			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
-
-			for _, m := range messages {
-				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", heightUint64))
-				ccp.handleMessage(ctx, m, ibcMessagesCache)
-			}
+		ccp.latestBlock = provider.LatestBlock{
+			Height: blockInfo.Height,
 		}
-
-		newLatestQueriedBlock = i
-	}
-
-	if newLatestQueriedBlock == persistence.latestQueriedBlock {
-		return nil
+		newLatestQueriedBlock = int64(blockInfo.Height)
+		latestHeader = ibcHeader
+		ibcHeaderCache[blockInfo.Height] = ibcHeader
 	}
 
 	if !ppChanged {
@@ -548,87 +645,6 @@ func (ccp *WasmChainProcessor) CollectMetrics(ctx context.Context, persistence *
 
 func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persistence *queryCyclePersistence) {
 	ccp.metrics.SetLatestHeight(ccp.chainProvider.ChainId(), persistence.latestHeight)
-}
-
-func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
-
-	if untrusted.Height != ccp.verifier.Header.Height+1 {
-		return errors.New("headers must be adjacent in height")
-	}
-
-	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
-		untrusted.ValidatorSet,
-		ccp.verifier.Header.SignedHeader,
-		time.Now(), 0); err != nil {
-		return fmt.Errorf("failed to verify Header: %v", err)
-	}
-
-	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
-		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
-	if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
-		err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
-	// Ensure that +2/3 of new validators signed correctly.
-	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
-		untrusted.Header.Height, untrusted.Commit); err != nil {
-		return fmt.Errorf("invalid header: %v", err)
-	}
-
-	ccp.verifier.Header = untrusted
-	return nil
-
-}
-
-func verifyNewHeaderAndVals(
-	untrustedHeader *types.SignedHeader,
-	untrustedVals *types.ValidatorSet,
-	trustedHeader *types.SignedHeader,
-	now time.Time,
-	maxClockDrift time.Duration) error {
-
-	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
-		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
-	}
-
-	if untrustedHeader.Height <= trustedHeader.Height {
-		return fmt.Errorf("expected new header height %d to be greater than one of old header %d",
-			untrustedHeader.Height,
-			trustedHeader.Height)
-	}
-
-	if !untrustedHeader.Time.After(trustedHeader.Time) {
-		return fmt.Errorf("expected new header time %v to be after old header time %v",
-			untrustedHeader.Time,
-			trustedHeader.Time)
-	}
-
-	if !untrustedHeader.Time.Before(now.Add(maxClockDrift)) {
-		return fmt.Errorf("new header has a time from the future %v (now: %v; max clock drift: %v)",
-			untrustedHeader.Time,
-			now,
-			maxClockDrift)
-	}
-
-	if !bytes.Equal(untrustedHeader.ValidatorsHash, untrustedVals.Hash()) {
-		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
-			untrustedHeader.ValidatorsHash,
-			untrustedVals.Hash(),
-			untrustedHeader.Height,
-		)
-	}
-
-	return nil
 }
 
 // func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {

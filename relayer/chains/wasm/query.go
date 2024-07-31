@@ -14,6 +14,7 @@ import (
 	"github.com/avast/retry-go/v4"
 	abci "github.com/cometbft/cometbft/abci/types"
 	rpcclient "github.com/cometbft/cometbft/rpc/client"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	tmtypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -909,4 +910,151 @@ func (ap *WasmProvider) QueryClientPrevConsensusStateHeight(ctx context.Context,
 		return nil, fmt.Errorf("consensus state of client %s before %d", clientId, clientHeight)
 	}
 	return clienttypes.Height{RevisionNumber: 0, RevisionHeight: uint64(heights[0])}, nil
+}
+
+type BlockInfo struct {
+	Height   uint64
+	Messages []ibcMessage
+}
+
+type txSearchParam struct {
+	page    int
+	perPage int
+	orderBy string
+	query   string
+	prove   bool
+}
+
+func (ap *WasmProvider) processBlocksTxs(
+	fromHeight, toHeight uint64,
+	txs []*coretypes.ResultTx,
+) []BlockInfo {
+	blockMessages := map[uint64][]ibcMessage{}
+	for _, txResult := range txs {
+		if txResult.TxResult.Code != 0 {
+			continue // skip failed transaction
+		}
+		messages := ibcMessagesFromEvents(
+			ap.log,
+			txResult.TxResult.Events,
+			ap.ChainId(),
+			uint64(txResult.Height),
+			ap.PCfg.IbcHandlerAddress,
+			ap.cometLegacyEncoding,
+		)
+		if len(messages) > 0 {
+			blockMessages[uint64(txResult.Height)] = append(blockMessages[uint64(txResult.Height)], messages...)
+		}
+	}
+
+	blockInfoList := []BlockInfo{}
+	for h := fromHeight; h <= toHeight; h++ {
+		if messages, ok := blockMessages[h]; ok {
+			blockInfoList = append(blockInfoList, BlockInfo{
+				Height:   h,
+				Messages: messages,
+			})
+		}
+	}
+
+	if _, ok := blockMessages[fromHeight]; !ok {
+		blockInfoList = append(
+			[]BlockInfo{
+				{
+					Height:   fromHeight,
+					Messages: []ibcMessage{},
+				},
+			}, blockInfoList...,
+		)
+	}
+
+	if fromHeight != toHeight {
+		if _, ok := blockMessages[toHeight]; !ok {
+			blockInfoList = append(
+				blockInfoList,
+				BlockInfo{
+					Height:   toHeight,
+					Messages: []ibcMessage{},
+				},
+			)
+		}
+	}
+
+	return blockInfoList
+}
+
+func (ap *WasmProvider) GetBlockInfoStream(ctx context.Context, fromHeight uint64) <-chan []BlockInfo {
+	blockInfoStream := make(chan []BlockInfo)
+	go func() {
+		defer close(blockInfoStream)
+		ticker := time.NewTicker(5 * time.Second)
+		startHeight := fromHeight
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				txs, endHeight, err := ap.fetchTxs(ctx, startHeight)
+				if err != nil {
+					ap.log.Error("failed to fetch txns", zap.Uint64("start-height", startHeight), zap.Error(err))
+					break
+				}
+				blockInfolist := ap.processBlocksTxs(startHeight, endHeight, txs)
+				blockInfoStream <- blockInfolist
+				startHeight = endHeight + 1
+			}
+		}
+	}()
+	return blockInfoStream
+}
+
+func (ap *WasmProvider) fetchTxs(
+	ctx context.Context,
+	startHeight uint64,
+) ([]*coretypes.ResultTx, uint64, error) {
+	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
+	query := fmt.Sprintf("tx.height=%d AND execute._contract_address='%s'", startHeight, ibcHandlerAddr)
+
+	endHeight := startHeight
+	if ap.PCfg.HeightRangeTxSearch {
+		query = fmt.Sprintf("tx.height>=%d AND execute._contract_address='%s'", startHeight, ibcHandlerAddr)
+
+		status, err := ap.QueryStatus(ctx)
+		if err != nil {
+			return nil, endHeight, fmt.Errorf("failed to query latest block height: %w", err)
+		} else {
+			endHeight = uint64(status.SyncInfo.LatestBlockHeight)
+		}
+	}
+
+	txsParam := txSearchParam{
+		query:   query,
+		page:    1,
+		perPage: 100,
+		orderBy: "asc",
+	}
+
+	txsResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+	if err != nil {
+		return nil, endHeight, err
+	}
+
+	txs := txsResult.Txs
+
+	if txsResult.TotalCount > txsParam.perPage {
+		totalPages := txsResult.TotalCount / txsParam.page
+		if txsResult.TotalCount%txsParam.page != 0 {
+			totalPages += 1
+		}
+		for i := 2; i <= totalPages; i++ {
+			txsParam.page = i
+			nextResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
+			if err != nil {
+				return nil, endHeight, err
+			}
+			txs = append(txs, nextResult.Txs...)
+		}
+	}
+
+	return txs, endHeight, nil
 }
