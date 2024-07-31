@@ -987,7 +987,7 @@ func (ap *WasmProvider) GetBlockInfoStream(ctx context.Context, fromHeight uint6
 	blockInfoStream := make(chan []BlockInfo, 100)
 	go func() {
 		defer close(blockInfoStream)
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(2 * time.Second)
 		startHeight := fromHeight
 		for {
 			select {
