@@ -925,27 +925,10 @@ type txSearchParam struct {
 	prove   bool
 }
 
-func (ap *WasmProvider) GetBlockInfoList(
-	ctx context.Context,
+func (ap *WasmProvider) processBlocksTxs(
 	fromHeight, toHeight uint64,
-) ([]BlockInfo, error) {
-	txs := []*coretypes.ResultTx{}
-	if !ap.PCfg.HeightRangeTxSearch {
-		for h := fromHeight; h <= toHeight; h++ {
-			txList, err := ap.FetchTxs(ctx, h, h)
-			if err != nil {
-				return nil, err
-			}
-			txs = append(txs, txList...)
-		}
-	} else {
-		txList, err := ap.FetchTxs(ctx, fromHeight, toHeight)
-		if err != nil {
-			return nil, err
-		}
-		txs = append(txs, txList...)
-	}
-
+	txs []*coretypes.ResultTx,
+) []BlockInfo {
 	blockMessages := map[uint64][]ibcMessage{}
 	for _, txResult := range txs {
 		if txResult.TxResult.Code != 0 {
@@ -997,18 +980,51 @@ func (ap *WasmProvider) GetBlockInfoList(
 		}
 	}
 
-	return blockInfoList, nil
+	return blockInfoList
 }
 
-func (ap *WasmProvider) FetchTxs(
-	ctx context.Context,
-	fromHeight, toHeight uint64,
-) ([]*coretypes.ResultTx, error) {
-	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
+func (ap *WasmProvider) GetBlockInfoStream(ctx context.Context, fromHeight uint64) <-chan []BlockInfo {
+	blockInfoStream := make(chan []BlockInfo)
+	go func() {
+		defer close(blockInfoStream)
+		ticker := time.NewTicker(5 * time.Second)
+		startHeight := fromHeight
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				txs, endHeight, err := ap.fetchTxs(ctx, startHeight)
+				if err != nil {
+					ap.log.Error("failed to fetch txns", zap.Uint64("start-height", startHeight), zap.Error(err))
+					break
+				}
+				blockInfolist := ap.processBlocksTxs(startHeight, endHeight, txs)
+				blockInfoStream <- blockInfolist
+				startHeight = endHeight + 1
+			}
+		}
+	}()
+	return blockInfoStream
+}
 
-	query := fmt.Sprintf("tx.height>=%d AND tx.height<=%d AND execute._contract_address='%s'", fromHeight, toHeight, ibcHandlerAddr)
-	if fromHeight == toHeight {
-		query = fmt.Sprintf("tx.height=%d AND execute._contract_address='%s'", fromHeight, ibcHandlerAddr)
+func (ap *WasmProvider) fetchTxs(
+	ctx context.Context,
+	startHeight uint64,
+) ([]*coretypes.ResultTx, uint64, error) {
+	ibcHandlerAddr := ap.PCfg.IbcHandlerAddress
+	query := fmt.Sprintf("tx.height=%d AND execute._contract_address='%s'", startHeight, ibcHandlerAddr)
+
+	endHeight := startHeight
+	if ap.PCfg.HeightRangeTxSearch {
+		query = fmt.Sprintf("tx.height>=%d AND execute._contract_address='%s'", startHeight, ibcHandlerAddr)
+
+		status, err := ap.QueryStatus(ctx)
+		if err != nil {
+			return nil, endHeight, fmt.Errorf("failed to query latest block height: %w", err)
+		} else {
+			endHeight = uint64(status.SyncInfo.LatestBlockHeight)
+		}
 	}
 
 	txsParam := txSearchParam{
@@ -1020,7 +1036,7 @@ func (ap *WasmProvider) FetchTxs(
 
 	txsResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
 	if err != nil {
-		return nil, err
+		return nil, endHeight, err
 	}
 
 	txs := txsResult.Txs
@@ -1034,11 +1050,11 @@ func (ap *WasmProvider) FetchTxs(
 			txsParam.page = i
 			nextResult, err := ap.RPCClient.TxSearch(ctx, txsParam.query, txsParam.prove, &txsParam.page, &txsParam.perPage, txsParam.orderBy)
 			if err != nil {
-				return nil, err
+				return nil, endHeight, err
 			}
 			txs = append(txs, nextResult.Txs...)
 		}
 	}
 
-	return txs, nil
+	return txs, endHeight, nil
 }
