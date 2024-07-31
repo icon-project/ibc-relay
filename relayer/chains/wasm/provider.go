@@ -71,6 +71,7 @@ type WasmProviderConfig struct {
 	FirstRetryBlockAfter uint64                  `json:"first-retry-block-after" yaml:"first-retry-block-after"`
 	StartHeight          uint64                  `json:"start-height" yaml:"start-height"`
 	BlockInterval        uint64                  `json:"block-interval" yaml:"block-interval"`
+	RangeSearch          bool                    `json:"range-search" yaml:"range-search"`
 }
 
 type WasmIBCHeader struct {
