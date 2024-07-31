@@ -984,7 +984,7 @@ func (ap *WasmProvider) processBlocksTxs(
 }
 
 func (ap *WasmProvider) GetBlockInfoStream(ctx context.Context, fromHeight uint64) <-chan []BlockInfo {
-	blockInfoStream := make(chan []BlockInfo)
+	blockInfoStream := make(chan []BlockInfo, 100)
 	go func() {
 		defer close(blockInfoStream)
 		ticker := time.NewTicker(5 * time.Second)

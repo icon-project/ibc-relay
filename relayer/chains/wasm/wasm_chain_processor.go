@@ -702,7 +702,7 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, _ uint64) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		case blockInfoList := <-blockInfoStream:
 			status, err := ccp.nodeStatusWithRetry(ctx)
 			if err != nil {
@@ -721,7 +721,7 @@ func (ccp *WasmChainProcessor) handleNewBlocks(ctx context.Context, blockInfoLis
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 
 	for _, blockInfo := range blockInfoList {
-		ccp.log.Debug(
+		ccp.log.Info(
 			"Queried block",
 			zap.Uint64("height", blockInfo.Height),
 			zap.Uint64("latest", latestHeight),
