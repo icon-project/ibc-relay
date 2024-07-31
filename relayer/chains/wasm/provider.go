@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"sync"
@@ -53,6 +54,8 @@ type WasmProviderConfig struct {
 	ChainName            string                  `json:"-" yaml:"-"`
 	ChainID              string                  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr              string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	HeaderKey            string                  `json:"header-key" yaml:"header-key"`
+	HeaderValue          string                  `json:"header-value" yaml:"header-value"`
 	AccountPrefix        string                  `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend       string                  `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment        float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
@@ -345,16 +348,13 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 		return err
 	}
 
-	rpcClient, err := NewRPCClient(ap.PCfg.RPCAddr, timeout)
+	rpcClient, err := NewRPCClient(ap.PCfg.RPCAddr, timeout, ap.PCfg.HeaderKey, ap.PCfg.HeaderValue)
 	if err != nil {
 		return err
 	}
 	ap.RPCClient = rpcClient
 
-	lightprovider, err := prov.New(ap.PCfg.ChainID, ap.PCfg.RPCAddr)
-	if err != nil {
-		return err
-	}
+	lightprovider := prov.NewWithClient(ap.PCfg.ChainID, rpcClient)
 	ap.LightProvider = lightprovider
 
 	clientCtx := client.Context{}.
@@ -516,7 +516,40 @@ func keysDir(home, chainID string) string {
 	return path.Join(home, "keys", chainID)
 }
 
+type CustomRoundTripper struct {
+	rt      http.RoundTripper
+	headers http.Header
+}
+
+// RoundTrip executes a single HTTP transaction and adds custom headers
+func (c *CustomRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	for key, values := range c.headers {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+	return c.rt.RoundTrip(req)
+}
+
 // NewRPCClient initializes a new tendermint RPC client connected to the specified address.
-func NewRPCClient(addr string, timeout time.Duration) (*rpchttp.HTTP, error) {
-	return client.NewClientFromNode(addr)
+func NewRPCClient(addr string, timeout time.Duration, headerKey, headerValue string) (*rpchttp.HTTP, error) {
+	var customTransport *CustomRoundTripper
+	headers := http.Header{}
+	if headerKey != "" {
+		headers.Add(headerKey, headerValue)
+	}
+	customTransport = &CustomRoundTripper{
+		rt:      http.DefaultTransport,
+		headers: headers,
+	}
+	// Create a custom HTTP client with a custom transport
+	customHTTPClient := &http.Client{
+		Timeout:   timeout,
+		Transport: customTransport,
+	}
+	rpcClient, err := rpchttp.NewWithClient(addr, "/websocket", customHTTPClient)
+	if err != nil {
+		return nil, err
+	}
+	return rpcClient, err
 }
