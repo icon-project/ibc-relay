@@ -708,7 +708,9 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, _ uint64) error {
 			if err != nil {
 				return fmt.Errorf("failed to query node status for latest height: %w", err)
 			}
-			ccp.handleNewBlocks(ctx, blockInfoList, uint64(status.SyncInfo.LatestBlockHeight))
+			if err := ccp.handleNewBlocks(ctx, blockInfoList, uint64(status.SyncInfo.LatestBlockHeight)); err != nil {
+				return fmt.Errorf("failed to handle new blocks: %w", err)
+			}
 		}
 	}
 }
