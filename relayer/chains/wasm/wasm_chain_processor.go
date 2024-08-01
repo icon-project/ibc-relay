@@ -704,17 +704,27 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, _ uint64) error {
 		case <-ctx.Done():
 			return nil
 		case blockInfoList := <-blockInfoStream:
-			status, err := ccp.nodeStatusWithRetry(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to query node status for latest height: %w", err)
+			if err := retry.Do(func() error {
+				status, err := ccp.nodeStatusWithRetry(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to query node status for latest height: %w", err)
+				}
+				if err := ccp.handleNewBlocks(ctx, blockInfoList, uint64(status.SyncInfo.LatestBlockHeight)); err != nil {
+					return fmt.Errorf("failed to handle new blocks: %w", err)
+				}
+				return nil
+			}, retry.Attempts(5), retry.Delay(5*time.Second), retry.LastErrorOnly(true)); err != nil {
+				fromHeight := blockInfoList[0].Height
+				toHeight := blockInfoList[len(blockInfoList)-1].Height
+				ccp.log.Error("failed to process new blocks from",
+					zap.Uint64("from-height", fromHeight),
+					zap.Uint64("to-height", toHeight),
+					zap.Error(err),
+				)
 			}
-			if err := ccp.handleNewBlocks(ctx, blockInfoList, uint64(status.SyncInfo.LatestBlockHeight)); err != nil {
-				return fmt.Errorf("failed to handle new blocks: %w", err)
-			}
-			if len(blockInfoList) > 0 {
-				lastQueriedHeight := blockInfoList[0].Height
-				ccp.SnapshotHeight(ccp.getHeightToSave(int64(lastQueriedHeight)))
-			}
+
+			lastQueriedHeight := blockInfoList[len(blockInfoList)-1].Height
+			ccp.SnapshotHeight(ccp.getHeightToSave(int64(lastQueriedHeight)))
 		}
 	}
 }
