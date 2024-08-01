@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -256,14 +257,13 @@ func (pc *WasmProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	if pc.Broadcast == "" {
 		pc.Broadcast = provider.BroadcastModeBatch
 	}
-
 	cp := &WasmProvider{
 		log:            log,
 		PCfg:           pc,
 		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
 		Input:          os.Stdin,
 		Output:         os.Stdout,
-
+		rangeSupport:   false,
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
 	}
@@ -292,6 +292,7 @@ type WasmProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+	rangeSupport        bool
 }
 
 func (ap *WasmProvider) ProviderConfig() provider.ProviderConfig {
@@ -350,6 +351,14 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 		return err
 	}
 	ap.RPCClient = rpcClient
+	page := 1
+	ap.rangeSupport = false
+	_, err = rpcClient.TxSearch(ctx, "execute._contract_address='invalid' AND tx.height>=38769995", true, &page, &page, "asc")
+	if err != nil && strings.Contains(err.Error(), "strict equality") {
+		fmt.Println("given RPC doesn't Supports range queries")
+	} else {
+		ap.rangeSupport = true
+	}
 
 	lightprovider, err := prov.New(ap.PCfg.ChainID, ap.PCfg.RPCAddr)
 	if err != nil {
