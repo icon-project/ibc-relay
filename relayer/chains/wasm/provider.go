@@ -355,7 +355,7 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	ap.rangeSupport = false
 	_, err = rpcClient.TxSearch(ctx, "execute._contract_address='invalid' AND tx.height>=38769995", true, &page, &page, "asc")
 	if err != nil && strings.Contains(err.Error(), "strict equality") {
-		fmt.Println("given RPC doesn't Supports range queries")
+		ap.log.Info("given RPC doesn't Supports range queries")
 	} else {
 		ap.rangeSupport = true
 	}
