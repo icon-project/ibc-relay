@@ -634,14 +634,6 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 		return fmt.Errorf("failed to verify Header: %v", err)
 	}
 
-	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
-		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
 	// Ensure that +2/3 of new validators signed correctly.
 	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
 		untrusted.Header.Height, untrusted.Commit); err != nil {
