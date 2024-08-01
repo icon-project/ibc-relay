@@ -82,6 +82,7 @@ func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *pro
 
 var (
 	inSyncNumBlocksThreshold = int64(2)
+	numOffsetBlocks          = int64(2)
 )
 
 const (
@@ -286,7 +287,7 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	ccp.log.Debug("Entering Wasm main query loop")
 	if ccp.chainProvider.rangeSupport {
-		inSyncNumBlocksThreshold = 5
+		inSyncNumBlocksThreshold = 10
 	}
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
@@ -372,7 +373,7 @@ func (ccp *WasmChainProcessor) getBlocksToProcess(ctx context.Context, blockToRe
 	defer cancelQueryCtx()
 	page := int(1)
 	perPage := int(50)
-	txsResult, err := ccp.chainProvider.RPCClient.TxSearch(queryCtx, queryFilter, true, &page, &perPage, "asc")
+	txsResult, err := ccp.chainProvider.BlockRPCClient.TxSearch(queryCtx, queryFilter, true, &page, &perPage, "asc")
 	var resultArr []int64
 	if err != nil {
 		return []int64{}, err
@@ -454,7 +455,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 	syncUpHeight := func() int64 {
 		if ccp.chainProvider.rangeSupport {
-			return persistence.latestHeight - inSyncNumBlocksThreshold + 2
+			return persistence.latestHeight - numOffsetBlocks
 		}
 		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
 			return persistence.latestQueriedBlock + MaxBlockFetch
@@ -463,7 +464,8 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	}
 	var blocks []int64
 	heighttoSync := syncUpHeight()
-	if ccp.chainProvider.rangeSupport {
+	delta := persistence.latestHeight - persistence.latestQueriedBlock
+	if ccp.chainProvider.rangeSupport && delta > 20 {
 		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
 			return nil
 		}
@@ -578,7 +580,6 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			)
 			continue
 		}
-
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,
 			LatestHeader:         latestHeader,

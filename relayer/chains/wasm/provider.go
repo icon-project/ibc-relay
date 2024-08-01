@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -54,6 +53,7 @@ type WasmProviderConfig struct {
 	ChainName            string                  `json:"-" yaml:"-"`
 	ChainID              string                  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr              string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	BlockRPCAddr         string                  `json:"block-rpc-addr" yaml:"block-rpc-addr"`
 	AccountPrefix        string                  `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend       string                  `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment        float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
@@ -278,6 +278,7 @@ type WasmProvider struct {
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
 	RPCClient      rpcclient.Client
+	BlockRPCClient rpcclient.Client
 	QueryClient    wasmtypes.QueryClient
 	LightProvider  provtypes.Provider
 	Cdc            Codec
@@ -351,15 +352,16 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 		return err
 	}
 	ap.RPCClient = rpcClient
-	page := 1
+
 	ap.rangeSupport = false
-	_, err = rpcClient.TxSearch(ctx, "execute._contract_address='invalid' AND tx.height>=38769995", true, &page, &page, "asc")
-	if err != nil && strings.Contains(err.Error(), "strict equality") {
-		ap.log.Info("given RPC doesn't Supports range queries")
-	} else {
+	if ap.PCfg.BlockRPCAddr != "" {
+		blockRpcClient, err := NewRPCClient(ap.PCfg.BlockRPCAddr, timeout)
+		if err != nil {
+			return err
+		}
+		ap.BlockRPCClient = blockRpcClient
 		ap.rangeSupport = true
 	}
-
 	lightprovider, err := prov.New(ap.PCfg.ChainID, ap.PCfg.RPCAddr)
 	if err != nil {
 		return err
