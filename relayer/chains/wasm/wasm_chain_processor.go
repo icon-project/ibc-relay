@@ -454,7 +454,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 
 	syncUpHeight := func() int64 {
 		if ccp.chainProvider.rangeSupport {
-			return persistence.latestHeight - inSyncNumBlocksThreshold + 1
+			return persistence.latestHeight - inSyncNumBlocksThreshold + 2
 		}
 		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
 			return persistence.latestQueriedBlock + MaxBlockFetch
