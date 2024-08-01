@@ -711,6 +711,10 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, _ uint64) error {
 			if err := ccp.handleNewBlocks(ctx, blockInfoList, uint64(status.SyncInfo.LatestBlockHeight)); err != nil {
 				return fmt.Errorf("failed to handle new blocks: %w", err)
 			}
+			if len(blockInfoList) > 0 {
+				lastQueriedHeight := blockInfoList[0].Height
+				ccp.SnapshotHeight(ccp.getHeightToSave(int64(lastQueriedHeight)))
+			}
 		}
 	}
 }
