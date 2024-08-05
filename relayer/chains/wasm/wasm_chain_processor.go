@@ -466,6 +466,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	heighttoSync := syncUpHeight()
 	delta := persistence.latestHeight - persistence.latestQueriedBlock
 	if ccp.chainProvider.rangeSupport && delta > 20 {
+		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
+		if err != nil {
+			return nil
+		}
+		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight &&
+			persistence.latestHeight > status.SyncInfo.LatestBlockHeight {
+			persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		}
 		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
 			return nil
 		}
