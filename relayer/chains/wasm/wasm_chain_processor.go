@@ -567,14 +567,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
 		return nil
 	}
-	persistence.latestQueriedBlock = newLatestQueriedBlock
+
 	if !ppChanged {
 		if firstTimeInSync {
 			for _, pp := range ccp.pathProcessors {
 				pp.ProcessBacklogIfReady()
 			}
 		}
-
+		persistence.latestQueriedBlock = newLatestQueriedBlock
 		return nil
 	}
 
@@ -599,7 +599,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			IBCHeaderCache:       ibcHeaderCache.Clone(),
 		})
 	}
-
+	persistence.latestQueriedBlock = newLatestQueriedBlock
 	return nil
 }
 
