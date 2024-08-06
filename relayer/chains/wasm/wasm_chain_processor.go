@@ -89,7 +89,9 @@ const (
 	queryTimeout                = 5 * time.Second
 	blockResultsQueryTimeout    = 2 * time.Minute
 	latestHeightQueryRetryDelay = 1 * time.Second
+	clientStateQueryRetryDelay  = 1 * time.Second
 	latestHeightQueryRetries    = 5
+	clientStateQueryRetries     = 5
 
 	// TODO: review transfer to providerConfig
 	defaultMinQueryLoopDuration      = 1 * time.Second
@@ -579,15 +581,32 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	}
 
 	for _, pp := range ccp.pathProcessors {
-		clientID := pp.RelevantClientID(chainID)
-		clientState, err := ccp.clientState(ctx, clientID)
-		if err != nil {
-			ccp.log.Error("Error fetching client state",
-				zap.String("client_id", clientID),
+		var clientState provider.ClientState
+		var clientID string
+		retry.Do(func() error {
+			clientID = pp.RelevantClientID(chainID)
+			clientState, err = ccp.clientState(ctx, clientID)
+			return err
+		}, retry.Context(ctx), retry.Attempts(clientStateQueryRetries),
+			retry.Delay(clientStateQueryRetryDelay),
+			retry.OnRetry(func(n uint, err error) {
+				ccp.log.Error(
+					"Error fetching client state",
+					zap.Uint("attempt", n+1),
+					zap.Uint("max_attempts", clientStateQueryRetries),
+					zap.Error(err),
+				)
+			}))
+		if clientState.ClientID == "" {
+			ccp.log.Error(
+				"Error fetching client state after max retries",
+				zap.Int64("latest_queried_block", newLatestQueriedBlock),
+				zap.Int64("last_queried_block", persistence.latestQueriedBlock),
 				zap.Error(err),
 			)
 			continue
 		}
+
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
 			LatestBlock:          ccp.latestBlock,
 			LatestHeader:         latestHeader,
