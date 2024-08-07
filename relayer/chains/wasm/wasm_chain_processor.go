@@ -1,7 +1,6 @@
 package wasm
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -397,13 +396,7 @@ func (ccp *WasmChainProcessor) shouldSkipProcessBlock(blocks []int64, block int6
 }
 
 func findMaxBlock(blocks []int64) int64 {
-	max := int64(0)
-	for _, blk := range blocks {
-		if max < blk {
-			max = blk
-		}
-	}
-	return max
+	return blocks[len(blocks)-1]
 }
 
 func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
@@ -637,13 +630,6 @@ func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persisten
 
 func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
 
-	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
-		untrusted.ValidatorSet,
-		ccp.verifier.Header.SignedHeader,
-		time.Now(), 0); err != nil {
-		return fmt.Errorf("failed to verify Header: %v", err)
-	}
-
 	// Ensure that +2/3 of new validators signed correctly.
 	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
 		untrusted.Header.Height, untrusted.Commit); err != nil {
@@ -653,47 +639,6 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 	ccp.verifier.Header = untrusted
 	return nil
 
-}
-
-func verifyNewHeaderAndVals(
-	untrustedHeader *types.SignedHeader,
-	untrustedVals *types.ValidatorSet,
-	trustedHeader *types.SignedHeader,
-	now time.Time,
-	maxClockDrift time.Duration) error {
-
-	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
-		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
-	}
-
-	if untrustedHeader.Height <= trustedHeader.Height {
-		return fmt.Errorf("expected new header height %d to be greater than one of old header %d",
-			untrustedHeader.Height,
-			trustedHeader.Height)
-	}
-
-	if !untrustedHeader.Time.After(trustedHeader.Time) {
-		return fmt.Errorf("expected new header time %v to be after old header time %v",
-			untrustedHeader.Time,
-			trustedHeader.Time)
-	}
-
-	if !untrustedHeader.Time.Before(now.Add(maxClockDrift)) {
-		return fmt.Errorf("new header has a time from the future %v (now: %v; max clock drift: %v)",
-			untrustedHeader.Time,
-			now,
-			maxClockDrift)
-	}
-
-	if !bytes.Equal(untrustedHeader.ValidatorsHash, untrustedVals.Hash()) {
-		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
-			untrustedHeader.ValidatorsHash,
-			untrustedVals.Hash(),
-			untrustedHeader.Height,
-		)
-	}
-
-	return nil
 }
 
 // func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {
