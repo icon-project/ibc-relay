@@ -671,6 +671,10 @@ func (icp *IconChainProcessor) handlePathProcessorUpdate(ctx context.Context,
 
 	if latestHeight != 0 && uint64(latestHeight)-latestHeader.Height() < 3 {
 		inSync = true
+		if !icp.inSync {
+			icp.inSync = true
+			icp.log.Info("Chain is in sync")
+		}
 	}
 
 	for _, pp := range icp.pathProcessors {

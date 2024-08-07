@@ -4,7 +4,7 @@ RUN apk add --update --no-cache make git musl-dev gcc binutils-gold cargo
 
 ARG BUILDPLATFORM=arm64
 ARG TARGETPLATFORM=arm64
-ARG COSMWASM_VERSION=1.2.3
+ARG COSMWASM_VERSION=1.5.0
 
 RUN wget https://github.com/CosmWasm/wasmvm/releases/download/v${COSMWASM_VERSION}/libwasmvm_muslc.aarch64.a -O /usr/lib/libwasmvm.aarch64.a && \
     wget https://github.com/CosmWasm/wasmvm/releases/download/v${COSMWASM_VERSION}/libwasmvm_muslc.x86_64.a -O /usr/lib/libwasmvm.x86_64.a
@@ -50,7 +50,7 @@ RUN ln sh pwd && \
     rm ln rm
 
 # Install chain binaries
-COPY --from=build-env /bin/rly /bin
+COPY --from=build-env /go/bin/rly /bin
 
 # Install trusted CA certificates
 COPY --from=busybox-min /etc/ssl/cert.pem /etc/ssl/cert.pem
