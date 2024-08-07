@@ -396,6 +396,9 @@ func (ccp *WasmChainProcessor) shouldSkipProcessBlock(blocks []int64, block int6
 }
 
 func findMaxBlock(blocks []int64) int64 {
+	if len(blocks) == 0 {
+		return 0
+	}
 	return blocks[len(blocks)-1]
 }
 
