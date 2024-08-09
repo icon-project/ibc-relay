@@ -54,6 +54,8 @@ type WasmProviderConfig struct {
 	ChainID              string                  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr              string                  `json:"rpc-addr" yaml:"rpc-addr"`
 	BlockRPCAddr         string                  `json:"block-rpc-addr" yaml:"block-rpc-addr"`
+	BlockRPCMinDelta     int                     `json:"block-rpc-delta" yaml:"block-rpc-delta"`
+	BlockRPCRefreshTime  int                     `json:"block-rpc-refresh-time" yaml:"block-rpc-refresh-time"`
 	AccountPrefix        string                  `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend       string                  `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment        float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
