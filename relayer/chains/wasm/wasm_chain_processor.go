@@ -286,7 +286,12 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	ccp.log.Debug("Entering Wasm main query loop")
 	if ccp.chainProvider.rangeSupport {
-		inSyncNumBlocksThreshold = 10
+		inSyncNumBlocksThreshold = 15
+		defaultQueryLoopTime := 7
+		if ccp.chainProvider.PCfg.BlockRPCRefreshTime > 0 {
+			defaultQueryLoopTime = ccp.chainProvider.PCfg.BlockRPCRefreshTime
+		}
+		persistence.minQueryLoopDuration = time.Duration(defaultQueryLoopTime) * time.Second
 	}
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
@@ -461,7 +466,14 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	var blocks []int64
 	heighttoSync := syncUpHeight()
 	delta := persistence.latestHeight - persistence.latestQueriedBlock
-	if ccp.chainProvider.rangeSupport && delta > 20 {
+	minDelta := 10
+	if ccp.chainProvider.PCfg.BlockRPCMinDelta > 0 {
+		minDelta = ccp.chainProvider.PCfg.BlockRPCMinDelta
+	}
+	if ccp.chainProvider.rangeSupport && delta > int64(minDelta) {
+		ccp.log.Debug("Fetching range block",
+			zap.Any("last_height", persistence.latestQueriedBlock),
+			zap.Any("delta", delta))
 		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
 		if err != nil {
 			return nil
