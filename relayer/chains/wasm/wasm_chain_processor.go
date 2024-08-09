@@ -476,7 +476,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			zap.Any("delta", delta))
 		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
 		if err != nil {
-			ccp.log.Warn("Error occurred fetching block status")
+			ccp.log.Warn("Error occurred fetching block status", zap.Error(err))
 			return nil
 		}
 		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight &&
@@ -491,7 +491,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		}
 		blocks, err = ccp.getBlocksToProcess(ctx, persistence.latestQueriedBlock+1)
 		if err != nil {
-			ccp.log.Info("error occurred getting blocks")
+			ccp.log.Warn("error occurred getting blocks", zap.Error(err))
 			return nil
 		}
 		maxBlock := findMaxBlock(blocks)
