@@ -476,6 +476,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			zap.Any("delta", delta))
 		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
 		if err != nil {
+			ccp.log.Warn("Error occurred fetching block status")
 			return nil
 		}
 		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight &&
