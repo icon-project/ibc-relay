@@ -466,23 +466,22 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	var blocks []int64
 	heighttoSync := syncUpHeight()
 	delta := persistence.latestHeight - persistence.latestQueriedBlock
-	minDelta := 10
+	minDelta := 7
 	if ccp.chainProvider.PCfg.BlockRPCMinDelta > 0 {
 		minDelta = ccp.chainProvider.PCfg.BlockRPCMinDelta
 	}
 	if ccp.chainProvider.rangeSupport && delta > int64(minDelta) {
-		ccp.log.Debug("Fetching range block",
-			zap.Any("last_height", persistence.latestQueriedBlock),
-			zap.Any("delta", delta))
 		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
 		if err != nil {
 			ccp.log.Warn("Error occurred fetching block status", zap.Error(err))
 			return nil
 		}
-		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight &&
-			persistence.latestHeight > status.SyncInfo.LatestBlockHeight {
-			persistence.latestHeight = status.SyncInfo.LatestBlockHeight
-		}
+		ccp.log.Debug("Fetching range block",
+			zap.Int64("last_height", persistence.latestQueriedBlock),
+			zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight),
+			zap.Int64("delta", delta))
+		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		heighttoSync = syncUpHeight()
 		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
 			return nil
 		}
