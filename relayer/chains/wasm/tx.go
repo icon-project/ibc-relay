@@ -52,7 +52,7 @@ var (
 	rtyAttNum                   = uint(5)
 	rtyAtt                      = retry.Attempts(rtyAttNum)
 	rtyDel                      = retry.Delay(time.Millisecond * 400)
-	specialDel                  = retry.Delay(time.Second * 30)
+	specialDel                  = retry.Delay(time.Second * 10)
 	rtyErr                      = retry.LastErrorOnly(true)
 	numRegex                    = regexp.MustCompile("[0-9]+")
 	defaultBroadcastWaitTimeout = 10 * time.Minute
@@ -841,8 +841,9 @@ func (ap *WasmProvider) SendMessagesToMempool(
 					if strings.Contains(err.Error(), sdkerrors.ErrWrongSequence.Error()) {
 						ap.handleAccountSequenceMismatchError(err)
 					}
+					return err
 				}
-				return err
+				return nil
 			}, retry.Context(ctx), retry.Attempts(0), specialDel, rtyErr); err != nil {
 				ap.log.Error("Failed to update client", zap.Any("Message", msg))
 				return err
