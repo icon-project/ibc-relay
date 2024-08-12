@@ -482,6 +482,13 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			zap.Int64("delta", delta))
 		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
 		heighttoSync = syncUpHeight()
+		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight {
+			ccp.log.Debug("resetting range block",
+				zap.Int64("last_height", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight))
+			persistence.latestQueriedBlock = status.SyncInfo.LatestBlockHeight
+			return nil
+		}
 		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
 			return nil
 		}
