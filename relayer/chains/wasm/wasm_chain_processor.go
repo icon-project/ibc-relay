@@ -371,7 +371,7 @@ func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error
 
 func (ccp *WasmChainProcessor) getBlocksToProcess(ctx context.Context, blockToRequest int64) ([]int64, error) {
 	ibcHandlerAddr := ccp.chainProvider.PCfg.IbcHandlerAddress
-	queryFilter := fmt.Sprintf("tx.height>%d AND execute._contract_address='%s'",
+	queryFilter := fmt.Sprintf("tx.height>=%d AND execute._contract_address='%s'",
 		blockToRequest, ibcHandlerAddr)
 	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 	defer cancelQueryCtx()
