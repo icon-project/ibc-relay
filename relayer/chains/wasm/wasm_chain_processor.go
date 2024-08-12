@@ -286,7 +286,12 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	ccp.log.Debug("Entering Wasm main query loop")
 	if ccp.chainProvider.rangeSupport {
-		inSyncNumBlocksThreshold = 10
+		inSyncNumBlocksThreshold = 15
+		defaultQueryLoopTime := 7
+		if ccp.chainProvider.PCfg.BlockRPCRefreshTime > 0 {
+			defaultQueryLoopTime = ccp.chainProvider.PCfg.BlockRPCRefreshTime
+		}
+		persistence.minQueryLoopDuration = time.Duration(defaultQueryLoopTime) * time.Second
 	}
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
@@ -461,14 +466,28 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	var blocks []int64
 	heighttoSync := syncUpHeight()
 	delta := persistence.latestHeight - persistence.latestQueriedBlock
-	if ccp.chainProvider.rangeSupport && delta > 20 {
+	minDelta := 7
+	if ccp.chainProvider.PCfg.BlockRPCMinDelta > 0 {
+		minDelta = ccp.chainProvider.PCfg.BlockRPCMinDelta
+	}
+	if ccp.chainProvider.rangeSupport && delta > int64(minDelta) {
 		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
 		if err != nil {
+			ccp.log.Warn("Error occurred fetching block status", zap.Error(err))
 			return nil
 		}
-		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight &&
-			persistence.latestHeight > status.SyncInfo.LatestBlockHeight {
-			persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		ccp.log.Debug("Fetching range block",
+			zap.Int64("last_height", persistence.latestQueriedBlock),
+			zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight),
+			zap.Int64("delta", delta))
+		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		heighttoSync = syncUpHeight()
+		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight {
+			ccp.log.Debug("resetting range block",
+				zap.Int64("last_height", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight))
+			persistence.latestQueriedBlock = status.SyncInfo.LatestBlockHeight
+			return nil
 		}
 		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
 			return nil
@@ -478,7 +497,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		}
 		blocks, err = ccp.getBlocksToProcess(ctx, persistence.latestQueriedBlock+1)
 		if err != nil {
-			ccp.log.Info("error occurred getting blocks")
+			ccp.log.Warn("error occurred getting blocks", zap.Error(err))
 			return nil
 		}
 		maxBlock := findMaxBlock(blocks)
