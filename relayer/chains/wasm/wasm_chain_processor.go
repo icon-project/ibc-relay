@@ -286,7 +286,8 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 
 	ccp.log.Debug("Entering Wasm main query loop")
 	if ccp.chainProvider.rangeSupport {
-		inSyncNumBlocksThreshold = 15
+		numOffsetBlocks = 7
+		inSyncNumBlocksThreshold = 20
 		defaultQueryLoopTime := 7
 		if ccp.chainProvider.PCfg.BlockRPCRefreshTime > 0 {
 			defaultQueryLoopTime = ccp.chainProvider.PCfg.BlockRPCRefreshTime
@@ -489,6 +490,12 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			persistence.latestQueriedBlock = status.SyncInfo.LatestBlockHeight
 			return nil
 		}
+		if status.SyncInfo.CatchingUp {
+			ccp.log.Debug("chain is still catching up",
+				zap.Int64("last_height", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight))
+			return nil
+		}
 		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
 			return nil
 		}
@@ -516,8 +523,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		if ccp.shouldSkipProcessBlock(blocks, i) {
 			newLatestQueriedBlock = i
 			ccp.log.Debug("Skipping block", zap.Any("height", i),
-				zap.Any("last_height", persistence.latestQueriedBlock),
-				zap.Any("blocks", blocks))
+				zap.Any("last_height", persistence.latestQueriedBlock))
 			continue
 		}
 		eg.Go(func() (err error) {
