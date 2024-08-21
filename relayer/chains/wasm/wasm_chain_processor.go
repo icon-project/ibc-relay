@@ -1,7 +1,6 @@
 package wasm
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -80,6 +79,11 @@ func NewWasmChainProcessor(log *zap.Logger, provider *WasmProvider, metrics *pro
 	}
 }
 
+var (
+	inSyncNumBlocksThreshold = int64(2)
+	numOffsetBlocks          = int64(2)
+)
+
 const (
 	queryTimeout                = 5 * time.Second
 	blockResultsQueryTimeout    = 2 * time.Minute
@@ -89,8 +93,8 @@ const (
 	// TODO: review transfer to providerConfig
 	defaultMinQueryLoopDuration      = 1 * time.Second
 	defaultBalanceUpdateWaitDuration = 60 * time.Second
-	inSyncNumBlocksThreshold         = 2
-	MaxBlockFetch                    = 100
+
+	MaxBlockFetch = 100
 )
 
 // latestClientState is a map of clientID to the latest clientInfo for that client.
@@ -281,14 +285,19 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 	}
 
 	ccp.log.Debug("Entering Wasm main query loop")
-
+	if ccp.chainProvider.rangeSupport {
+		numOffsetBlocks = 7
+		inSyncNumBlocksThreshold = 20
+		defaultQueryLoopTime := 7
+		if ccp.chainProvider.PCfg.BlockRPCRefreshTime > 0 {
+			defaultQueryLoopTime = ccp.chainProvider.PCfg.BlockRPCRefreshTime
+		}
+		persistence.minQueryLoopDuration = time.Duration(defaultQueryLoopTime) * time.Second
+	}
 	ticker := time.NewTicker(persistence.minQueryLoopDuration)
 	defer ticker.Stop()
-
 	for {
-		if err := ccp.queryCycle(ctx, &persistence); err != nil {
-			return err
-		}
+
 		select {
 		case <-ctx.Done():
 			return nil
@@ -296,6 +305,9 @@ func (ccp *WasmChainProcessor) Run(ctx context.Context, initialBlockHistory uint
 			ccp.SnapshotHeight(ccp.getHeightToSave(persistence.latestHeight))
 		case <-ticker.C:
 			ticker.Reset(persistence.minQueryLoopDuration)
+			if err := ccp.queryCycle(ctx, &persistence); err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -358,6 +370,44 @@ func (ccp *WasmChainProcessor) initializeChannelState(ctx context.Context) error
 	return nil
 }
 
+func (ccp *WasmChainProcessor) getBlocksToProcess(ctx context.Context, blockToRequest int64) ([]int64, error) {
+	ibcHandlerAddr := ccp.chainProvider.PCfg.IbcHandlerAddress
+	queryFilter := fmt.Sprintf("tx.height>=%d AND execute._contract_address='%s'",
+		blockToRequest, ibcHandlerAddr)
+	queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
+	defer cancelQueryCtx()
+	page := int(1)
+	perPage := int(50)
+	txsResult, err := ccp.chainProvider.BlockRPCClient.TxSearch(queryCtx, queryFilter, true, &page, &perPage, "asc")
+	var resultArr []int64
+	if err != nil {
+		return []int64{}, err
+	}
+	for _, tx := range txsResult.Txs {
+		resultArr = append(resultArr, tx.Height)
+	}
+	return resultArr, nil
+}
+
+func (ccp *WasmChainProcessor) shouldSkipProcessBlock(blocks []int64, block int64) bool {
+	if !ccp.chainProvider.rangeSupport || len(blocks) == 0 {
+		return false
+	}
+	for _, blk := range blocks {
+		if blk == block {
+			return false
+		}
+	}
+	return true
+}
+
+func findMaxBlock(blocks []int64) int64 {
+	if len(blocks) == 0 {
+		return 0
+	}
+	return blocks[len(blocks)-1]
+}
+
 func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *queryCyclePersistence) error {
 	status, err := ccp.nodeStatusWithRetry(ctx)
 	if err != nil {
@@ -392,13 +442,13 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			ccp.log.Info("Chain is not yet in sync",
 				zap.Int64("latest_queried_block", persistence.latestQueriedBlock),
 				zap.Int64("latest_height", persistence.latestHeight),
+				zap.Int64("delta", (persistence.latestHeight-persistence.latestQueriedBlock)),
 			)
 		}
 	}
 
 	ibcMessagesCache := processor.NewIBCMessagesCache()
 	ibcHeaderCache := make(processor.IBCHeaderCache)
-
 	ppChanged := false
 
 	newLatestQueriedBlock := persistence.latestQueriedBlock
@@ -406,18 +456,76 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 	var latestHeader provider.IBCHeader
 
 	syncUpHeight := func() int64 {
+		if ccp.chainProvider.rangeSupport {
+			return persistence.latestHeight - numOffsetBlocks
+		}
 		if persistence.latestHeight-persistence.latestQueriedBlock > MaxBlockFetch {
 			return persistence.latestQueriedBlock + MaxBlockFetch
 		}
-		return persistence.latestHeight
+		return persistence.latestHeight - 1
 	}
-
-	for i := persistence.latestQueriedBlock + 1; i <= syncUpHeight(); i++ {
+	var blocks []int64
+	heighttoSync := syncUpHeight()
+	delta := persistence.latestHeight - persistence.latestQueriedBlock
+	minDelta := 7
+	if ccp.chainProvider.PCfg.BlockRPCMinDelta > 0 {
+		minDelta = ccp.chainProvider.PCfg.BlockRPCMinDelta
+	}
+	if ccp.chainProvider.rangeSupport && delta > int64(minDelta) {
+		status, err := ccp.chainProvider.BlockRPCClient.Status(ctx)
+		if err != nil {
+			ccp.log.Warn("Error occurred fetching block status", zap.Error(err))
+			return nil
+		}
+		ccp.log.Debug("Fetching range block",
+			zap.Int64("last_height", persistence.latestQueriedBlock),
+			zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight),
+			zap.Int64("delta", delta))
+		persistence.latestHeight = status.SyncInfo.LatestBlockHeight
+		heighttoSync = syncUpHeight()
+		if persistence.latestQueriedBlock > status.SyncInfo.LatestBlockHeight {
+			ccp.log.Debug("resetting range block",
+				zap.Int64("last_height", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight))
+			persistence.latestQueriedBlock = status.SyncInfo.LatestBlockHeight
+			return nil
+		}
+		if status.SyncInfo.CatchingUp {
+			ccp.log.Debug("chain is still catching up",
+				zap.Int64("last_height", persistence.latestQueriedBlock),
+				zap.Int64("latest_height", status.SyncInfo.LatestBlockHeight))
+			return nil
+		}
+		if (persistence.latestQueriedBlock + 1) >= persistence.latestHeight {
+			return nil
+		}
+		if (persistence.latestQueriedBlock + 1) > syncUpHeight() {
+			return nil
+		}
+		blocks, err = ccp.getBlocksToProcess(ctx, persistence.latestQueriedBlock+1)
+		if err != nil {
+			ccp.log.Warn("error occurred getting blocks", zap.Error(err))
+			return nil
+		}
+		maxBlock := findMaxBlock(blocks)
+		if maxBlock != 0 {
+			heighttoSync = maxBlock
+		} else {
+			persistence.latestQueriedBlock = syncUpHeight() - 1
+		}
+	}
+	for i := persistence.latestQueriedBlock + 1; i <= heighttoSync; i++ {
 		var eg errgroup.Group
 		var blockRes *ctypes.ResultBlockResults
 		var lightBlock *types.LightBlock
 		var h provider.IBCHeader
 		i := i
+		if ccp.shouldSkipProcessBlock(blocks, i) {
+			newLatestQueriedBlock = i
+			ccp.log.Debug("Skipping block", zap.Any("height", i),
+				zap.Any("last_height", persistence.latestQueriedBlock))
+			continue
+		}
 		eg.Go(func() (err error) {
 			queryCtx, cancelQueryCtx := context.WithTimeout(ctx, blockResultsQueryTimeout)
 			defer cancelQueryCtx()
@@ -469,14 +577,13 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			messages := ibcMessagesFromEvents(ccp.log, tx.Events, chainID, heightUint64, ccp.chainProvider.PCfg.IbcHandlerAddress, base64Encoded)
 
 			for _, m := range messages {
-				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType), zap.Uint64("height", heightUint64))
+				ccp.log.Info("Detected eventlog", zap.String("eventlog", m.eventType),
+					zap.Uint64("height", heightUint64))
 				ccp.handleMessage(ctx, m, ibcMessagesCache)
 			}
 		}
-
 		newLatestQueriedBlock = i
 	}
-
 	if newLatestQueriedBlock == persistence.latestQueriedBlock {
 		return nil
 	}
@@ -487,7 +594,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 				pp.ProcessBacklogIfReady()
 			}
 		}
-
+		persistence.latestQueriedBlock = newLatestQueriedBlock
 		return nil
 	}
 
@@ -497,9 +604,10 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 		if err != nil {
 			ccp.log.Error("Error fetching client state",
 				zap.String("client_id", clientID),
+				zap.Int64("latest_queried_block", newLatestQueriedBlock),
+				zap.Int64("last_queried_block", persistence.latestQueriedBlock),
 				zap.Error(err),
 			)
-			continue
 		}
 
 		pp.HandleNewData(chainID, processor.ChainProcessorCacheData{
@@ -513,9 +621,7 @@ func (ccp *WasmChainProcessor) queryCycle(ctx context.Context, persistence *quer
 			IBCHeaderCache:       ibcHeaderCache.Clone(),
 		})
 	}
-
 	persistence.latestQueriedBlock = newLatestQueriedBlock
-
 	return nil
 }
 
@@ -552,33 +658,6 @@ func (ccp *WasmChainProcessor) CurrentBlockHeight(ctx context.Context, persisten
 
 func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.LightBlock) error {
 
-	if untrusted.Height != ccp.verifier.Header.Height+1 {
-		return errors.New("headers must be adjacent in height")
-	}
-
-	if err := verifyNewHeaderAndVals(untrusted.SignedHeader,
-		untrusted.ValidatorSet,
-		ccp.verifier.Header.SignedHeader,
-		time.Now(), 0); err != nil {
-		return fmt.Errorf("failed to verify Header: %v", err)
-	}
-
-	if !bytes.Equal(untrusted.Header.ValidatorsHash, ccp.verifier.Header.NextValidatorsHash) {
-		err := fmt.Errorf("expected old header next validators (%X) to match those from new header (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
-	if !bytes.Equal(untrusted.Header.LastBlockID.Hash.Bytes(), ccp.verifier.Header.Commit.BlockID.Hash.Bytes()) {
-		err := fmt.Errorf("expected LastBlockId Hash (%X) of current header  to match those from trusted Header BlockID hash (%X)",
-			ccp.verifier.Header.NextValidatorsHash,
-			untrusted.Header.ValidatorsHash,
-		)
-		return err
-	}
-
 	// Ensure that +2/3 of new validators signed correctly.
 	if err := untrusted.ValidatorSet.VerifyCommitLight(ccp.verifier.Header.ChainID, untrusted.Commit.BlockID,
 		untrusted.Header.Height, untrusted.Commit); err != nil {
@@ -588,47 +667,6 @@ func (ccp *WasmChainProcessor) Verify(ctx context.Context, untrusted *types.Ligh
 	ccp.verifier.Header = untrusted
 	return nil
 
-}
-
-func verifyNewHeaderAndVals(
-	untrustedHeader *types.SignedHeader,
-	untrustedVals *types.ValidatorSet,
-	trustedHeader *types.SignedHeader,
-	now time.Time,
-	maxClockDrift time.Duration) error {
-
-	if err := untrustedHeader.ValidateBasic(trustedHeader.ChainID); err != nil {
-		return fmt.Errorf("untrustedHeader.ValidateBasic failed: %w", err)
-	}
-
-	if untrustedHeader.Height <= trustedHeader.Height {
-		return fmt.Errorf("expected new header height %d to be greater than one of old header %d",
-			untrustedHeader.Height,
-			trustedHeader.Height)
-	}
-
-	if !untrustedHeader.Time.After(trustedHeader.Time) {
-		return fmt.Errorf("expected new header time %v to be after old header time %v",
-			untrustedHeader.Time,
-			trustedHeader.Time)
-	}
-
-	if !untrustedHeader.Time.Before(now.Add(maxClockDrift)) {
-		return fmt.Errorf("new header has a time from the future %v (now: %v; max clock drift: %v)",
-			untrustedHeader.Time,
-			now,
-			maxClockDrift)
-	}
-
-	if !bytes.Equal(untrustedHeader.ValidatorsHash, untrustedVals.Hash()) {
-		return fmt.Errorf("expected new header validators (%X) to match those that were supplied (%X) at height %d",
-			untrustedHeader.ValidatorsHash,
-			untrustedVals.Hash(),
-			untrustedHeader.Height,
-		)
-	}
-
-	return nil
 }
 
 // func (ccp *WasmChainProcessor) CurrentRelayerBalance(ctx context.Context) {

@@ -53,6 +53,9 @@ type WasmProviderConfig struct {
 	ChainName            string                  `json:"-" yaml:"-"`
 	ChainID              string                  `json:"chain-id" yaml:"chain-id"`
 	RPCAddr              string                  `json:"rpc-addr" yaml:"rpc-addr"`
+	BlockRPCAddr         string                  `json:"block-rpc-addr" yaml:"block-rpc-addr"`
+	BlockRPCMinDelta     int                     `json:"block-rpc-delta" yaml:"block-rpc-delta"`
+	BlockRPCRefreshTime  int                     `json:"block-rpc-refresh-time" yaml:"block-rpc-refresh-time"`
 	AccountPrefix        string                  `json:"account-prefix" yaml:"account-prefix"`
 	KeyringBackend       string                  `json:"keyring-backend" yaml:"keyring-backend"`
 	GasAdjustment        float64                 `json:"gas-adjustment" yaml:"gas-adjustment"`
@@ -256,14 +259,13 @@ func (pc *WasmProviderConfig) NewProvider(log *zap.Logger, homepath string, debu
 	if pc.Broadcast == "" {
 		pc.Broadcast = provider.BroadcastModeBatch
 	}
-
 	cp := &WasmProvider{
 		log:            log,
 		PCfg:           pc,
 		KeyringOptions: []keyring.Option{ethermint.EthSecp256k1Option()},
 		Input:          os.Stdin,
 		Output:         os.Stdout,
-
+		rangeSupport:   false,
 		// TODO: this is a bit of a hack, we should probably have a better way to inject modules
 		Cdc: MakeCodec(pc.Modules, pc.ExtraCodecs),
 	}
@@ -278,6 +280,7 @@ type WasmProvider struct {
 	Keybase        keyring.Keyring
 	KeyringOptions []keyring.Option
 	RPCClient      rpcclient.Client
+	BlockRPCClient rpcclient.Client
 	QueryClient    wasmtypes.QueryClient
 	LightProvider  provtypes.Provider
 	Cdc            Codec
@@ -292,6 +295,7 @@ type WasmProvider struct {
 
 	// for comet < v0.37, decode tm events as base64
 	cometLegacyEncoding bool
+	rangeSupport        bool
 }
 
 func (ap *WasmProvider) ProviderConfig() provider.ProviderConfig {
@@ -351,6 +355,15 @@ func (ap *WasmProvider) Init(ctx context.Context) error {
 	}
 	ap.RPCClient = rpcClient
 
+	ap.rangeSupport = false
+	if ap.PCfg.BlockRPCAddr != "" {
+		blockRpcClient, err := NewRPCClient(ap.PCfg.BlockRPCAddr, timeout)
+		if err != nil {
+			return err
+		}
+		ap.BlockRPCClient = blockRpcClient
+		ap.rangeSupport = true
+	}
 	lightprovider, err := prov.New(ap.PCfg.ChainID, ap.PCfg.RPCAddr)
 	if err != nil {
 		return err
